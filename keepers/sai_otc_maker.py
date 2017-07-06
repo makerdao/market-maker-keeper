@@ -18,7 +18,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import operator
 import time
+from functools import reduce
 from typing import List
 
 from api import Address, Transfer
@@ -62,11 +64,19 @@ class SaiOtcMaker(Keeper):
         # and ultimately move it to a common module
         self.tx_manager = None
 
+        self.sell_gem_max_amount = Wad.from_number(2)
+        self.sell_gem_min_amount = Wad.from_number(1)
+
+        # TODO will probably need to change the unit
+        self.sell_gem_min_gap = Ray.from_number(0.0001)
+        self.sell_gem_target_gap = Ray.from_number(0.0002)
+        self.sell_gem_max_gap = Ray.from_number(0.0004)
+
     def run(self):
-        self.setup_allowances()
+        # self.setup_allowances()
         self.print_balances()
         while True:
-            self.execute_best_opportunity_available()
+            self.update_otc_orders()
             time.sleep(self.arguments.frequency)
 
     def print_balances(self):
@@ -149,7 +159,43 @@ class SaiOtcMaker(Keeper):
     def update_otc_orders(self):
         base_conversion = filter(lambda conversion: conversion.source_token == self.sai.address and
                                                     conversion.target_token == self.gem.address, self.lpc_conversions())
-        # base_conversion.rate()
+        print(next(base_conversion).rate)
+
+        offers = [self.otc.get_offer(offer_id + 1) for offer_id in range(self.otc.get_last_offer_id())]
+        offers = [offer for offer in offers if offer is not None]
+        our_buy_offers = filter(lambda offer: offer.owner == self.our_address and
+                                              offer.sell_which_token == self.gem.address and
+                                              offer.buy_which_token == self.sai.address, offers)
+
+
+        our_buy_offers_total_amount = reduce(operator.add, our_buy_offers, Wad(0))
+
+        if (our_buy_offers_total_amount < self.sell_gem_min_amount):
+            new_amount = self.sell_gem_max_amount - our_buy_offers_total_amount
+            our_current_rate = next(base_conversion).rate - Ray.from_number(0.0001)
+
+            self.otc.make(self.gem.address, new_amount, self.sai.address, Wad(Ray(new_amount) / our_current_rate))
+
+
+
+        # for offer in offers:
+        #     print(offer)
+
+
+
+
+        # BUY ORDER (left column):
+        # BUY SAI
+        # sell WETH, buy SAI
+        # {'active': True,
+        #  'buy_how_much': Wad(10000000000000000000),
+        #  'buy_which_token': Address('0xb3e5b1e7fa92f827bdb79063df9173fefd07689d'), //SAI
+        #  'offer_id': 150,
+        #  'owner': Address('0x002ca7f9b416b2304cdd20c26882d1ef5c53f611'),
+        #  'sell_how_much': Wad(37300000000000000),
+        #  'sell_which_token': Address('0x53eccc9246c1e537d79199d0c7231e425a40f896'), //GEM
+        #  'timestamp': 1499327279}
+
 
     def execute_best_opportunity_available(self):
         """Find the best arbitrage opportunity present and execute it."""
