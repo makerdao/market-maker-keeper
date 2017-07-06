@@ -26,7 +26,7 @@ from typing import List
 from api import Address, Transfer
 from api.numeric import Ray
 from api.numeric import Wad
-from api.otc import SimpleMarket, OfferInfo
+from api.otc import SimpleMarket, OfferInfo, LogTake
 from api.sai import Tub, Lpc
 from api.token import ERC20Token
 from api.transact import Invocation, TxManager
@@ -77,6 +77,7 @@ class SaiOtcMaker(Keeper):
     def run(self):
         # self.setup_allowances()
         self.print_balances()
+        self.otc.on_take(self.order_take_handler)
         while True:
             self.update_otc_orders()
             time.sleep(self.arguments.frequency)
@@ -139,6 +140,13 @@ class SaiOtcMaker(Keeper):
         return [LpcTakeRefConversion(self.lpc),
                 LpcTakeAltConversion(self.lpc)]
 
+    def order_take_handler(self, log_take: LogTake):
+        if log_take.maker == self.our_address:
+            print("TAKE***")
+            print(str(log_take))
+            print("TAKE***")
+        pass
+
     def update_otc_orders(self):
         sell_token = self.gem.address
         buy_token = self.sai.address
@@ -191,7 +199,7 @@ class SaiOtcMaker(Keeper):
         #     print(offer)
 
 
-        exit(-1)
+        # exit(-1)
 
         # BUY ORDER (left column):
         # BUY SAI
