@@ -26,7 +26,7 @@ from typing import List
 from api import Address, Transfer
 from api.numeric import Ray
 from api.numeric import Wad
-from api.otc import SimpleMarket
+from api.otc import SimpleMarket, OfferInfo
 from api.sai import Tub, Lpc
 from api.token import ERC20Token
 from api.transact import Invocation, TxManager
@@ -64,15 +64,15 @@ class SaiOtcMaker(Keeper):
         # and ultimately move it to a common module
         self.tx_manager = None
 
-        self.sell_gem_max_amount = Wad.from_number(1)
-        self.sell_gem_min_amount = Wad.from_number(0.6)
+        self.max_amount = Wad.from_number(1)
+        self.min_amount = Wad.from_number(0.6)
         # for SAI: 60, 50, 30
         # for WETH: 1.2, 1, 0.6
 
         # TODO will probably need to change the unit
-        self.sell_gem_min_gap = Ray.from_number(0.00001)
-        self.sell_gem_avg_gap = Ray.from_number(0.00002)
-        self.sell_gem_max_gap = Ray.from_number(0.00004)
+        self.min_gap = Ray.from_number(0.00001)
+        self.avg_gap = Ray.from_number(0.00002)
+        self.max_gap = Ray.from_number(0.00004)
 
     def run(self):
         # self.setup_allowances()
@@ -112,13 +112,6 @@ class SaiOtcMaker(Keeper):
         self.setup_allowance(self.sai, self.otc.address, 'OasisDEX')
         # self.setup_allowance(self.skr, self.otc.address, 'OasisDEX')
 
-    # def setup_tx_manager_allowances(self):
-    #     """Approve the `TxManager` so it can pull all three tokens (WETH, SAI and SKR) from us"""
-    #     if self.tx_manager:
-    #         self.setup_allowance(self.gem, self.tx_manager.address, 'TxManager')
-    #         self.setup_allowance(self.sai, self.tx_manager.address, 'TxManager')
-    #         self.setup_allowance(self.skr, self.tx_manager.address, 'TxManager')
-
     def setup_allowance(self, token: ERC20Token, spender_address: Address, spender_name: str):
         #TODO actually only one of these paths is needed, depending on whether we are using a
         #TxManager or not
@@ -146,74 +139,46 @@ class SaiOtcMaker(Keeper):
         return [LpcTakeRefConversion(self.lpc),
                 LpcTakeAltConversion(self.lpc)]
 
-    def otc_offers(self, tokens):
-        offers = [self.otc.get_offer(offer_id + 1) for offer_id in range(self.otc.get_last_offer_id())]
-        offers = [offer for offer in offers if offer is not None]
-        return [offer for offer in offers if offer.sell_which_token in tokens and offer.buy_which_token in tokens]
-
-    def otc_conversions(self, tokens) -> List[Conversion]:
-        return list(map(lambda offer: OasisTakeConversion(self.otc, offer), self.otc_offers(tokens)))
-
-    def all_conversions(self):
-        return self.tub_conversions() + self.lpc_conversions() + \
-               self.otc_conversions([self.sai.address, self.skr.address, self.gem.address])
-
     def update_otc_orders(self):
         sell_token = self.gem.address
         buy_token = self.sai.address
 
-        base_conversions = filter(lambda conversion: conversion.source_token == buy_token and
-                                                     conversion.target_token == sell_token, self.lpc_conversions())
-        base_conversion = next(base_conversions)
-        print(f"")
-        print(f"The exchange rate we can get is: {base_conversion.rate}")
-        print(f"Allowed range for our offers is: {base_conversion.rate - self.sell_gem_max_gap} - {base_conversion.rate - self.sell_gem_min_gap}")
+        conversion = self.get_conversion(sell_token, buy_token)
 
-        # TODO extract that to a method in otc(...) ?
-        offers = [self.otc.get_offer(offer_id + 1) for offer_id in range(self.otc.get_last_offer_id())]
-        offers = [offer for offer in offers if offer is not None]
-        our_buy_offers = list(filter(lambda offer: offer.owner == self.our_address and
-                                              offer.sell_which_token == sell_token and
-                                              offer.buy_which_token == buy_token, offers))
-        our_buy_offers_total_amount = reduce(operator.add, map(lambda offer: offer.sell_how_much, our_buy_offers), Wad(0))
+        print(f"")
+        print(f"The exchange rate we can get is: {conversion.rate}")
+        print(
+            f"Allowed range for our offers is: {conversion.rate - self.max_gap} - {conversion.rate - self.min_gap}")
+
+        our_offers = self.otc_offers(sell_token, buy_token)
 
         # print existing offers
         print(f"Our existing offers:")
-        for offer in our_buy_offers:
+        for offer in our_offers:
             this_rate = offer.sell_how_much / offer.buy_how_much
             print(f"  #{offer.offer_id} ({offer.sell_how_much} {ERC20Token.token_name_by_address(offer.sell_which_token)} for {offer.buy_how_much} {ERC20Token.token_name_by_address(offer.buy_which_token)}) @{this_rate}")
-        print(f"  total = {our_buy_offers_total_amount} {ERC20Token.token_name_by_address(sell_token)}")
+        print(f"  total = {self.total_sell_amount(our_offers)} {ERC20Token.token_name_by_address(sell_token)}")
 
         # cancel offers with rates outside allowed range
-        for offer in our_buy_offers:
-            this_rate = Ray(offer.sell_how_much) / Ray(offer.buy_how_much)
-
-            if (this_rate > base_conversion.rate - self.sell_gem_min_gap) or (this_rate < base_conversion.rate - self.sell_gem_max_gap):
+        for offer in our_offers:
+            rate = self.rate(offer)
+            rate_min = self.apply_gap(conversion.rate, self.min_gap)
+            rate_max = self.apply_gap(conversion.rate, self.max_gap)
+            if (rate > rate_min) or (rate < rate_max):
                 print(f"Will cancel offer #{offer.offer_id}")
                 if self.otc.kill(offer.offer_id):
                     print(f"Offer #{offer.offer_id} cancelled")
                 else:
                     print(f"Failed to cancel offer #{offer.offer_id}!")
 
+        our_offers = self.otc_offers(sell_token, buy_token)
 
-        offers = [self.otc.get_offer(offer_id + 1) for offer_id in range(self.otc.get_last_offer_id())]
-        offers = [offer for offer in offers if offer is not None]
-        our_buy_offers = list(filter(lambda offer: offer.owner == self.our_address and
-                                                   offer.sell_which_token == sell_token and
-                                                   offer.buy_which_token == buy_token, offers))
-        our_buy_offers_total_amount = reduce(operator.add, map(lambda offer: offer.sell_how_much, our_buy_offers), Wad(0))
+        if self.total_sell_amount(our_offers) < self.min_amount:
+            rate = self.apply_gap(conversion.rate, self.avg_gap)
+            have_amount = self.max_amount - self.total_sell_amount(our_offers)
+            want_amount = Wad(Ray(have_amount) / rate)
 
-
-
-        # print(our_buy_offers_total_amount)
-        # exit(-1)
-
-        if our_buy_offers_total_amount < self.sell_gem_min_amount:
-            our_current_rate = base_conversion.rate - self.sell_gem_avg_gap
-            have_amount = self.sell_gem_max_amount - our_buy_offers_total_amount
-            want_amount = Wad(Ray(have_amount) / our_current_rate)
-
-            print(f"Creating a new offer ({have_amount} {ERC20Token.token_name_by_address(sell_token)} for {want_amount} {ERC20Token.token_name_by_address(buy_token)}) @{our_current_rate}")
+            print(f"Creating a new offer ({have_amount} {ERC20Token.token_name_by_address(sell_token)} for {want_amount} {ERC20Token.token_name_by_address(buy_token)}) @{rate}")
 
             if self.otc.make(sell_token, have_amount, buy_token, want_amount):
                 print(f"Offer created successfully")
@@ -222,7 +187,7 @@ class SaiOtcMaker(Keeper):
 
 
 
-            # for offer in offers:
+                # for offer in offers:
         #     print(offer)
 
 
@@ -240,6 +205,28 @@ class SaiOtcMaker(Keeper):
         #  'sell_which_token': Address('0x53eccc9246c1e537d79199d0c7231e425a40f896'), //GEM
         #  'timestamp': 1499327279}
 
+    @staticmethod
+    def rate(offer: OfferInfo) -> Ray:
+        return Ray(offer.sell_how_much) / Ray(offer.buy_how_much)
+
+    @staticmethod
+    def apply_gap(rate: Ray, gap: Ray) -> Ray:
+        return rate - gap
+
+    def otc_offers(self, sell_token: Address, buy_token: Address):
+        # TODO extract that to a method in otc(...) ?
+        offers = [self.otc.get_offer(offer_id + 1) for offer_id in range(self.otc.get_last_offer_id())]
+        offers = [offer for offer in offers if offer is not None]
+        return list(filter(lambda offer: offer.owner == self.our_address and
+                                         offer.sell_which_token == sell_token and
+                                         offer.buy_which_token == buy_token, offers))
+
+    def total_sell_amount(self, offers: List[OfferInfo]):
+        return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
+
+    def get_conversion(self, sell_token: Address, buy_token: Address):
+        return next(filter(lambda conversion: conversion.source_token == buy_token and
+                                              conversion.target_token == sell_token, self.lpc_conversions()))
 
     def execute_best_opportunity_available(self):
         """Find the best arbitrage opportunity present and execute it."""
