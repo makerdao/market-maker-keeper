@@ -100,10 +100,9 @@ class SaiOtcMaker(Keeper):
 
     def setup_allowance(self, token: ERC20Token, spender_address: Address, spender_name: str):
         if token.allowance_of(self.our_address, spender_address) < Wad(2 ** 128 - 1):
-            print(f"Approving {spender_name} ({spender_address}) to access our {token.name()} balance directly...")
+            logging.info(f"Approving {spender_name} ({spender_address}) to access our {token.name()} balance directly")
             if not token.approve(spender_address):
-                print(f"Approval failed!")
-                exit(-1)
+                raise RuntimeError("Token approval failed!")
 
     def lpc_conversions(self) -> List[Conversion]:
         return [LpcTakeRefConversion(self.lpc),
