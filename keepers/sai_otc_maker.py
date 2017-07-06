@@ -32,13 +32,9 @@ from api.numeric import Wad
 from api.otc import SimpleMarket, OfferInfo, LogTake
 from api.sai import Tub, Lpc
 from api.token import ERC20Token
-from api.transact import Invocation, TxManager
 from keepers import Keeper
 from keepers.arbitrage.conversion import Conversion
 from keepers.arbitrage.conversion import LpcTakeAltConversion, LpcTakeRefConversion
-from keepers.arbitrage.conversion import OasisTakeConversion
-from keepers.arbitrage.conversion import TubBoomConversion, TubBustConversion, TubExitConversion, TubJoinConversion
-from keepers.arbitrage.opportunity import OpportunityFinder
 from keepers.arbitrage.transfer_formatter import TransferFormatter
 
 
@@ -63,19 +59,11 @@ class SaiOtcMaker(Keeper):
         ERC20Token.register_token(self.tub.sai(), 'SAI')
         ERC20Token.register_token(self.tub.gem(), 'WETH')
 
-        # TODO for now, to keep the code approval code unchanged
-        # and ultimately move it to a common module
-        self.tx_manager = None
-
         self.sell_token = self.gem.address
         self.buy_token = self.sai.address
 
         self.max_amount = Wad.from_number(1)
         self.min_amount = Wad.from_number(0.6)
-        # for SAI: 60, 50, 30
-        # for WETH: 1.2, 1, 0.6
-
-        # TODO will probably need to change the unit
         self.min_gap = 0.01
         self.avg_gap = 0.03
         self.max_gap = 0.05
@@ -90,24 +78,16 @@ class SaiOtcMaker(Keeper):
 
     def print_balances(self):
         def balances():
-            for token in [self.sai, self.skr, self.gem]:
+            for token in [self.sai, self.gem]:
                 yield f"{token.balance_of(self.our_address)} {token.name()}"
         logging.info(f"Keeper balances are {', '.join(balances())}.")
 
     def setup_allowances(self):
         """Approve all components that need to access our balances"""
-        # self.setup_tub_allowances()
         self.setup_lpc_allowances()
         self.setup_otc_allowances()
-        # self.setup_tx_manager_allowances()
 
     # def setup_tub_allowances(self):
-    #     """Approve Tub components so we can call join()/exit() and boom()/bust()"""
-    #     self.setup_allowance(self.gem, self.tub.jar(), 'Tub.jar')
-    #     self.setup_allowance(self.skr, self.tub.jar(), 'Tub.jar')
-    #     self.setup_allowance(self.skr, self.tub.pit(), 'Tub.pit')
-    #     self.setup_allowance(self.sai, self.tub.pit(), 'Tub.pit')
-
     def setup_lpc_allowances(self):
         """Approve the Lpc so we can exchange WETH and SAI using it"""
         self.setup_allowance(self.gem, self.lpc.address, 'Lpc')
@@ -117,22 +97,11 @@ class SaiOtcMaker(Keeper):
         """Approve OasisDEX so we can exchange all three tokens (WETH, SAI and SKR)"""
         self.setup_allowance(self.gem, self.otc.address, 'OasisDEX')
         self.setup_allowance(self.sai, self.otc.address, 'OasisDEX')
-        # self.setup_allowance(self.skr, self.otc.address, 'OasisDEX')
 
     def setup_allowance(self, token: ERC20Token, spender_address: Address, spender_name: str):
-        #TODO actually only one of these paths is needed, depending on whether we are using a
-        #TxManager or not
         if token.allowance_of(self.our_address, spender_address) < Wad(2 ** 128 - 1):
             print(f"Approving {spender_name} ({spender_address}) to access our {token.name()} balance directly...")
             if not token.approve(spender_address):
-                print(f"Approval failed!")
-                exit(-1)
-
-        if self.tx_manager and spender_address != self.tx_manager.address and \
-                        token.allowance_of(self.tx_manager.address, spender_address) < Wad(2 ** 128 - 1):
-            print(f"Approving {spender_name} ({spender_address}) to access our {token.name()} balance indirectly...")
-            invocation = Invocation(address=token.address, calldata=token.approve_calldata(spender_address))
-            if not self.tx_manager.execute([], [invocation]):
                 print(f"Approval failed!")
                 exit(-1)
 
@@ -207,10 +176,6 @@ class SaiOtcMaker(Keeper):
         return list(filter(lambda offer: offer.owner == self.our_address and
                                          offer.sell_which_token == self.sell_token and
                                          offer.buy_which_token == self.buy_token, offers))
-
-
-
-
 
 
 if __name__ == '__main__':
