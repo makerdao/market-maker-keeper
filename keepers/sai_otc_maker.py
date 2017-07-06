@@ -41,6 +41,13 @@ from keepers.arbitrage.transfer_formatter import TransferFormatter
 class SaiOtcMaker(Keeper):
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--frequency", help="Monitoring frequency in seconds (default: 5)", default=5, type=float)
+        parser.add_argument("--sell-token", help="Token to put on sale on OasisDEX", type=str)
+        parser.add_argument("--buy-token", help="Token we will be paid with on OasisDEX", type=str)
+        parser.add_argument("--min-spread", help="Minimum spread allowed", type=float)
+        parser.add_argument("--avg-spread", help="Average spread (used on order creation)", type=float)
+        parser.add_argument("--max-spread", help="Maximum spread allowed", type=float)
+        parser.add_argument("--max-amount", help="Maximum value of open orders", type=float)
+        parser.add_argument("--min-amount", help="Minimum value of open orders", type=float)
 
     def init(self):
         self.tub_address = Address(self.config.get_contract_address("saiTub"))
@@ -59,14 +66,13 @@ class SaiOtcMaker(Keeper):
         ERC20Token.register_token(self.tub.sai(), 'SAI')
         ERC20Token.register_token(self.tub.gem(), 'WETH')
 
-        self.sell_token = self.gem.address
-        self.buy_token = self.sai.address
-
-        self.max_amount = Wad.from_number(1)
-        self.min_amount = Wad.from_number(0.6)
-        self.min_gap = 0.01
-        self.avg_gap = 0.03
-        self.max_gap = 0.05
+        self.sell_token = ERC20Token.token_address_by_name(self.arguments.sell_token)
+        self.buy_token = ERC20Token.token_address_by_name(self.arguments.buy_token)
+        self.max_amount = Wad.from_number(self.arguments.max_amount)
+        self.min_amount = Wad.from_number(self.arguments.min_amount)
+        self.min_spread = self.arguments.min_spread
+        self.avg_spread = self.arguments.avg_spread
+        self.max_spread = self.arguments.max_spread
 
     def run(self):
         self.setup_allowances()
@@ -140,8 +146,8 @@ class SaiOtcMaker(Keeper):
         # cancel offers with prices outside allowed range
         for offer in self.otc_offers():
             rate = self.price(offer)
-            rate_min = self.apply_gap(self.conversion().rate, self.min_gap)
-            rate_max = self.apply_gap(self.conversion().rate, self.max_gap)
+            rate_min = self.apply_spread(self.conversion().rate, self.min_spread)
+            rate_max = self.apply_spread(self.conversion().rate, self.max_spread)
             if (rate < rate_max) or (rate > rate_min):
                 self.otc.kill(offer.offer_id)
 
@@ -152,7 +158,7 @@ class SaiOtcMaker(Keeper):
         total_amount = self.total_amount(self.otc_offers())
         if total_amount < self.min_amount:
             have_amount = self.max_amount - total_amount
-            want_amount = Wad(Ray(have_amount) / self.apply_gap(self.conversion().rate, self.avg_gap))
+            want_amount = Wad(Ray(have_amount) / self.apply_spread(self.conversion().rate, self.avg_spread))
             self.otc.make(have_token=self.sell_token, have_amount=have_amount,
                           want_token=self.buy_token, want_amount=want_amount)
 
@@ -165,8 +171,8 @@ class SaiOtcMaker(Keeper):
         return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
 
     @staticmethod
-    def apply_gap(rate: Ray, gap: float) -> Ray:
-        return rate * Ray.from_number(1 - gap)
+    def apply_spread(rate: Ray, spread: float) -> Ray:
+        return rate * Ray.from_number(1 - spread)
 
     def otc_offers(self):
         # TODO extract that to a method in otc(...) ?
