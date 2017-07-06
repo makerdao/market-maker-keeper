@@ -24,6 +24,8 @@ import time
 from functools import reduce
 from typing import List
 
+import logging
+
 from api import Address, Transfer
 from api.numeric import Ray
 from api.numeric import Wad
@@ -148,15 +150,12 @@ class SaiOtcMaker(Keeper):
         if log_take.maker == self.our_address \
                 and log_take.have_token == self.sell_token and log_take.want_token == self.buy_token:
 
-            amount_in_gem = log_take.take_amount
-            amount_in_sai = log_take.give_amount
-
-            conversion = copy.deepcopy(self.get_conversion(self.sell_token, self.buy_token))
+            conversion = copy.deepcopy(self.conversion())
             #TODO this should get extracted somewhere
-            conversion.source_amount = Wad.min(amount_in_sai, conversion.max_source_amount)
+            conversion.source_amount = Wad.min(log_take.give_amount, conversion.max_source_amount)
             conversion.target_amount = Wad(Ray(conversion.source_amount) * conversion.rate)
 
-            print(f"Someone exchanged {amount_in_gem} {ERC20Token.token_name_by_address(self.sell_token)} to {amount_in_sai} {ERC20Token.token_name_by_address(self.buy_token)}")
+            print(f"Someone exchanged {log_take.take_amount} {ERC20Token.token_name_by_address(self.sell_token)} to {log_take.give_amount} {ERC20Token.token_name_by_address(self.buy_token)}")
             print(f"We will make an counterexchange of {conversion.source_amount} {ERC20Token.token_name_by_address(conversion.source_token)}"
                   f" to {conversion.target_amount} {ERC20Token.token_name_by_address(conversion.target_token)}")
             print(f"Executing {conversion.name()}")
@@ -170,22 +169,9 @@ class SaiOtcMaker(Keeper):
             else:
                 print("FAILED!!!")
 
-            # print("TAKE***")
-            # print(str(log_take))
-            # print("TAKE***")
-# {'giveAmount': Wad(268582199788461801), // in SAI
-#  'have_token': Address('0x53eccc9246c1e537d79199d0c7231e425a40f896'), //GEM
-#  'id': 154,
-#  'maker': Address('0x0046f01ad360270605e0e5d693484ec3bfe43ba8'),
-#  'takeAmount': Wad(1000000000000000), // in GEM
-#  'taker': Address('0x002ca7f9b416b2304cdd20c26882d1ef5c53f611'),
-#  'timestamp': 1499358511,
-#  'want_token': Address('0xb3e5b1e7fa92f827bdb79063df9173fefd07689d')} //SAI
-#         pass
-
     def update_otc_orders(self):
 
-        conversion = self.get_conversion(self.sell_token, self.buy_token)
+        conversion = self.conversion()
 
         print(f"")
         print(f"The exchange rate we can get is: {conversion.rate}")
@@ -199,55 +185,26 @@ class SaiOtcMaker(Keeper):
         for offer in our_offers:
             this_rate = offer.sell_how_much / offer.buy_how_much
             print(f"  #{offer.offer_id} ({offer.sell_how_much} {ERC20Token.token_name_by_address(offer.sell_which_token)} for {offer.buy_how_much} {ERC20Token.token_name_by_address(offer.buy_which_token)}) @{this_rate}")
-        print(f"  total = {self.total_sell_amount(our_offers)} {ERC20Token.token_name_by_address(self.sell_token)}")
+        print(f"  total = {self.total_amount(our_offers)} {ERC20Token.token_name_by_address(self.sell_token)}")
 
         # cancel offers with rates outside allowed range
         for offer in our_offers:
             rate = self.rate(offer)
             rate_min = self.apply_gap(conversion.rate, self.min_gap)
             rate_max = self.apply_gap(conversion.rate, self.max_gap)
-            if (rate > rate_min) or (rate < rate_max):
-                print(f"Will cancel offer #{offer.offer_id}")
-                if self.otc.kill(offer.offer_id):
-                    print(f"Offer #{offer.offer_id} cancelled")
-                else:
-                    print(f"Failed to cancel offer #{offer.offer_id}!")
+            if (rate < rate_max) or (rate > rate_min):
+                self.otc.kill(offer.offer_id)
 
         our_offers = self.otc_offers(self.sell_token, self.buy_token)
 
         #TODO check our balance
         #TODO check max_amount on conversion??
-        if self.total_sell_amount(our_offers) < self.min_amount:
+        if self.total_amount(our_offers) < self.min_amount:
             rate = self.apply_gap(conversion.rate, self.avg_gap)
-            have_amount = self.max_amount - self.total_sell_amount(our_offers)
+            have_amount = self.max_amount - self.total_amount(our_offers)
             want_amount = Wad(Ray(have_amount) / rate)
-
-            print(f"Creating a new offer ({have_amount} {ERC20Token.token_name_by_address(self.sell_token)} for {want_amount} {ERC20Token.token_name_by_address(self.buy_token)}) @{rate}")
-
-            if self.otc.make(self.sell_token, have_amount, self.buy_token, want_amount):
-                print(f"Offer created successfully")
-            else:
-                print(f"Failed to create new offer!")
-
-
-
-                # for offer in offers:
-        #     print(offer)
-
-
-        # exit(-1)
-
-        # BUY ORDER (left column):
-        # BUY SAI
-        # sell WETH, buy SAI
-        # {'active': True,
-        #  'buy_how_much': Wad(10000000000000000000),
-        #  'buy_which_token': Address('0xb3e5b1e7fa92f827bdb79063df9173fefd07689d'), //SAI
-        #  'offer_id': 150,
-        #  'owner': Address('0x002ca7f9b416b2304cdd20c26882d1ef5c53f611'),
-        #  'sell_how_much': Wad(37300000000000000),
-        #  'sell_which_token': Address('0x53eccc9246c1e537d79199d0c7231e425a40f896'), //GEM
-        #  'timestamp': 1499327279}
+            logging.info(f"Creating a new offer ({have_amount} {ERC20Token.token_name_by_address(self.sell_token)} for {want_amount} {ERC20Token.token_name_by_address(self.buy_token)}) @{rate}")
+            self.otc.make(self.sell_token, have_amount, self.buy_token, want_amount)
 
     @staticmethod
     def rate(offer: OfferInfo) -> Ray:
@@ -265,34 +222,13 @@ class SaiOtcMaker(Keeper):
                                          offer.sell_which_token == sell_token and
                                          offer.buy_which_token == buy_token, offers))
 
-    def total_sell_amount(self, offers: List[OfferInfo]):
+    def total_amount(self, offers: List[OfferInfo]):
         return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
 
-    def get_conversion(self, sell_token: Address, buy_token: Address):
-        return next(filter(lambda conversion: conversion.source_token == buy_token and
-                                              conversion.target_token == sell_token, self.lpc_conversions()))
+    def conversion(self):
+        return next(filter(lambda conversion: conversion.source_token == self.buy_token and
+                                              conversion.target_token == self.sell_token, self.lpc_conversions()))
 
-    def execute_best_opportunity_available(self):
-        """Find the best arbitrage opportunity present and execute it."""
-        opportunity = self.best_opportunity(self.profitable_opportunities())
-        if opportunity:
-            self.print_opportunity(opportunity)
-            self.execute_opportunity(opportunity)
-            self.print_balances()
-
-    def profitable_opportunities(self):
-        """Identify all profitable arbitrage opportunities within given limits."""
-        entry_amount = Wad.min(self.base_token.balance_of(self.our_address), self.maximum_engagement)
-        opportunity_finder = OpportunityFinder(conversions=self.all_conversions())
-        opportunities = opportunity_finder.find_opportunities(self.base_token.address, entry_amount)
-        opportunities = filter(lambda op: op.total_rate() > Ray.from_number(1.000001), opportunities)
-        opportunities = filter(lambda op: op.net_profit(self.base_token.address) > self.minimum_profit, opportunities)
-        opportunities = sorted(opportunities, key=lambda op: op.net_profit(self.base_token.address), reverse=True)
-        return opportunities
-
-    def best_opportunity(self, opportunities):
-        """Pick the best opportunity, or return None if no profitable opportunities."""
-        return opportunities[0] if len(opportunities) > 0 else None
 
 
 
