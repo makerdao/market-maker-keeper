@@ -76,9 +76,9 @@ class SaiOtcMaker(Keeper):
         # for WETH: 1.2, 1, 0.6
 
         # TODO will probably need to change the unit
-        self.min_gap = Ray.from_number(0.00001) #~ 0,25%
-        self.avg_gap = Ray.from_number(0.00002)
-        self.max_gap = Ray.from_number(0.00004) #~ 1%
+        self.min_gap = 0.01
+        self.avg_gap = 0.03
+        self.max_gap = 0.05
 
     def run(self):
         self.setup_allowances()
@@ -92,7 +92,7 @@ class SaiOtcMaker(Keeper):
         def balances():
             for token in [self.sai, self.skr, self.gem]:
                 yield f"{token.balance_of(self.our_address)} {token.name()}"
-        print(f"Keeper balances are {', '.join(balances())}.")
+        logging.info(f"Keeper balances are {', '.join(balances())}.")
 
     def setup_allowances(self):
         """Approve all components that need to access our balances"""
@@ -136,15 +136,13 @@ class SaiOtcMaker(Keeper):
                 print(f"Approval failed!")
                 exit(-1)
 
-    def tub_conversions(self) -> List[Conversion]:
-        return [TubJoinConversion(self.tub),
-                TubExitConversion(self.tub),
-                TubBoomConversion(self.tub),
-                TubBustConversion(self.tub)]
-
     def lpc_conversions(self) -> List[Conversion]:
         return [LpcTakeRefConversion(self.lpc),
                 LpcTakeAltConversion(self.lpc)]
+
+    def conversion(self):
+        return next(filter(lambda conversion: conversion.source_token == self.buy_token and
+                                              conversion.target_token == self.sell_token, self.lpc_conversions()))
 
     def order_take_handler(self, log_take: LogTake):
         if log_take.maker == self.our_address \
@@ -171,63 +169,45 @@ class SaiOtcMaker(Keeper):
 
     def update_otc_orders(self):
 
-        conversion = self.conversion()
-
-        print(f"")
-        print(f"The exchange rate we can get is: {conversion.rate}")
-        print(
-            f"Allowed range for our offers is: {conversion.rate - self.max_gap} - {conversion.rate - self.min_gap}")
-
-        our_offers = self.otc_offers(self.sell_token, self.buy_token)
-
-        # print existing offers
-        print(f"Our existing offers:")
-        for offer in our_offers:
-            this_rate = offer.sell_how_much / offer.buy_how_much
-            print(f"  #{offer.offer_id} ({offer.sell_how_much} {ERC20Token.token_name_by_address(offer.sell_which_token)} for {offer.buy_how_much} {ERC20Token.token_name_by_address(offer.buy_which_token)}) @{this_rate}")
-        print(f"  total = {self.total_amount(our_offers)} {ERC20Token.token_name_by_address(self.sell_token)}")
-
-        # cancel offers with rates outside allowed range
-        for offer in our_offers:
-            rate = self.rate(offer)
-            rate_min = self.apply_gap(conversion.rate, self.min_gap)
-            rate_max = self.apply_gap(conversion.rate, self.max_gap)
+        # cancel offers with prices outside allowed range
+        for offer in self.otc_offers():
+            rate = self.price(offer)
+            rate_min = self.apply_gap(self.conversion().rate, self.min_gap)
+            rate_max = self.apply_gap(self.conversion().rate, self.max_gap)
             if (rate < rate_max) or (rate > rate_min):
                 self.otc.kill(offer.offer_id)
 
-        our_offers = self.otc_offers(self.sell_token, self.buy_token)
-
+        # if our engagement is below the minimum amount,
+        # create a new offer up to the maximum amount
         #TODO check our balance
         #TODO check max_amount on conversion??
-        if self.total_amount(our_offers) < self.min_amount:
-            rate = self.apply_gap(conversion.rate, self.avg_gap)
-            have_amount = self.max_amount - self.total_amount(our_offers)
-            want_amount = Wad(Ray(have_amount) / rate)
-            logging.info(f"Creating a new offer ({have_amount} {ERC20Token.token_name_by_address(self.sell_token)} for {want_amount} {ERC20Token.token_name_by_address(self.buy_token)}) @{rate}")
-            self.otc.make(self.sell_token, have_amount, self.buy_token, want_amount)
+        total_amount = self.total_amount(self.otc_offers())
+        if total_amount < self.min_amount:
+            have_amount = self.max_amount - total_amount
+            want_amount = Wad(Ray(have_amount) / self.apply_gap(self.conversion().rate, self.avg_gap))
+            self.otc.make(have_token=self.sell_token, have_amount=have_amount,
+                          want_token=self.buy_token, want_amount=want_amount)
 
     @staticmethod
-    def rate(offer: OfferInfo) -> Ray:
+    def price(offer: OfferInfo) -> Ray:
         return Ray(offer.sell_how_much) / Ray(offer.buy_how_much)
 
     @staticmethod
-    def apply_gap(rate: Ray, gap: Ray) -> Ray:
-        return rate - gap
+    def total_amount(offers: List[OfferInfo]):
+        return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
 
-    def otc_offers(self, sell_token: Address, buy_token: Address):
+    @staticmethod
+    def apply_gap(rate: Ray, gap: float) -> Ray:
+        return rate * Ray.from_number(1 - gap)
+
+    def otc_offers(self):
         # TODO extract that to a method in otc(...) ?
         offers = [self.otc.get_offer(offer_id + 1) for offer_id in range(self.otc.get_last_offer_id())]
         offers = [offer for offer in offers if offer is not None]
         return list(filter(lambda offer: offer.owner == self.our_address and
-                                         offer.sell_which_token == sell_token and
-                                         offer.buy_which_token == buy_token, offers))
+                                         offer.sell_which_token == self.sell_token and
+                                         offer.buy_which_token == self.buy_token, offers))
 
-    def total_amount(self, offers: List[OfferInfo]):
-        return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
-
-    def conversion(self):
-        return next(filter(lambda conversion: conversion.source_token == self.buy_token and
-                                              conversion.target_token == self.sell_token, self.lpc_conversions()))
 
 
 
