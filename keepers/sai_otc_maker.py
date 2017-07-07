@@ -127,19 +127,19 @@ class SaiOtcMaker(Keeper):
             conversion.source_amount = Wad.min(log_take.give_amount, conversion.max_source_amount)
             conversion.target_amount = Wad(Ray(conversion.source_amount) * conversion.rate)
 
-            print(f"Someone exchanged {log_take.take_amount} {ERC20Token.token_name_by_address(self.sell_token)} to {log_take.give_amount} {ERC20Token.token_name_by_address(self.buy_token)}")
-            print(f"We will make an counterexchange of {conversion.source_amount} {ERC20Token.token_name_by_address(conversion.source_token)}"
+            logging.info(f"Someone exchanged {log_take.take_amount} {ERC20Token.token_name_by_address(self.sell_token)} to {log_take.give_amount} {ERC20Token.token_name_by_address(self.buy_token)}")
+            logging.info(f"We will make an counterexchange of {conversion.source_amount} {ERC20Token.token_name_by_address(conversion.source_token)}"
                   f" to {conversion.target_amount} {ERC20Token.token_name_by_address(conversion.target_token)}")
-            print(f"Executing {conversion.name()}")
+            logging.info(f"Executing {conversion.name()}")
             result = conversion.execute()
             if result:
                 trans = list(result.transfers)
                 trans.append(Transfer(log_take.have_token, log_take.maker, log_take.taker, log_take.take_amount))
                 trans.append(Transfer(log_take.want_token, log_take.taker, log_take.maker, log_take.give_amount))
-                print("OK")
-                print(f"The profit we made is {TransferFormatter().format_net(trans, self.our_address)}.")
+                logging.info("OK")
+                logging.info(f"The profit we made is {TransferFormatter().format_net(trans, self.our_address)}.")
             else:
-                print("FAILED!!!")
+                logging.info("FAILED!!!")
 
     def update_otc_orders(self):
 
