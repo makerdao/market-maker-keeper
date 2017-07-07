@@ -76,8 +76,8 @@ class SaiOtcMaker(Keeper):
     def run(self):
         self.setup_allowances()
         self.print_balances()
-        self.otc.on_take(self.order_take_handler)
-        for_each_block(self.web3, self.update_otc_orders)
+        self.otc.on_take(self.offer_taken)
+        for_each_block(self.web3, self.synchronize_otc_offers)
 
     def print_balances(self):
         def balances():
@@ -114,51 +114,62 @@ class SaiOtcMaker(Keeper):
         return next(filter(lambda conversion: conversion.source_token == self.buy_token and
                                               conversion.target_token == self.sell_token, self.lpc_conversions()))
 
-    def order_take_handler(self, log_take: LogTake):
-        if log_take.maker == self.our_address \
-                and log_take.have_token == self.sell_token and log_take.want_token == self.buy_token:
+    def our_offers(self):
+        return list(filter(lambda offer: offer.owner == self.our_address and
+                                         offer.sell_which_token == self.sell_token and
+                                         offer.buy_which_token == self.buy_token, self.otc.active_offers()))
 
-            conversion = copy.deepcopy(self.conversion())
-            #TODO this should get extracted somewhere
-            conversion.source_amount = Wad.min(log_take.give_amount, conversion.max_source_amount)
-            conversion.target_amount = Wad(Ray(conversion.source_amount) * conversion.rate)
+    def offer_taken(self, log_take: LogTake):
+        """If our offer has been partially or completely taken, make an exchange."""
+        if log_take.maker == self.our_address and \
+                        log_take.have_token == self.sell_token and log_take.want_token == self.buy_token:
+            self.exchange(log_take)
 
-            logging.info(f"Someone exchanged {log_take.take_amount} {ERC20Token.token_name_by_address(self.sell_token)} to {log_take.give_amount} {ERC20Token.token_name_by_address(self.buy_token)}")
-            logging.info(f"We will make an counterexchange of {conversion.source_amount} {ERC20Token.token_name_by_address(conversion.source_token)}"
-                  f" to {conversion.target_amount} {ERC20Token.token_name_by_address(conversion.target_token)}")
-            logging.info(f"Executing {conversion.name()}")
-            result = conversion.execute()
-            if result:
-                trans = list(result.transfers)
-                trans.append(Transfer(log_take.have_token, log_take.maker, log_take.taker, log_take.take_amount))
-                trans.append(Transfer(log_take.want_token, log_take.taker, log_take.maker, log_take.give_amount))
-                logging.info("OK")
-                logging.info(f"The profit we made is {TransferFormatter().format_net(trans, self.our_address)}.")
-            else:
-                logging.info("FAILED!!!")
+    def synchronize_otc_offers(self):
+        """Update our positions in the order book to reflect settings."""
+        self.cancel_offers()
+        self.create_new_offer()
 
-    def update_otc_orders(self):
-        # cancel offers with prices outside allowed range
-        for offer in self.otc_offers():
-            rate = self.price(offer)
+    def cancel_offers(self):
+        """Cancel offers with rates outside allowed spread range."""
+        for offer in self.our_offers():
+            rate = self.rate(offer)
             rate_min = self.apply_spread(self.conversion().rate, self.min_spread)
             rate_max = self.apply_spread(self.conversion().rate, self.max_spread)
             if (rate < rate_max) or (rate > rate_min):
                 self.otc.kill(offer.offer_id)
 
-        # if our engagement is below the minimum amount,
-        # create a new offer up to the maximum amount
-        #TODO check our balance
-        #TODO check max_amount on conversion??
-        total_amount = self.total_amount(self.otc_offers())
+    #TODO check our balance
+    #TODO check max_amount on conversion??
+    def create_new_offer(self):
+        """If our engagement is below the minimum amount, create a new offer up to the maximum amount"""
+        total_amount = self.total_amount(self.our_offers())
         if total_amount < self.min_amount:
             have_amount = self.max_amount - total_amount
             want_amount = Wad(Ray(have_amount) / self.apply_spread(self.conversion().rate, self.avg_spread))
             self.otc.make(have_token=self.sell_token, have_amount=have_amount,
                           want_token=self.buy_token, want_amount=want_amount)
 
+    def exchange(self, log_take: LogTake):
+        conversion = copy.deepcopy(self.conversion())
+        #TODO this should get extracted somewhere
+        conversion.source_amount = Wad.min(log_take.give_amount, conversion.max_source_amount)
+        conversion.target_amount = Wad(Ray(conversion.source_amount) * conversion.rate)
+
+        logging.info(f"Someone exchanged {log_take.take_amount} {ERC20Token.token_name_by_address(self.sell_token)}"
+                     f" to {log_take.give_amount} {ERC20Token.token_name_by_address(self.buy_token)}")
+        logging.info(f"We will exchange {conversion.source_amount} {ERC20Token.token_name_by_address(conversion.source_token)}"
+                     f" to {conversion.target_amount} {ERC20Token.token_name_by_address(conversion.target_token)}")
+
+        result = conversion.execute()
+        if result:
+            trans = list(result.transfers)
+            trans.append(Transfer(log_take.have_token, log_take.maker, log_take.taker, log_take.take_amount))
+            trans.append(Transfer(log_take.want_token, log_take.taker, log_take.maker, log_take.give_amount))
+            logging.info(f"We made {TransferFormatter().format_net(trans, self.our_address)} profit")
+
     @staticmethod
-    def price(offer: OfferInfo) -> Ray:
+    def rate(offer: OfferInfo) -> Ray:
         return Ray(offer.sell_how_much) / Ray(offer.buy_how_much)
 
     @staticmethod
@@ -168,11 +179,6 @@ class SaiOtcMaker(Keeper):
     @staticmethod
     def apply_spread(rate: Ray, spread: float) -> Ray:
         return rate * Ray.from_number(1 - spread)
-
-    def otc_offers(self):
-        return list(filter(lambda offer: offer.owner == self.our_address and
-                                         offer.sell_which_token == self.sell_token and
-                                         offer.buy_which_token == self.buy_token, self.otc.active_offers()))
 
 
 if __name__ == '__main__':
