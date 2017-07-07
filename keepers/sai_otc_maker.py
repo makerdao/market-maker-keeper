@@ -28,16 +28,15 @@ import logging
 from api import Address, Transfer
 from api.numeric import Ray
 from api.numeric import Wad
-from api.otc import SimpleMarket, OfferInfo, LogTake
-from api.sai import Tub, Lpc
+from api.otc import OfferInfo, LogTake
 from api.token import ERC20Token
-from keepers import Keeper
 from keepers.arbitrage.conversion import Conversion
 from keepers.arbitrage.conversion import LpcTakeAltConversion, LpcTakeRefConversion
 from keepers.arbitrage.transfer_formatter import TransferFormatter
+from keepers.sai import SaiKeeper
 
 
-class SaiOtcMaker(Keeper):
+class SaiOtcMaker(SaiKeeper):
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--sell-token", help="Token to put on sale on OasisDEX", type=str)
         parser.add_argument("--buy-token", help="Token we will be paid with on OasisDEX", type=str)
@@ -48,22 +47,7 @@ class SaiOtcMaker(Keeper):
         parser.add_argument("--min-amount", help="Minimum value of open orders owned by keeper", type=float)
 
     def init(self):
-        self.tub_address = Address(self.config.get_contract_address("saiTub"))
-        self.tap_address = Address(self.config.get_contract_address("saiTap"))
-        self.top_address = Address(self.config.get_contract_address("saiTop"))
-        self.tub = Tub(web3=self.web3, address_tub=self.tub_address, address_tap=self.tap_address, address_top=self.top_address)
-        self.lpc_address = Address(self.config.get_contract_address("saiLpc"))
-        self.lpc = Lpc(web3=self.web3, address=self.lpc_address)
-        self.otc_address = Address(self.config.get_contract_address("otc"))
-        self.otc = SimpleMarket(web3=self.web3, address=self.otc_address)
-
-        self.skr = ERC20Token(web3=self.web3, address=self.tub.skr())
-        self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
-        self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
-        ERC20Token.register_token(self.tub.skr(), 'SKR')
-        ERC20Token.register_token(self.tub.sai(), 'SAI')
-        ERC20Token.register_token(self.tub.gem(), 'WETH')
-
+        super().init()
         self.sell_token = ERC20Token.token_address_by_name(self.arguments.sell_token)
         self.buy_token = ERC20Token.token_address_by_name(self.arguments.buy_token)
         self.max_amount = Wad.from_number(self.arguments.max_amount)
