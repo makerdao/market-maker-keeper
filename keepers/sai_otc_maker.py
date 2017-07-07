@@ -78,6 +78,9 @@ class SaiOtcMaker(Keeper):
         self.on_block(self.synchronize_otc_offers)
         self.otc.on_take(self.offer_taken)
 
+    def shutdown(self):
+        self.cancel_all_offers()
+
     def print_balances(self):
         def balances():
             for token in [self.sai, self.gem]:
@@ -126,10 +129,10 @@ class SaiOtcMaker(Keeper):
 
     def synchronize_otc_offers(self):
         """Update our positions in the order book to reflect settings."""
-        self.cancel_offers()
+        self.cancel_excessive_offers()
         self.create_new_offer()
 
-    def cancel_offers(self):
+    def cancel_excessive_offers(self):
         """Cancel offers with rates outside allowed spread range."""
         for offer in self.our_offers():
             rate = self.rate(offer)
@@ -137,6 +140,11 @@ class SaiOtcMaker(Keeper):
             rate_max = self.apply_spread(self.conversion().rate, self.max_spread)
             if (rate < rate_max) or (rate > rate_min):
                 self.otc.kill(offer.offer_id)
+
+    def cancel_all_offers(self):
+        """Cancel all our offers."""
+        for offer in self.our_offers():
+            self.otc.kill(offer.offer_id)
 
     #TODO check our balance
     #TODO check max_amount on conversion??
