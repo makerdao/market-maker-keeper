@@ -2,5 +2,6 @@ web3 == 3.8.0
 eth-testrpc == 1.2.0
 sortedcontainers == 1.5.7
 networkx == 1.11
+tinydb == 3.3.1
 Sphinx == 1.6.2
 pytest == 3.1.2
