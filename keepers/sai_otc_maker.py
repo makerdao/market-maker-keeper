@@ -170,12 +170,9 @@ class SaiOtcMaker(Keeper):
         return rate * Ray.from_number(1 - spread)
 
     def otc_offers(self):
-        # TODO extract that to a method in otc(...) ?
-        offers = [self.otc.get_offer(offer_id + 1) for offer_id in range(self.otc.get_last_offer_id())]
-        offers = [offer for offer in offers if offer is not None]
         return list(filter(lambda offer: offer.owner == self.our_address and
                                          offer.sell_which_token == self.sell_token and
-                                         offer.buy_which_token == self.buy_token, offers))
+                                         offer.buy_which_token == self.buy_token, self.otc.active_offers()))
 
 
 if __name__ == '__main__':
