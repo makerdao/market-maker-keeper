@@ -37,6 +37,16 @@ from keepers.sai import SaiKeeper
 
 
 class SaiOtcMaker(SaiKeeper):
+    def __init__(self):
+        super().__init__()
+        self.sell_token = ERC20Token.token_address_by_name(self.arguments.sell_token)
+        self.buy_token = ERC20Token.token_address_by_name(self.arguments.buy_token)
+        self.max_amount = Wad.from_number(self.arguments.max_amount)
+        self.min_amount = Wad.from_number(self.arguments.min_amount)
+        self.min_spread = self.arguments.min_spread
+        self.avg_spread = self.arguments.avg_spread
+        self.max_spread = self.arguments.max_spread
+
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--sell-token", help="Token to put on sale on OasisDEX", type=str)
         parser.add_argument("--buy-token", help="Token we will be paid with on OasisDEX", type=str)
@@ -45,16 +55,6 @@ class SaiOtcMaker(SaiKeeper):
         parser.add_argument("--max-spread", help="Maximum spread allowed", type=float)
         parser.add_argument("--max-amount", help="Maximum value of open orders owned by keeper", type=float)
         parser.add_argument("--min-amount", help="Minimum value of open orders owned by keeper", type=float)
-
-    def init(self):
-        super().init()
-        self.sell_token = ERC20Token.token_address_by_name(self.arguments.sell_token)
-        self.buy_token = ERC20Token.token_address_by_name(self.arguments.buy_token)
-        self.max_amount = Wad.from_number(self.arguments.max_amount)
-        self.min_amount = Wad.from_number(self.arguments.min_amount)
-        self.min_spread = self.arguments.min_spread
-        self.avg_spread = self.arguments.avg_spread
-        self.max_spread = self.arguments.max_spread
 
     def run(self):
         self.setup_allowances()
