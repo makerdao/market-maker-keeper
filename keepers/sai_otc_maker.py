@@ -35,7 +35,6 @@ from keepers import Keeper
 from keepers.arbitrage.conversion import Conversion
 from keepers.arbitrage.conversion import LpcTakeAltConversion, LpcTakeRefConversion
 from keepers.arbitrage.transfer_formatter import TransferFormatter
-from keepers.monitor import for_each_block
 
 
 class SaiOtcMaker(Keeper):
@@ -76,8 +75,8 @@ class SaiOtcMaker(Keeper):
     def run(self):
         self.setup_allowances()
         self.print_balances()
+        self.on_block(self.synchronize_otc_offers)
         self.otc.on_take(self.offer_taken)
-        for_each_block(self.web3, self.synchronize_otc_offers)
 
     def print_balances(self):
         def balances():
