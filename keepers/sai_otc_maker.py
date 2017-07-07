@@ -45,8 +45,8 @@ class SaiOtcMaker(Keeper):
         parser.add_argument("--min-spread", help="Minimum spread allowed", type=float)
         parser.add_argument("--avg-spread", help="Average spread (used on order creation)", type=float)
         parser.add_argument("--max-spread", help="Maximum spread allowed", type=float)
-        parser.add_argument("--max-amount", help="Maximum value of open orders", type=float)
-        parser.add_argument("--min-amount", help="Minimum value of open orders", type=float)
+        parser.add_argument("--max-amount", help="Maximum value of open orders owned by keeper", type=float)
+        parser.add_argument("--min-amount", help="Minimum value of open orders owned by keeper", type=float)
 
     def init(self):
         self.tub_address = Address(self.config.get_contract_address("saiTub"))
@@ -90,7 +90,6 @@ class SaiOtcMaker(Keeper):
         self.setup_lpc_allowances()
         self.setup_otc_allowances()
 
-    # def setup_tub_allowances(self):
     def setup_lpc_allowances(self):
         """Approve the Lpc so we can exchange WETH and SAI using it"""
         self.setup_allowance(self.gem, self.lpc.address, 'Lpc')
@@ -139,7 +138,6 @@ class SaiOtcMaker(Keeper):
                 logging.info("FAILED!!!")
 
     def update_otc_orders(self):
-
         # cancel offers with prices outside allowed range
         for offer in self.otc_offers():
             rate = self.price(offer)
