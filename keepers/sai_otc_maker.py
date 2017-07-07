@@ -20,7 +20,6 @@
 import argparse
 import copy
 import operator
-import time
 from functools import reduce
 from typing import List
 
@@ -36,11 +35,11 @@ from keepers import Keeper
 from keepers.arbitrage.conversion import Conversion
 from keepers.arbitrage.conversion import LpcTakeAltConversion, LpcTakeRefConversion
 from keepers.arbitrage.transfer_formatter import TransferFormatter
+from keepers.monitor import for_each_block
 
 
 class SaiOtcMaker(Keeper):
     def args(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--frequency", help="Monitoring frequency in seconds (default: 5)", default=5, type=float)
         parser.add_argument("--sell-token", help="Token to put on sale on OasisDEX", type=str)
         parser.add_argument("--buy-token", help="Token we will be paid with on OasisDEX", type=str)
         parser.add_argument("--min-spread", help="Minimum spread allowed", type=float)
@@ -78,9 +77,7 @@ class SaiOtcMaker(Keeper):
         self.setup_allowances()
         self.print_balances()
         self.otc.on_take(self.order_take_handler)
-        while True:
-            self.update_otc_orders()
-            time.sleep(self.arguments.frequency)
+        for_each_block(self.web3, self.update_otc_orders)
 
     def print_balances(self):
         def balances():
