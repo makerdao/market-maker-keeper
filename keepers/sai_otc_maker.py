@@ -24,7 +24,8 @@ from typing import List
 
 import logging
 
-from api import Address, Transfer
+from api import Transfer
+from api.approval import directly
 from api.numeric import Ray
 from api.numeric import Wad
 from api.otc import OfferInfo, LogTake
@@ -57,7 +58,7 @@ class SaiOtcMaker(SaiKeeper):
         parser.add_argument("--min-amount", help="Minimum value of open orders owned by keeper", type=float)
 
     def startup(self):
-        self.setup_allowances()
+        self.approve()
         self.print_balances()
         self.on_block(self.synchronize_otc_offers)
         self.otc.on_take(self.offer_taken)
@@ -71,26 +72,10 @@ class SaiOtcMaker(SaiKeeper):
                 yield f"{token.balance_of(self.our_address)} {token.name()}"
         logging.info(f"Keeper balances are {', '.join(balances())}.")
 
-    def setup_allowances(self):
+    def approve(self):
         """Approve all components that need to access our balances"""
-        self.setup_lpc_allowances()
-        self.setup_otc_allowances()
-
-    def setup_lpc_allowances(self):
-        """Approve the Lpc so we can exchange WETH and SAI using it"""
-        self.setup_allowance(self.gem, self.lpc.address, 'Lpc')
-        self.setup_allowance(self.sai, self.lpc.address, 'Lpc')
-
-    def setup_otc_allowances(self):
-        """Approve OasisDEX so we can exchange all three tokens (WETH, SAI and SKR)"""
-        self.setup_allowance(self.gem, self.otc.address, 'OasisDEX')
-        self.setup_allowance(self.sai, self.otc.address, 'OasisDEX')
-
-    def setup_allowance(self, token: ERC20Token, spender_address: Address, spender_name: str):
-        if token.allowance_of(self.our_address, spender_address) < Wad(2 ** 128 - 1):
-            logging.info(f"Approving {spender_name} ({spender_address}) to access our {token.name()} balance directly")
-            if not token.approve(spender_address):
-                raise RuntimeError("Token approval failed!")
+        self.lpc.approve(directly())
+        self.otc.approve([self.gem, self.sai], directly())
 
     def lpc_conversions(self) -> List[Conversion]:
         return [LpcTakeRefConversion(self.lpc),
