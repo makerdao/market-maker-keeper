@@ -56,7 +56,7 @@ class SaiOtcMaker(SaiKeeper):
         parser.add_argument("--max-amount", help="Maximum value of open orders owned by keeper", type=float)
         parser.add_argument("--min-amount", help="Minimum value of open orders owned by keeper", type=float)
 
-    def run(self):
+    def startup(self):
         self.setup_allowances()
         self.print_balances()
         self.on_block(self.synchronize_otc_offers)
