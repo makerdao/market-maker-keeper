@@ -18,7 +18,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import copy
 import operator
 from functools import reduce
 from typing import List
@@ -32,6 +31,7 @@ from api.otc import OfferInfo, LogTake
 from api.token import ERC20Token
 from keepers.arbitrage.conversion import Conversion
 from keepers.arbitrage.conversion import LpcTakeAltConversion, LpcTakeRefConversion
+from keepers.arbitrage.opportunity import Sequence
 from keepers.arbitrage.transfer_formatter import TransferFormatter
 from keepers.sai import SaiKeeper
 
@@ -142,17 +142,15 @@ class SaiOtcMaker(SaiKeeper):
                           want_token=self.buy_token, want_amount=want_amount)
 
     def exchange(self, log_take: LogTake):
-        conversion = copy.deepcopy(self.conversion())
-        #TODO this should get extracted somewhere
-        conversion.source_amount = Wad.min(log_take.give_amount, conversion.max_source_amount)
-        conversion.target_amount = Wad(Ray(conversion.source_amount) * conversion.rate)
+        sequence = Sequence(conversions=[self.conversion()])
+        sequence.set_amounts(log_take.give_amount)
 
         logging.info(f"Someone exchanged {log_take.take_amount} {ERC20Token.token_name_by_address(self.sell_token)}"
                      f" to {log_take.give_amount} {ERC20Token.token_name_by_address(self.buy_token)}")
-        logging.info(f"We will exchange {conversion.source_amount} {ERC20Token.token_name_by_address(conversion.source_token)}"
-                     f" to {conversion.target_amount} {ERC20Token.token_name_by_address(conversion.target_token)}")
+        logging.info(f"We will exchange {sequence.steps[0].source_amount} {ERC20Token.token_name_by_address(sequence.steps[0].source_token)}"
+                     f" to {sequence.steps[0].target_amount} {ERC20Token.token_name_by_address(sequence.steps[0].target_token)}")
 
-        result = conversion.execute()
+        result = sequence.steps[0].execute()
         if result:
             trans = list(result.transfers)
             trans.append(Transfer(log_take.have_token, log_take.maker, log_take.taker, log_take.take_amount))
