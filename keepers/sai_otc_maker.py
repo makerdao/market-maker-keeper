@@ -28,7 +28,7 @@ from api import Transfer
 from api.approval import directly
 from api.numeric import Ray
 from api.numeric import Wad
-from api.otc import OfferInfo, LogTake
+from api.oasis import OfferInfo, LogTake
 from api.token import ERC20Token
 from keepers.arbitrage.conversion import Conversion
 from keepers.arbitrage.conversion import LpcTakeAltConversion, LpcTakeRefConversion
