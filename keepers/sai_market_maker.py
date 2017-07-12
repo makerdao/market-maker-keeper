@@ -24,7 +24,7 @@ from typing import List
 
 import logging
 
-from api import Transfer
+from api import Transfer, Address
 from api.approval import directly
 from api.numeric import Ray
 from api.numeric import Wad
@@ -46,36 +46,57 @@ class SaiMarketMaker(SaiKeeper):
         return next(filter(lambda conversion: conversion.source_token == self.sai.address and
                                               conversion.target_token == self.gem.address, self.lpc_conversions()))
 
+    def gem_to_sai_conversion(self):
+        return next(filter(lambda conversion: conversion.source_token == self.gem.address and
+                                              conversion.target_token == self.sai.address, self.lpc_conversions()))
+
     def startup(self):
         self.approve()
         self.print_balances()
 
-        logging.info(self.tub.tag())
+        # self.prepare_balances()
+        # self.open_position()
 
+        self.test_position(9)
+
+    def prepare_balances(self):
+        recipient = Address('0x002ca7F9b416B2304cDd20c26882d1EF5c53F611')
+        if self.sai.balance_of(self.our_address) > Wad(0):
+            self.sai.transfer(recipient, self.sai.balance_of(self.our_address))
+        if self.skr.balance_of(self.our_address) > Wad(0):
+            self.skr.transfer(recipient, self.skr.balance_of(self.our_address))
+        if self.gem.balance_of(self.our_address) > Wad.from_number(0.5):
+            self.gem.transfer(recipient, self.gem.balance_of(self.our_address) - Wad.from_number(0.5))
+
+    def open_position(self):
         our_eth_engagement = Wad.from_number(0.5)
+        target_collateralization_ratio = Wad.from_number(2.5)
 
         # (1) Deposit some GEM
         # self.gem.deposit(our_eth_engagement)
 
         # (2) Exchange GEM to SKR
-        # self.tub.join(our_eth_engagement)
+        self.tub.join(our_eth_engagement)
 
         # (3) Open a new cup
-        # our_cup = self.tub.open()
-        # our_cup_id = self.tub.cupi()
-        our_cup_id = 7
+        self.tub.open()
+        our_cup_id = self.tub.cupi()
+        logging.info(f"Opened cup {our_cup_id}")
+        # our_cup_id = 9
 
         # (4) Lock all SKR in the cup
-        # our_skr = self.skr.balance_of(self.our_address)
-        # self.tub.lock(our_cup_id, our_skr)
+        our_skr = self.skr.balance_of(self.our_address)
+        self.tub.lock(our_cup_id, our_skr)
 
         # (5) Calculate the amount of SAI we want to draw, then draw it
         ### skr_collateral_value_in_ref = self.tub.ink(our_cup_id) * self.tub.tag()
         ### sai_debt_value_in_ref = self.tub.tab(our_cup_id) * self.tub.par()
         skr_collateral_value_in_sai = (self.tub.ink(our_cup_id) * self.tub.tag()) / self.tub.par()
         sai_debt_value_in_sai = self.tub.tab(our_cup_id)
-        target_collateralization_ratio = Wad.from_number(2.5)
         amount_to_draw = skr_collateral_value_in_sai/target_collateralization_ratio - sai_debt_value_in_sai
+        # TODO I don't think we should draw if we have already drawn
+        # this protects us from getting back to 250% collateralization
+        # if our position has improved since then
         if amount_to_draw > Wad(0):
             self.tub.draw(our_cup_id, amount_to_draw)
 
@@ -89,56 +110,61 @@ class SaiMarketMaker(SaiKeeper):
             if receipt:
                 logging.info(receipt.transfers)
 
+    def test_position(self, cup_id):
         # (7) Calculate our position
-        our_entire_sai = self.sai.balance_of(self.our_address)
-        our_entire_gem = self.gem.balance_of(self.our_address)
+        our_current_debt_in_sai = self.tub.tab(cup_id)
 
-        our_current_debt_in_sai = self.tub.tab(our_cup_id)
+        our_entire_gem = self.gem.balance_of(self.our_address)
         value_of_our_eth_in_sai = (Wad(Ray(our_entire_gem) / self.tub.per()) * self.tub.tag()) / self.tub.par()
 
-
         logging.info(f"Our debt: {our_current_debt_in_sai}")
         logging.info(f"Our ETH is worth: {value_of_our_eth_in_sai}")
+        logging.info(f"Ratio: {value_of_our_eth_in_sai / our_current_debt_in_sai}")
 
+    def close_position(self):
+        cup_id = 8
 
-        # IMAGINGE OUR ETH WENT 2 TIMES
+        # (1) Exchange our ETH to SAI as we want to repay our SAI debt
+        our_entire_gem = self.gem.balance_of(self.our_address)
+        conversion = self.gem_to_sai_conversion()
+        sequence = Sequence([conversion])
+        if our_entire_gem > Wad.from_number(0.0001):
+            sequence.set_amounts(our_entire_gem)
+            receipt = sequence.steps[0].execute()
+            if receipt:
+                logging.info(receipt.transfers)
 
-        value_of_our_eth_in_sai *= 2
+        self.print_balances()
 
-        logging.info(f"Our debt: {our_current_debt_in_sai}")
-        logging.info(f"Our ETH is worth: {value_of_our_eth_in_sai}")
+        our_debt = self.tub.tab(cup_id)
+        print(our_debt)
+        our_sai_balanace = self.sai.balance_of(self.our_address)
+        if our_sai_balanace < our_debt:
+            logging.info("NOT ENOUGH SAI TO REPAY OUR DEBT!")
+            exit(-1)
 
+        # (2) Repay the debt and get back our SKR
+        # some surplus of SAI will be left, this is the profit we made
+        # self.tub.wipe(cup_id, Wad.from_number(1))
+        logging.info(self.tub.shut(cup_id))
+        self.print_balances()
 
-        #
-        # self.tub.wipe(our_cup_id, Wad.from_number(63))
-
-
-
-        # var pro = wmul(jar.tag(), ink(cup));
-        # var con = wmul(tip.par(), tab(cup));
-        # var min = rmul(con, mat);
-        # return (pro >= min);
-
-
-        
-
-        # print(our_cup)
-        # print(cupi)
-
-        # self.on_block(self.synchronize_otc_offers)
-        # self.otc.on_take(self.offer_taken)
+        # (3) Exchange SKR back to ETH
+        if self.skr.balance_of(self.our_address) > Wad(0):
+            logging.info(self.tub.exit(self.skr.balance_of(self.our_address)))
+            self.print_balances()
 
     def print_balances(self):
         def balances():
-            for token in [self.sai, self.gem]:
+            for token in [self.sai, self.gem, self.skr]:
                 yield f"{token.balance_of(self.our_address)} {token.name()}"
         logging.info(f"Keeper balances are {', '.join(balances())}.")
+        logging.info(f"ETH/USD is {self.tub.tag()}")
 
     def approve(self):
         """Approve all components that need to access our balances"""
         self.tub.approve(directly())
         self.lpc.approve(directly())
-        # self.otc.approve([self.gem, self.sai], directly())
 
 
 if __name__ == '__main__':
