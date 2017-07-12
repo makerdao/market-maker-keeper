@@ -115,16 +115,17 @@ class SaiOtcMaker(SaiKeeper):
         for offer in self.our_offers():
             self.otc.kill(offer.offer_id)
 
-    #TODO check our balance
     #TODO check max_amount on conversion??
     def create_new_offer(self):
         """If our engagement is below the minimum amount, create a new offer up to the maximum amount"""
         total_amount = self.total_amount(self.our_offers())
         if total_amount < self.min_amount:
-            have_amount = self.max_amount - total_amount
+            our_balance = ERC20Token(web3=self.web3, address=self.sell_token).balance_of(self.our_address)
+            have_amount = Wad.min(self.max_amount - total_amount, our_balance)
             want_amount = Wad(Ray(have_amount) / self.apply_spread(self.conversion().rate, self.avg_spread))
-            self.otc.make(have_token=self.sell_token, have_amount=have_amount,
-                          want_token=self.buy_token, want_amount=want_amount)
+            if have_amount > Wad(0):
+                self.otc.make(have_token=self.sell_token, have_amount=have_amount,
+                              want_token=self.buy_token, want_amount=want_amount)
 
     def exchange(self, log_take: LogTake):
         sequence = Sequence(conversions=[self.conversion()])
