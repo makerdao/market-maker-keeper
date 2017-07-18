@@ -74,12 +74,15 @@ class SaiOtcMaker(SaiKeeper):
 
     def approve(self):
         """Approve all components that need to access our balances"""
-        self.lpc.approve(directly())
+        # self.lpc.approve(directly())
         self.otc.approve([self.gem, self.sai], directly())
 
     def lpc_conversions(self) -> List[Conversion]:
-        return [LpcTakeRefConversion(self.lpc),
-                LpcTakeAltConversion(self.lpc)]
+        return []
+        # this keeper experiment does not make sense anymore as there is no LPC
+        # it would have to be substituted for some other conversion
+        # return [LpcTakeRefConversion(self.lpc),
+        #         LpcTakeAltConversion(self.lpc)]
 
     def conversion(self):
         return next(filter(lambda conversion: conversion.source_token == self.buy_token and
