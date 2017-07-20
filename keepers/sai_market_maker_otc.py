@@ -37,7 +37,7 @@ from keepers.arbitrage.transfer_formatter import TransferFormatter
 from keepers.sai import SaiKeeper
 
 
-class SaiOtcMaker(SaiKeeper):
+class SaiMarketMakerOtc(SaiKeeper):
     def __init__(self):
         super().__init__()
         self.sell_token = ERC20Token.token_address_by_name(self.arguments.sell_token)
@@ -160,4 +160,4 @@ class SaiOtcMaker(SaiKeeper):
 
 
 if __name__ == '__main__':
-    SaiOtcMaker().start()
+    SaiMarketMakerOtc().start()
