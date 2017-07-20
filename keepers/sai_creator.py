@@ -37,7 +37,7 @@ from keepers.arbitrage.transfer_formatter import TransferFormatter
 from keepers.sai import SaiKeeper
 
 
-class SaiMarketMaker(SaiKeeper):
+class SaiCreator(SaiKeeper):
     def lpc_conversions(self) -> List[Conversion]:
         return [LpcTakeRefConversion(self.lpc),
                 LpcTakeAltConversion(self.lpc)]
@@ -168,4 +168,4 @@ class SaiMarketMaker(SaiKeeper):
 
 
 if __name__ == '__main__':
-    SaiMarketMaker().start()
+    SaiCreator().start()
