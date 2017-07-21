@@ -38,14 +38,14 @@ class SaiMakerOtc(SaiKeeper):
         self.min_weth_amount = Wad.from_number(self.arguments.min_weth_amount)
         self.max_sai_amount = Wad.from_number(self.arguments.max_sai_amount)
         self.min_sai_amount = Wad.from_number(self.arguments.min_sai_amount)
-        self.min_spread = self.arguments.min_spread
-        self.avg_spread = self.arguments.avg_spread
-        self.max_spread = self.arguments.max_spread
+        self.min_margin = self.arguments.min_margin
+        self.avg_margin = self.arguments.avg_margin
+        self.max_margin = self.arguments.max_margin
 
     def args(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--min-spread", help="Minimum spread allowed", type=float)
-        parser.add_argument("--avg-spread", help="Average (target) spread, used on new order creation", type=float)
-        parser.add_argument("--max-spread", help="Maximum spread allowed", type=float)
+        parser.add_argument("--min-margin", help="Minimum margin allowed", type=float)
+        parser.add_argument("--avg-margin", help="Target margin, used on new order creation", type=float)
+        parser.add_argument("--max-margin", help="Maximum margin allowed", type=float)
         parser.add_argument("--max-weth-amount", help="Maximum value of open WETH sell orders", type=float)
         parser.add_argument("--min-weth-amount", help="Minimum value of open WETH sell orders", type=float)
         parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float)
@@ -88,20 +88,20 @@ class SaiMakerOtc(SaiKeeper):
         self.create_new_sell_offer()
 
     def cancel_excessive_buy_offers(self):
-        """Cancel buy offers with rates outside allowed spread range."""
+        """Cancel buy offers with rates outside allowed margin range."""
         for offer in self.our_buy_offers():
             rate = self.rate_buy(offer)
-            rate_min = self.apply_buy_spread(self.target_rate(), self.min_spread)
-            rate_max = self.apply_buy_spread(self.target_rate(), self.max_spread)
+            rate_min = self.apply_buy_margin(self.target_rate(), self.min_margin)
+            rate_max = self.apply_buy_margin(self.target_rate(), self.max_margin)
             if (rate < rate_max) or (rate > rate_min):
                 self.otc.kill(offer.offer_id)
 
     def cancel_excessive_sell_offers(self):
-        """Cancel sell offers with rates outside allowed spread range."""
+        """Cancel sell offers with rates outside allowed margin range."""
         for offer in self.our_sell_offers():
             rate = self.rate_sell(offer)
-            rate_min = self.apply_sell_spread(self.target_rate(), self.min_spread)
-            rate_max = self.apply_sell_spread(self.target_rate(), self.max_spread)
+            rate_min = self.apply_sell_margin(self.target_rate(), self.min_margin)
+            rate_max = self.apply_sell_margin(self.target_rate(), self.max_margin)
             if (rate < rate_min) or (rate > rate_max):
                 self.otc.kill(offer.offer_id)
 
@@ -116,7 +116,7 @@ class SaiMakerOtc(SaiKeeper):
         if total_amount < self.min_weth_amount:
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
-            want_amount = have_amount / self.apply_buy_spread(self.target_rate(), self.avg_spread)
+            want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
             if have_amount > Wad(0):
                 self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                               want_token=self.sai.address, want_amount=want_amount)
@@ -127,7 +127,7 @@ class SaiMakerOtc(SaiKeeper):
         if total_amount < self.min_sai_amount:
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
-            want_amount = have_amount * self.apply_sell_spread(self.target_rate(), self.avg_spread)
+            want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin)
             if have_amount > Wad(0):
                 self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                               want_token=self.gem.address, want_amount=want_amount)
@@ -149,12 +149,12 @@ class SaiMakerOtc(SaiKeeper):
         return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
 
     @staticmethod
-    def apply_buy_spread(rate: Wad, spread: float) -> Wad:
-        return rate * Wad.from_number(1 - spread)
+    def apply_buy_margin(rate: Wad, margin: float) -> Wad:
+        return rate * Wad.from_number(1 - margin)
 
     @staticmethod
-    def apply_sell_spread(rate: Wad, spread: float) -> Wad:
-        return rate * Wad.from_number(1 + spread)
+    def apply_sell_margin(rate: Wad, margin: float) -> Wad:
+        return rate * Wad.from_number(1 + margin)
 
 
 if __name__ == '__main__':
