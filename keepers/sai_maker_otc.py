@@ -132,6 +132,10 @@ class SaiMakerOtc(SaiKeeper):
                 self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                               want_token=self.gem.address, want_amount=want_amount)
 
+    def target_rate(self) -> Wad:
+        ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
+        return self.tub.par() / ref_per_gem
+
     @staticmethod
     def rate_buy(offer: OfferInfo) -> Wad:
         return offer.sell_how_much / offer.buy_how_much
@@ -139,10 +143,6 @@ class SaiMakerOtc(SaiKeeper):
     @staticmethod
     def rate_sell(offer: OfferInfo) -> Wad:
         return offer.buy_how_much / offer.sell_how_much
-
-    def target_rate(self) -> Wad:
-        ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
-        return self.tub.par() / ref_per_gem
 
     @staticmethod
     def total_amount(offers: List[OfferInfo]):
