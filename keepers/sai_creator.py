@@ -38,6 +38,10 @@ from keepers.sai import SaiKeeper
 
 
 class SaiCreator(SaiKeeper):
+    """This is an early experimental keeper!
+
+    This is an early experimental keeper and probably doesn't even work anymore!
+    """
     def lpc_conversions(self) -> List[Conversion]:
         return [LpcTakeRefConversion(self.lpc),
                 LpcTakeAltConversion(self.lpc)]
