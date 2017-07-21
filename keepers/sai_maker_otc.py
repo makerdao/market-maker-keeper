@@ -41,8 +41,10 @@ from keepers.sai import SaiKeeper
 class SaiMakerOtc(SaiKeeper):
     def __init__(self):
         super().__init__()
-        self.max_amount = Wad.from_number(self.arguments.max_amount)
-        self.min_amount = Wad.from_number(self.arguments.min_amount)
+        self.max_weth_amount = Wad.from_number(self.arguments.max_weth_amount)
+        self.min_weth_amount = Wad.from_number(self.arguments.min_weth_amount)
+        self.max_sai_amount = Wad.from_number(self.arguments.max_sai_amount)
+        self.min_sai_amount = Wad.from_number(self.arguments.min_sai_amount)
         self.min_spread = self.arguments.min_spread
         self.avg_spread = self.arguments.avg_spread
         self.max_spread = self.arguments.max_spread
@@ -51,8 +53,10 @@ class SaiMakerOtc(SaiKeeper):
         parser.add_argument("--min-spread", help="Minimum spread allowed", type=float)
         parser.add_argument("--avg-spread", help="Average (target) spread, used on new order creation", type=float)
         parser.add_argument("--max-spread", help="Maximum spread allowed", type=float)
-        parser.add_argument("--max-amount", help="Maximum value of open orders owned by the keeper", type=float)
-        parser.add_argument("--min-amount", help="Minimum value of open orders owned by the keeper", type=float)
+        parser.add_argument("--max-weth-amount", help="Maximum value of open WETH sell orders", type=float)
+        parser.add_argument("--min-weth-amount", help="Minimum value of open WETH sell orders", type=float)
+        parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float)
+        parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float)
 
     def startup(self):
         self.approve()
@@ -91,20 +95,20 @@ class SaiMakerOtc(SaiKeeper):
         self.create_new_sell_offer()
 
     def cancel_excessive_buy_offers(self):
-        """Cancel offers with rates outside allowed spread range."""
+        """Cancel buy offers with rates outside allowed spread range."""
         for offer in self.our_buy_offers():
-            rate = self.rate(offer)
-            rate_min = self.apply_spread(self.target_rate(), self.min_spread)
-            rate_max = self.apply_spread(self.target_rate(), self.max_spread)
+            rate = self.rate_buy(offer)
+            rate_min = self.apply_buy_spread(self.target_rate(), self.min_spread)
+            rate_max = self.apply_buy_spread(self.target_rate(), self.max_spread)
             if (rate < rate_max) or (rate > rate_min):
                 self.otc.kill(offer.offer_id)
 
     def cancel_excessive_sell_offers(self):
-        """Cancel offers with rates outside allowed spread range."""
+        """Cancel sell offers with rates outside allowed spread range."""
         for offer in self.our_sell_offers():
             rate = self.rate_sell(offer)
-            rate_min = self.apply_spread(self.target_rate(), -self.min_spread)
-            rate_max = self.apply_spread(self.target_rate(), -self.max_spread)
+            rate_min = self.apply_sell_spread(self.target_rate(), self.min_spread)
+            rate_max = self.apply_sell_spread(self.target_rate(), self.max_spread)
             if (rate < rate_min) or (rate > rate_max):
                 self.otc.kill(offer.offer_id)
 
@@ -114,50 +118,50 @@ class SaiMakerOtc(SaiKeeper):
             self.otc.kill(offer.offer_id)
 
     def create_new_buy_offer(self):
-        """If our engagement is below the minimum amount, create a new offer up to the maximum amount"""
-        total_amount = self.total_amount(self.our_offers())
-        if total_amount < self.min_amount:
+        """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
+        total_amount = self.total_amount(self.our_buy_offers())
+        if total_amount < self.min_weth_amount:
             our_balance = self.gem.balance_of(self.our_address)
-            have_amount = Wad.min(self.max_amount - total_amount, our_balance)
-            want_amount = have_amount / self.apply_spread(self.target_rate(), self.avg_spread)
+            have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
+            want_amount = have_amount / self.apply_buy_spread(self.target_rate(), self.avg_spread)
             if have_amount > Wad(0):
                 self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                               want_token=self.sai.address, want_amount=want_amount)
 
     def create_new_sell_offer(self):
-        """If our engagement is below the minimum amount, create a new offer up to the maximum amount"""
-        total_amount = self.total_amount(self.our_offers())
-        if total_amount < self.min_amount:
+        """If our SAI engagement is below the minimum amount, create a new offer up to the maximum amount"""
+        total_amount = self.total_amount(self.our_sell_offers())
+        if total_amount < self.min_sai_amount:
             our_balance = self.sai.balance_of(self.our_address)
-            have_amount = Wad.min(self.max_amount - total_amount, our_balance)
-            want_amount = have_amount * self.apply_spread(self.target_rate(), -self.avg_spread)
+            have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
+            want_amount = have_amount * self.apply_sell_spread(self.target_rate(), self.avg_spread)
             if have_amount > Wad(0):
                 self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                               want_token=self.gem.address, want_amount=want_amount)
 
     @staticmethod
-    def rate(offer: OfferInfo) -> Wad:
-        return Wad(offer.sell_how_much) / Wad(offer.buy_how_much)
+    def rate_buy(offer: OfferInfo) -> Wad:
+        return offer.sell_how_much / offer.buy_how_much
 
     @staticmethod
     def rate_sell(offer: OfferInfo) -> Wad:
-        return Wad(offer.buy_how_much) / Wad(offer.sell_how_much)
-
-    def target_price(self) -> Wad:
-        ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
-        ref_per_sai = self.tub.par()
-        return ref_per_gem/ref_per_sai
+        return offer.buy_how_much / offer.sell_how_much
 
     def target_rate(self) -> Wad:
-        return Wad.from_number(1) / self.target_price()
+        ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
+        return self.tub.par() / ref_per_gem
 
     @staticmethod
     def total_amount(offers: List[OfferInfo]):
         return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
 
     @staticmethod
-    def apply_spread(rate: Wad, spread: float) -> Wad:
+    def apply_buy_spread(rate: Wad, spread: float) -> Wad:
         return rate * Wad.from_number(1 - spread)
+
+    @staticmethod
+    def apply_sell_spread(rate: Wad, spread: float) -> Wad:
+        return rate * Wad.from_number(1 + spread)
 
 
 if __name__ == '__main__':
