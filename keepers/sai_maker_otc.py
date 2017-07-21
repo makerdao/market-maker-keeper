@@ -73,14 +73,15 @@ class SaiMakerOtc(SaiKeeper):
         self.otc.approve([self.gem, self.sai], directly())
 
     def our_offers(self):
-        return list(filter(lambda offer: offer.owner == self.our_address and
-                                         offer.sell_which_token in [self.gem.address, self.sai.address] and
-                                         offer.buy_which_token in [self.gem.address, self.sai.address],
-                           self.otc.active_offers()))
+        return list(filter(lambda offer: offer.owner == self.our_address, self.otc.active_offers()))
 
     def our_buy_offers(self):
         return list(filter(lambda offer: offer.buy_which_token == self.sai.address and
                                          offer.sell_which_token == self.gem.address, self.our_offers()))
+
+    def our_sell_offers(self):
+        return list(filter(lambda offer: offer.buy_which_token == self.gem.address and
+                                         offer.sell_which_token == self.sai.address, self.our_offers()))
 
     def synchronize_otc_offers(self):
         """Update our positions in the order book to reflect settings."""
@@ -90,10 +91,10 @@ class SaiMakerOtc(SaiKeeper):
     def cancel_excessive_offers(self):
         """Cancel offers with rates outside allowed spread range."""
         for offer in self.our_buy_offers():
-            rate = self.rate_buy(offer)
-            rate_min = self.apply_spread(self.target_price(), self.min_spread)
-            rate_max = self.apply_spread(self.target_price(), self.max_spread)
-            if (rate < rate_min) or (rate > rate_max):
+            rate = self.rate(offer)
+            rate_min = self.apply_spread(self.target_rate(), self.min_spread)
+            rate_max = self.apply_spread(self.target_rate(), self.max_spread)
+            if (rate > rate_min) or (rate < rate_max):
                 self.otc.kill(offer.offer_id)
 
     def cancel_all_offers(self):
@@ -107,23 +108,26 @@ class SaiMakerOtc(SaiKeeper):
         if total_amount < self.min_amount:
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.max_amount - total_amount, our_balance)
-            want_amount = have_amount * self.apply_spread(self.target_price(), self.avg_spread)
+            want_amount = have_amount / self.apply_spread(self.target_rate(), self.avg_spread)
             if have_amount > Wad(0):
                 self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                               want_token=self.sai.address, want_amount=want_amount)
 
     @staticmethod
-    def rate(offer: OfferInfo) -> Ray:
-        return Ray(offer.sell_how_much) / Ray(offer.buy_how_much)
+    def rate(offer: OfferInfo) -> Wad:
+        return Wad(offer.sell_how_much) / Wad(offer.buy_how_much)
 
     @staticmethod
     def rate_buy(offer: OfferInfo) -> Wad:
         return Wad(offer.buy_how_much) / Wad(offer.sell_how_much)
 
-    def target_price(self):
+    def target_price(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
         ref_per_sai = self.tub.par()
         return ref_per_gem/ref_per_sai
+
+    def target_rate(self) -> Wad:
+        return Wad.from_number(1) / self.target_price()
 
     @staticmethod
     def total_amount(offers: List[OfferInfo]):
@@ -131,7 +135,7 @@ class SaiMakerOtc(SaiKeeper):
 
     @staticmethod
     def apply_spread(rate: Wad, spread: float) -> Wad:
-        return rate * Wad.from_number(1 + spread)
+        return rate * Wad.from_number(1 - spread)
 
 
 if __name__ == '__main__':
