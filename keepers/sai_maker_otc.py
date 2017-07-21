@@ -32,6 +32,25 @@ from keepers.sai import SaiKeeper
 
 
 class SaiMakerOtc(SaiKeeper):
+    """SAI keeper to act as a market maker on OasisDEX.
+
+    Keeper continuously monitors and adjusts its positions in order to act as a market maker.
+    It aims to have open SAI sell orders for at least `--min-sai-amount` and open WETH sell
+    orders for at least `--min-weth-amount`, with their price in the <min-margin,max-margin>
+    range from the current SAI/GEM price.
+
+    When started, the keeper places orders for the maximum allowed amounts (`--max-sai-amount`
+    and `--max-weth-amount`) and uses `avg-margin` to calculate the order price.
+
+    As long as the price of existing orders is within the <min-margin,max-margin> range,
+    the keeper keeps them open. If they fall outside that range, they get cancelled.
+    If the total amount of open orders falls below either `--min-sai-amount` or
+    `--min-weth-amount`, a new order gets created for the remaining amount so the total
+    amount of orders is equal to `--max-sai-amount` / `--max-weth-amount`.
+
+    This keeper will constantly use gas to move orders as the SAI/GEM price changes,
+    but it can be limited by setting the margin and amount ranges wide enough.
+    """
     def __init__(self):
         super().__init__()
         self.max_weth_amount = Wad.from_number(self.arguments.max_weth_amount)
