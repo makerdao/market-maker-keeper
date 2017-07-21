@@ -52,10 +52,10 @@ class SaiMakerOtc(SaiKeeper):
         parser.add_argument("--sell-token", help="Token to put on sale on OasisDEX", type=str)
         parser.add_argument("--buy-token", help="Token we will be paid with on OasisDEX", type=str)
         parser.add_argument("--min-spread", help="Minimum spread allowed", type=float)
-        parser.add_argument("--avg-spread", help="Average spread (used on order creation)", type=float)
+        parser.add_argument("--avg-spread", help="Average (target) spread, used on new order creation", type=float)
         parser.add_argument("--max-spread", help="Maximum spread allowed", type=float)
-        parser.add_argument("--max-amount", help="Maximum value of open orders owned by keeper", type=float)
-        parser.add_argument("--min-amount", help="Minimum value of open orders owned by keeper", type=float)
+        parser.add_argument("--max-amount", help="Maximum value of open orders owned by the keeper", type=float)
+        parser.add_argument("--min-amount", help="Minimum value of open orders owned by the keeper", type=float)
 
     def startup(self):
         self.approve()
@@ -73,16 +73,11 @@ class SaiMakerOtc(SaiKeeper):
         logging.info(f"Keeper balances are {', '.join(balances())}.")
 
     def approve(self):
-        """Approve all components that need to access our balances"""
-        # self.lpc.approve(directly())
+        """Approve OasisDEX to access our balances, so we can place orders"""
         self.otc.approve([self.gem, self.sai], directly())
 
     def lpc_conversions(self) -> List[Conversion]:
         return []
-        # this keeper experiment does not make sense anymore as there is no LPC
-        # it would have to be substituted for some other conversion
-        # return [LpcTakeRefConversion(self.lpc),
-        #         LpcTakeAltConversion(self.lpc)]
 
     def conversion(self):
         return next(filter(lambda conversion: conversion.source_token == self.buy_token and
