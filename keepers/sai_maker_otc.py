@@ -24,17 +24,10 @@ from typing import List
 
 import logging
 
-from api import Transfer
 from api.approval import directly
 from api.feed import DSValue
-from api.numeric import Ray
 from api.numeric import Wad
-from api.oasis import OfferInfo, LogTake
-from api.token import ERC20Token
-from keepers.arbitrage.conversion import Conversion
-from keepers.arbitrage.conversion import LpcTakeAltConversion, LpcTakeRefConversion
-from keepers.arbitrage.opportunity import Sequence
-from keepers.arbitrage.transfer_formatter import TransferFormatter
+from api.oasis import OfferInfo
 from keepers.sai import SaiKeeper
 
 
