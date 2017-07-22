@@ -72,14 +72,15 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.withdraw_everything()
 
     def print_balances(self):
-        def balances():
-            for token in [self.sai]:
-                yield f"{token.balance_of(self.our_address)} {token.name()}"
-        logging.info(f"Keeper balances are {', '.join(balances())}.")
-        #TODO PRINT ETH BALANCE
+        sai_owned = self.sai.balance_of(self.our_address)
+        sai_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
+        eth_owned = self.eth_balance(self.our_address)
+        eth_deposited = self.etherdelta.balance_of(self.our_address)
+
+        logging.info(f"Keeper balances are {sai_owned} + {sai_deposited} SAI, {eth_owned} + {eth_deposited} ETH")
 
     def approve(self):
-        """Approve EtherDelta to access our SAI, so we can deposit it"""
+        """Approve EtherDelta to access our SAI, so we can deposit it with the exchange"""
         self.etherdelta.approve([self.sai], directly())
 
     def our_orders(self):
