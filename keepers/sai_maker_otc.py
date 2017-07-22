@@ -135,8 +135,8 @@ class SaiMakerOtc(SaiKeeper):
         if total_amount < self.min_weth_amount:
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
-            want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
             if have_amount > Wad(0):
+                want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
                 self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                               want_token=self.sai.address, want_amount=want_amount)
 
@@ -146,8 +146,8 @@ class SaiMakerOtc(SaiKeeper):
         if total_amount < self.min_sai_amount:
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
-            want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin)
             if have_amount > Wad(0):
+                want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin)
                 self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                               want_token=self.gem.address, want_amount=want_amount)
 
