@@ -53,14 +53,14 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.etherdelta = EtherDelta(web3=self.web3, address=self.etherdelta_address)
 
     def args(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--min-margin", help="Minimum margin allowed", type=float)
-        parser.add_argument("--avg-margin", help="Target margin, used on new order creation", type=float)
-        parser.add_argument("--max-margin", help="Maximum margin allowed", type=float)
-        parser.add_argument("--eth-reserve", help="Minimum amount of ETH to keep in order to cover gas", type=float)
-        parser.add_argument("--max-eth-amount", help="Maximum value of open ETH sell orders", type=float)
-        parser.add_argument("--min-eth-amount", help="Minimum value of open ETH sell orders", type=float)
-        parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float)
-        parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float)
+        parser.add_argument("--min-margin", help="Minimum margin allowed", type=float, required=True)
+        parser.add_argument("--avg-margin", help="Target margin, used on new order creation", type=float, required=True)
+        parser.add_argument("--max-margin", help="Maximum margin allowed", type=float, required=True)
+        parser.add_argument("--eth-reserve", help="Minimum amount of ETH to keep in order to cover gas", type=float, required=True)
+        parser.add_argument("--max-eth-amount", help="Maximum value of open ETH sell orders", type=float, required=True)
+        parser.add_argument("--min-eth-amount", help="Minimum value of open ETH sell orders", type=float, required=True)
+        parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float, required=True)
+        parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float, required=True)
 
     def startup(self):
         self.approve()
@@ -72,9 +72,10 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def print_balances(self):
         def balances():
-            for token in [self.sai, self.gem]:
+            for token in [self.sai]:
                 yield f"{token.balance_of(self.our_address)} {token.name()}"
         logging.info(f"Keeper balances are {', '.join(balances())}.")
+        #TODO PRINT ETH BALANCE
 
     def approve(self):
         """Approve EtherDelta to access our SAI, so we can deposit it"""
@@ -95,8 +96,8 @@ class SaiMakerEtherDelta(SaiKeeper):
         """Update our positions in the order book to reflect settings."""
         self.cancel_excessive_buy_orders()
         self.cancel_excessive_sell_orders()
-        # self.create_new_buy_offer()
-        # self.create_new_sell_offer()
+        self.create_new_buy_offer()
+        self.create_new_sell_offer()
 
     def cancel_excessive_buy_orders(self):
         """Cancel buy orders with rates outside allowed margin range."""
@@ -122,26 +123,28 @@ class SaiMakerEtherDelta(SaiKeeper):
             self.etherdelta.cancel_order(order)
 
     def create_new_buy_offer(self):
-        """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
+        """If our ETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
         total_amount = self.total_amount(self.our_buy_orders())
         if total_amount < self.min_eth_amount:
-            our_balance = self.gem.balance_of(self.our_address)
-            have_amount = Wad.min(self.max_eth_amount - total_amount, our_balance)
-            want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
+            our_balance = self.eth_balance(self.our_address) + self.etherdelta.balance_of(self.our_address) - self.eth_reserve
+            have_amount = Wad.min(self.max_eth_amount, our_balance) - total_amount
             if have_amount > Wad(0):
-                self.otc.make(have_token=self.gem.address, have_amount=have_amount,
-                              want_token=self.sai.address, want_amount=want_amount)
+                want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
+                self.etherdelta.place_order_onchain(token_get=self.sai.address, amount_get=want_amount,
+                                                    token_give=EtherDelta.ETH_TOKEN, amount_give=have_amount,
+                                                    expires=self.web3.eth.blockNumber+100)
 
     def create_new_sell_offer(self):
         """If our SAI engagement is below the minimum amount, create a new offer up to the maximum amount"""
         total_amount = self.total_amount(self.our_sell_orders())
         if total_amount < self.min_sai_amount:
-            our_balance = self.sai.balance_of(self.our_address)
-            have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
-            want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin)
+            our_balance = self.sai.balance_of(self.our_address) + self.etherdelta.balance_of_token(self.sai.address, self.our_address)
+            have_amount = Wad.min(self.max_sai_amount, our_balance) - total_amount
             if have_amount > Wad(0):
-                self.otc.make(have_token=self.sai.address, have_amount=have_amount,
-                              want_token=self.gem.address, want_amount=want_amount)
+                want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin)
+                self.etherdelta.place_order_onchain(token_get=EtherDelta.ETH_TOKEN, amount_get=want_amount,
+                                                    token_give=self.sai.address, amount_give=have_amount,
+                                                    expires=self.web3.eth.blockNumber+100)
 
     def target_rate(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
@@ -156,7 +159,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         return order.amount_get / order.amount_give
 
     def total_amount(self, orders: List[Order]):
-        give_available = lambda order: self.etherdelta.amount_available(order) * order.amount_give / order.amount_get
+        give_available = lambda order: order.amount_give - (self.etherdelta.amount_filled(order) * order.amount_give / order.amount_get)
         return reduce(operator.add, map(give_available, orders), Wad(0))
 
     @staticmethod
