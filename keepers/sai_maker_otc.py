@@ -72,7 +72,7 @@ class SaiMakerOtc(SaiKeeper):
 
     def startup(self):
         self.approve()
-        self.on_block(self.synchronize_otc_offers)
+        self.on_block(self.synchronize_offers)
         self.every(60*60, self.print_balances)
 
     def shutdown(self):
@@ -99,7 +99,7 @@ class SaiMakerOtc(SaiKeeper):
         return list(filter(lambda offer: offer.buy_which_token == self.gem.address and
                                          offer.sell_which_token == self.sai.address, self.our_offers()))
 
-    def synchronize_otc_offers(self):
+    def synchronize_offers(self):
         """Update our positions in the order book to reflect settings."""
         self.cancel_excessive_buy_offers()
         self.cancel_excessive_sell_offers()
