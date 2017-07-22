@@ -26,7 +26,7 @@ import logging
 
 from api import Address
 from api.approval import directly
-from api.etherdelta import EtherDelta
+from api.etherdelta import EtherDelta, Order
 from api.feed import DSValue
 from api.numeric import Wad
 from api.oasis import OfferInfo
@@ -62,11 +62,11 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def startup(self):
         self.approve()
-        self.on_block(self.synchronize_offers)
+        self.on_block(self.synchronize_orders)
         self.every(60*60, self.print_balances)
 
     def shutdown(self):
-        self.cancel_all_offers()
+        self.cancel_all_orders()
 
     def print_balances(self):
         def balances():
@@ -75,7 +75,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         logging.info(f"Keeper balances are {', '.join(balances())}.")
 
     def approve(self):
-        """Approve EtherDelta to access our SAI, so we deposit it"""
+        """Approve EtherDelta to access our SAI, so we can deposit it"""
         self.etherdelta.approve([self.sai], directly())
 
     def our_orders(self):
@@ -89,36 +89,35 @@ class SaiMakerEtherDelta(SaiKeeper):
         return list(filter(lambda order: order.token_get == EtherDelta.ETH_TOKEN and
                                          order.token_give == self.sai.address, self.our_orders()))
 
-    def synchronize_offers(self):
+    def synchronize_orders(self):
         """Update our positions in the order book to reflect settings."""
-        pass
-        # self.cancel_excessive_buy_offers()
-        # self.cancel_excessive_sell_offers()
+        self.cancel_excessive_buy_orders()
+        self.cancel_excessive_sell_orders()
         # self.create_new_buy_offer()
         # self.create_new_sell_offer()
 
-    def cancel_excessive_buy_offers(self):
-        """Cancel buy offers with rates outside allowed margin range."""
-        for offer in self.our_buy_orders():
-            rate = self.rate_buy(offer)
+    def cancel_excessive_buy_orders(self):
+        """Cancel buy orders with rates outside allowed margin range."""
+        for order in self.our_buy_orders():
+            rate = self.rate_buy(order)
             rate_min = self.apply_buy_margin(self.target_rate(), self.min_margin)
             rate_max = self.apply_buy_margin(self.target_rate(), self.max_margin)
             if (rate < rate_max) or (rate > rate_min):
-                self.otc.kill(offer.offer_id)
+                self.etherdelta.cancel_order(order)
 
-    def cancel_excessive_sell_offers(self):
-        """Cancel sell offers with rates outside allowed margin range."""
-        for offer in self.our_sell_orders():
-            rate = self.rate_sell(offer)
+    def cancel_excessive_sell_orders(self):
+        """Cancel sell orders with rates outside allowed margin range."""
+        for order in self.our_sell_orders():
+            rate = self.rate_sell(order)
             rate_min = self.apply_sell_margin(self.target_rate(), self.min_margin)
             rate_max = self.apply_sell_margin(self.target_rate(), self.max_margin)
             if (rate < rate_min) or (rate > rate_max):
-                self.otc.kill(offer.offer_id)
+                self.etherdelta.cancel_order(order)
 
-    def cancel_all_offers(self):
-        """Cancel all our offers."""
-        for offer in self.our_orders():
-            self.otc.kill(offer.offer_id)
+    def cancel_all_orders(self):
+        """Cancel all our orders."""
+        for order in self.our_orders():
+            self.etherdelta.cancel_order(order)
 
     def create_new_buy_offer(self):
         """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
@@ -147,16 +146,16 @@ class SaiMakerEtherDelta(SaiKeeper):
         return self.tub.par() / ref_per_gem
 
     @staticmethod
-    def rate_buy(offer: OfferInfo) -> Wad:
-        return offer.sell_how_much / offer.buy_how_much
+    def rate_buy(order: Order) -> Wad:
+        return order.amount_give / order.amount_get
 
     @staticmethod
-    def rate_sell(offer: OfferInfo) -> Wad:
-        return offer.buy_how_much / offer.sell_how_much
+    def rate_sell(order: Order) -> Wad:
+        return order.amount_get / order.amount_give
 
-    @staticmethod
-    def total_amount(offers: List[OfferInfo]):
-        return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
+    def total_amount(self, orders: List[Order]):
+        give_available = lambda order: self.etherdelta.amount_available(order) * order.amount_give / order.amount_get
+        return reduce(operator.add, map(give_available, orders), Wad(0))
 
     @staticmethod
     def apply_buy_margin(rate: Wad, margin: float) -> Wad:
