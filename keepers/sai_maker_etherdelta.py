@@ -69,6 +69,7 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def shutdown(self):
         self.cancel_all_orders()
+        self.withdraw_everything()
 
     def print_balances(self):
         def balances():
@@ -96,8 +97,10 @@ class SaiMakerEtherDelta(SaiKeeper):
         """Update our positions in the order book to reflect settings."""
         self.cancel_excessive_buy_orders()
         self.cancel_excessive_sell_orders()
-        self.create_new_buy_offer()
-        self.create_new_sell_offer()
+        self.create_new_buy_order()
+        self.create_new_sell_order()
+        self.deposit_for_buy_orders()
+        self.deposit_for_sell_orders()
 
     def cancel_excessive_buy_orders(self):
         """Cancel buy orders with rates outside allowed margin range."""
@@ -122,7 +125,16 @@ class SaiMakerEtherDelta(SaiKeeper):
         for order in self.our_orders():
             self.etherdelta.cancel_order(order)
 
-    def create_new_buy_offer(self):
+    def withdraw_everything(self):
+        eth_balance = self.etherdelta.balance_of(self.our_address)
+        if eth_balance > Wad(0):
+            self.etherdelta.withdraw(eth_balance)
+
+        sai_balance = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
+        if sai_balance > Wad(0):
+            self.etherdelta.withdraw_token(self.sai.address, sai_balance)
+
+    def create_new_buy_order(self):
         """If our ETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
         total_amount = self.total_amount(self.our_buy_orders())
         if total_amount < self.min_eth_amount:
@@ -134,7 +146,7 @@ class SaiMakerEtherDelta(SaiKeeper):
                                                     token_give=EtherDelta.ETH_TOKEN, amount_give=have_amount,
                                                     expires=self.web3.eth.blockNumber+100)
 
-    def create_new_sell_offer(self):
+    def create_new_sell_order(self):
         """If our SAI engagement is below the minimum amount, create a new offer up to the maximum amount"""
         total_amount = self.total_amount(self.our_sell_orders())
         if total_amount < self.min_sai_amount:
@@ -145,6 +157,23 @@ class SaiMakerEtherDelta(SaiKeeper):
                 self.etherdelta.place_order_onchain(token_get=EtherDelta.ETH_TOKEN, amount_get=want_amount,
                                                     token_give=self.sai.address, amount_give=have_amount,
                                                     expires=self.web3.eth.blockNumber+100)
+
+    def deposit_for_buy_orders(self):
+        order_total = self.total_amount(self.our_buy_orders())
+        currently_deposited = self.etherdelta.balance_of(self.our_address)
+        if order_total > currently_deposited:
+            depositable_eth = Wad.max(self.eth_balance(self.our_address) - self.eth_reserve, Wad(0))
+            additional_deposit = Wad.min(order_total - currently_deposited, depositable_eth)
+            if additional_deposit > Wad(0):
+                self.etherdelta.deposit(additional_deposit)
+
+    def deposit_for_sell_orders(self):
+        order_total = self.total_amount(self.our_sell_orders())
+        currently_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
+        if order_total > currently_deposited:
+            additional_deposit = Wad.min(order_total - currently_deposited, self.sai.balance_of(self.our_address))
+            if additional_deposit > Wad(0):
+                self.etherdelta.deposit_token(self.sai.address, additional_deposit)
 
     def target_rate(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
