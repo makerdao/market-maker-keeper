@@ -62,13 +62,13 @@ class SaiMakerOtc(SaiKeeper):
         self.max_margin = self.arguments.max_margin
 
     def args(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--min-margin", help="Minimum margin allowed", type=float)
-        parser.add_argument("--avg-margin", help="Target margin, used on new order creation", type=float)
-        parser.add_argument("--max-margin", help="Maximum margin allowed", type=float)
-        parser.add_argument("--max-weth-amount", help="Maximum value of open WETH sell orders", type=float)
-        parser.add_argument("--min-weth-amount", help="Minimum value of open WETH sell orders", type=float)
-        parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float)
-        parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float)
+        parser.add_argument("--min-margin", help="Minimum margin allowed", type=float, required=True)
+        parser.add_argument("--avg-margin", help="Target margin, used on new order creation", type=float, required=True)
+        parser.add_argument("--max-margin", help="Maximum margin allowed", type=float, required=True)
+        parser.add_argument("--max-weth-amount", help="Maximum value of open WETH sell orders", type=float, required=True)
+        parser.add_argument("--min-weth-amount", help="Minimum value of open WETH sell orders", type=float, required=True)
+        parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float, required=True)
+        parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float, required=True)
 
     def startup(self):
         self.approve()
