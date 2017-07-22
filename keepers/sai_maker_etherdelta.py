@@ -33,15 +33,15 @@ from api.oasis import OfferInfo
 from keepers.sai import SaiKeeper
 
 
-class SaiMakerOtc(SaiKeeper):
+class SaiMakerEtherDelta(SaiKeeper):
     """SAI keeper to act as a market maker on EtherDelta.
 
     TODO work in progress
     """
     def __init__(self):
         super().__init__()
-        self.max_weth_amount = Wad.from_number(self.arguments.max_weth_amount)
-        self.min_weth_amount = Wad.from_number(self.arguments.min_weth_amount)
+        self.max_eth_amount = Wad.from_number(self.arguments.max_eth_amount)
+        self.min_eth_amount = Wad.from_number(self.arguments.min_eth_amount)
         self.max_sai_amount = Wad.from_number(self.arguments.max_sai_amount)
         self.min_sai_amount = Wad.from_number(self.arguments.min_sai_amount)
         self.min_margin = self.arguments.min_margin
@@ -55,14 +55,14 @@ class SaiMakerOtc(SaiKeeper):
         parser.add_argument("--min-margin", help="Minimum margin allowed", type=float)
         parser.add_argument("--avg-margin", help="Target margin, used on new order creation", type=float)
         parser.add_argument("--max-margin", help="Maximum margin allowed", type=float)
-        parser.add_argument("--max-weth-amount", help="Maximum value of open WETH sell orders", type=float)
-        parser.add_argument("--min-weth-amount", help="Minimum value of open WETH sell orders", type=float)
+        parser.add_argument("--max-eth-amount", help="Maximum value of open ETH sell orders", type=float)
+        parser.add_argument("--min-eth-amount", help="Minimum value of open ETH sell orders", type=float)
         parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float)
         parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float)
 
     def startup(self):
         self.approve()
-        self.on_block(self.synchronize_otc_offers)
+        self.on_block(self.synchronize_offers)
         self.every(60*60, self.print_balances)
 
     def shutdown(self):
@@ -75,30 +75,31 @@ class SaiMakerOtc(SaiKeeper):
         logging.info(f"Keeper balances are {', '.join(balances())}.")
 
     def approve(self):
-        """Approve OasisDEX to access our balances, so we can place orders"""
-        self.otc.approve([self.gem, self.sai], directly())
+        """Approve EtherDelta to access our SAI, so we deposit it"""
+        self.etherdelta.approve([self.sai], directly())
 
-    def our_offers(self):
-        return list(filter(lambda offer: offer.owner == self.our_address, self.otc.active_offers()))
+    def our_orders(self):
+        return list(filter(lambda order: order.user == self.our_address, self.etherdelta.active_onchain_orders()))
 
-    def our_buy_offers(self):
-        return list(filter(lambda offer: offer.buy_which_token == self.sai.address and
-                                         offer.sell_which_token == self.gem.address, self.our_offers()))
+    def our_buy_orders(self):
+        return list(filter(lambda order: order.token_get == self.sai.address and
+                                         order.token_give == EtherDelta.ETH_TOKEN, self.our_orders()))
 
-    def our_sell_offers(self):
-        return list(filter(lambda offer: offer.buy_which_token == self.gem.address and
-                                         offer.sell_which_token == self.sai.address, self.our_offers()))
+    def our_sell_orders(self):
+        return list(filter(lambda order: order.token_get == EtherDelta.ETH_TOKEN and
+                                         order.token_give == self.sai.address, self.our_orders()))
 
-    def synchronize_otc_offers(self):
+    def synchronize_offers(self):
         """Update our positions in the order book to reflect settings."""
-        self.cancel_excessive_buy_offers()
-        self.cancel_excessive_sell_offers()
-        self.create_new_buy_offer()
-        self.create_new_sell_offer()
+        pass
+        # self.cancel_excessive_buy_offers()
+        # self.cancel_excessive_sell_offers()
+        # self.create_new_buy_offer()
+        # self.create_new_sell_offer()
 
     def cancel_excessive_buy_offers(self):
         """Cancel buy offers with rates outside allowed margin range."""
-        for offer in self.our_buy_offers():
+        for offer in self.our_buy_orders():
             rate = self.rate_buy(offer)
             rate_min = self.apply_buy_margin(self.target_rate(), self.min_margin)
             rate_max = self.apply_buy_margin(self.target_rate(), self.max_margin)
@@ -107,7 +108,7 @@ class SaiMakerOtc(SaiKeeper):
 
     def cancel_excessive_sell_offers(self):
         """Cancel sell offers with rates outside allowed margin range."""
-        for offer in self.our_sell_offers():
+        for offer in self.our_sell_orders():
             rate = self.rate_sell(offer)
             rate_min = self.apply_sell_margin(self.target_rate(), self.min_margin)
             rate_max = self.apply_sell_margin(self.target_rate(), self.max_margin)
@@ -116,12 +117,12 @@ class SaiMakerOtc(SaiKeeper):
 
     def cancel_all_offers(self):
         """Cancel all our offers."""
-        for offer in self.our_offers():
+        for offer in self.our_orders():
             self.otc.kill(offer.offer_id)
 
     def create_new_buy_offer(self):
         """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
-        total_amount = self.total_amount(self.our_buy_offers())
+        total_amount = self.total_amount(self.our_buy_orders())
         if total_amount < self.min_weth_amount:
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
@@ -132,7 +133,7 @@ class SaiMakerOtc(SaiKeeper):
 
     def create_new_sell_offer(self):
         """If our SAI engagement is below the minimum amount, create a new offer up to the maximum amount"""
-        total_amount = self.total_amount(self.our_sell_offers())
+        total_amount = self.total_amount(self.our_sell_orders())
         if total_amount < self.min_sai_amount:
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
@@ -167,4 +168,4 @@ class SaiMakerOtc(SaiKeeper):
 
 
 if __name__ == '__main__':
-    SaiMakerOtc().start()
+    SaiMakerEtherDelta().start()
