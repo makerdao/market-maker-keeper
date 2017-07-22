@@ -44,6 +44,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.min_eth_amount = Wad.from_number(self.arguments.min_eth_amount)
         self.max_sai_amount = Wad.from_number(self.arguments.max_sai_amount)
         self.min_sai_amount = Wad.from_number(self.arguments.min_sai_amount)
+        self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
         self.min_margin = self.arguments.min_margin
         self.avg_margin = self.arguments.avg_margin
         self.max_margin = self.arguments.max_margin
@@ -55,6 +56,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         parser.add_argument("--min-margin", help="Minimum margin allowed", type=float)
         parser.add_argument("--avg-margin", help="Target margin, used on new order creation", type=float)
         parser.add_argument("--max-margin", help="Maximum margin allowed", type=float)
+        parser.add_argument("--eth-reserve", help="Minimum amount of ETH to keep in order to cover gas", type=float)
         parser.add_argument("--max-eth-amount", help="Maximum value of open ETH sell orders", type=float)
         parser.add_argument("--min-eth-amount", help="Minimum value of open ETH sell orders", type=float)
         parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float)
@@ -122,9 +124,9 @@ class SaiMakerEtherDelta(SaiKeeper):
     def create_new_buy_offer(self):
         """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
         total_amount = self.total_amount(self.our_buy_orders())
-        if total_amount < self.min_weth_amount:
+        if total_amount < self.min_eth_amount:
             our_balance = self.gem.balance_of(self.our_address)
-            have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
+            have_amount = Wad.min(self.max_eth_amount - total_amount, our_balance)
             want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
             if have_amount > Wad(0):
                 self.otc.make(have_token=self.gem.address, have_amount=have_amount,
