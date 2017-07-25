@@ -81,18 +81,6 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.on_block(self.synchronize_orders)
         self.every(60*60, self.print_balances)
 
-        #TODO some test code below:
-        # //('0x59adcf176ed2f6788a41b8ea4c4904518e62b6a4', '93.033469375510237227', '0x0000000000000000000000000000000000000000', '0.400000000000000000', '4067435', '1570157730')
-        # xxxx = self.etherdelta.place_order_offchain(self.sai.address, Wad(93033469375510237227),
-        #                                                 93033469375510237227 #ok: 93033469375510291122
-        #                                                 EtherDelta.ETH_TOKEN, Wad(400000000000000000),
-        #                                                 self.web3.eth.blockNumber + 50)
-        # print(self.etherdelta.amount_available(xxxx))
-        # print(self.etherdelta.place_order_offchain(self.sai.address, Wad.from_number(16.2),
-        #                                      EtherDelta.ETH_TOKEN, Wad.from_number(0.066),
-        #                                      self.web3.eth.blockNumber + 5))
-        # print(self.etherdelta.active_offchain_orders(self.sai.address, EtherDelta.ETH_TOKEN))
-
     def shutdown(self):
         self.cancel_all_orders()
         self.withdraw_everything()
@@ -175,7 +163,7 @@ class SaiMakerEtherDelta(SaiKeeper):
             our_balance = self.eth_balance(self.our_address) + self.etherdelta.balance_of(self.our_address) - self.eth_reserve
             have_amount = Wad.min(self.max_eth_amount, our_balance) - total_amount
             if have_amount > Wad(0):
-                want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
+                want_amount = self.fix_amount(have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin))
                 if self.offchain:
                     self.etherdelta.place_order_offchain(token_get=self.sai.address, amount_get=want_amount,
                                                          token_give=EtherDelta.ETH_TOKEN, amount_give=have_amount,
@@ -192,7 +180,7 @@ class SaiMakerEtherDelta(SaiKeeper):
             our_balance = self.sai.balance_of(self.our_address) + self.etherdelta.balance_of_token(self.sai.address, self.our_address)
             have_amount = Wad.min(self.max_sai_amount, our_balance) - total_amount
             if have_amount > Wad(0):
-                want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin)
+                want_amount = self.fix_amount(have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin))
                 if self.offchain:
                     self.etherdelta.place_order_offchain(token_get=EtherDelta.ETH_TOKEN, amount_get=want_amount,
                                                          token_give=self.sai.address, amount_give=have_amount,
@@ -242,6 +230,21 @@ class SaiMakerEtherDelta(SaiKeeper):
     @staticmethod
     def apply_sell_margin(rate: Wad, margin: float) -> Wad:
         return rate * Wad.from_number(1 + margin)
+
+    @staticmethod
+    def fix_amount(amount: Wad) -> Wad:
+        # for some reason, the EtherDelta backend rejects offchain orders with some amounts
+        # for example, the following order:
+        #       self.etherdelta.place_order_offchain(self.sai.address, Wad(93033469375510291122),
+        #                                                 EtherDelta.ETH_TOKEN, Wad(400000000000000000),
+        #                                                 self.web3.eth.blockNumber + 50)
+        # will get placed correctly, but if we substitute 93033469375510291122 for 93033469375510237227
+        # the backend will not accept it. this is 100% reproductible with above amounts,
+        # although I wasn't able to figure out the actual reason
+        #
+        # what I have noticed is that rounding the amount seems to help,
+        # so this is what this particular method does
+        return Wad(int(amount.value / 10**14) * 10**14)
 
 
 if __name__ == '__main__':
