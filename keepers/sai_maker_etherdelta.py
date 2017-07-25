@@ -41,6 +41,7 @@ class SaiMakerEtherDelta(SaiKeeper):
     def __init__(self):
         super().__init__()
         self.offchain = self.arguments.offchain
+        self.order_age = self.arguments.order_age
         self.max_eth_amount = Wad.from_number(self.arguments.max_eth_amount)
         self.min_eth_amount = Wad.from_number(self.arguments.min_eth_amount)
         self.max_sai_amount = Wad.from_number(self.arguments.max_sai_amount)
@@ -62,6 +63,7 @@ class SaiMakerEtherDelta(SaiKeeper):
             raise Exception("Off-chain EtherDelta orders not supported on this chain")
 
     def args(self, parser: argparse.ArgumentParser):
+        parser.add_argument("--order-age", help="Age of created orders (in blocks)", type=int, required=True)
         parser.add_argument("--min-margin", help="Minimum margin allowed", type=float, required=True)
         parser.add_argument("--avg-margin", help="Target margin, used on new order creation", type=float, required=True)
         parser.add_argument("--max-margin", help="Maximum margin allowed", type=float, required=True)
@@ -170,11 +172,11 @@ class SaiMakerEtherDelta(SaiKeeper):
                 if self.offchain:
                     self.etherdelta.place_order_offchain(token_get=self.sai.address, amount_get=want_amount,
                                                          token_give=EtherDelta.ETH_TOKEN, amount_give=have_amount,
-                                                         expires=self.web3.eth.blockNumber+100)
+                                                         expires=self.web3.eth.blockNumber+self.order_age)
                 else:
                     self.etherdelta.place_order_onchain(token_get=self.sai.address, amount_get=want_amount,
                                                         token_give=EtherDelta.ETH_TOKEN, amount_give=have_amount,
-                                                        expires=self.web3.eth.blockNumber+100)
+                                                        expires=self.web3.eth.blockNumber+self.order_age)
 
     def create_new_sell_order(self):
         """If our SAI engagement is below the minimum amount, create a new offer up to the maximum amount"""
@@ -187,11 +189,11 @@ class SaiMakerEtherDelta(SaiKeeper):
                 if self.offchain:
                     self.etherdelta.place_order_offchain(token_get=EtherDelta.ETH_TOKEN, amount_get=want_amount,
                                                          token_give=self.sai.address, amount_give=have_amount,
-                                                         expires=self.web3.eth.blockNumber+100)
+                                                         expires=self.web3.eth.blockNumber+self.order_age)
                 else:
                     self.etherdelta.place_order_onchain(token_get=EtherDelta.ETH_TOKEN, amount_get=want_amount,
                                                         token_give=self.sai.address, amount_give=have_amount,
-                                                        expires=self.web3.eth.blockNumber+100)
+                                                        expires=self.web3.eth.blockNumber+self.order_age)
 
     def deposit_for_buy_orders(self):
         order_total = self.total_amount(self.our_buy_orders())
