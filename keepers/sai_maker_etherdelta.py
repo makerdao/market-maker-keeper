@@ -74,7 +74,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         onchain_offchain_parser = parser.add_mutually_exclusive_group(required=False)
         onchain_offchain_parser.add_argument('--onchain', dest='offchain', action='store_false')
         onchain_offchain_parser.add_argument('--offchain', dest='offchain', action='store_true')
-        parser.set_defaults(offchain=False)
+        parser.set_defaults(offchain=True)
 
     def startup(self):
         self.approve()
