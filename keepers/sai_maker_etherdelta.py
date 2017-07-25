@@ -110,6 +110,8 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.etherdelta.approve([self.sai], directly())
 
     def our_orders(self):
+        # TODO what if the same order gets reported twice, once as an onchain and once as an offchain order.
+        # I think it's very likely
         onchain_orders = self.etherdelta.active_onchain_orders()
         offchain_orders = self.etherdelta.active_offchain_orders(self.sai.address, EtherDelta.ETH_TOKEN) \
             if self.etherdelta.supports_offchain_orders() \
