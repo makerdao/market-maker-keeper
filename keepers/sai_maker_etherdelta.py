@@ -121,6 +121,9 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.cancel_excessive_sell_orders()
         self.create_new_buy_order()
         self.create_new_sell_order()
+        # TODO apparently deposits have to be made before we place orders, otherwise the EtherDelta backend
+        # TODO seems to ignore new offchain orders. even if we deposit the tokens shortly afterwards, the orders
+        # TODO will not reappear
         self.deposit_for_buy_orders()
         self.deposit_for_sell_orders()
 
