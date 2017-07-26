@@ -1,0 +1,6 @@
+codecov
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+asynctest
