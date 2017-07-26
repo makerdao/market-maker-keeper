@@ -36,7 +36,11 @@ from keepers.sai import SaiKeeper
 class SaiMakerEtherDelta(SaiKeeper):
     """SAI keeper to act as a market maker on EtherDelta.
 
-    TODO work in progress
+    Due to limitations of EtherDelta, this keeper has been discontinued for now.
+
+    It works most of the time, but due to the fact that EtherDelta is a little bit
+    unpredictable in terms of placing orders, we will probably stick to SaiMakerOtc
+    for now.
     """
     def __init__(self):
         super().__init__()
