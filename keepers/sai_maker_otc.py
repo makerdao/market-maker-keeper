@@ -133,7 +133,6 @@ class SaiMakerOtc(SaiKeeper):
         loop = asyncio.get_event_loop()
         loop.run_until_complete(asyncio.wait(kills))
 
-
     def create_new_buy_offer(self):
         """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
         total_amount = self.total_amount(self.our_buy_offers())
