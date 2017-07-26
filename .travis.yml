@@ -15,7 +15,6 @@ install:
   - pip install virtualenv --upgrade
   - pip install -r requirements.txt
   - pip install -r requirements-dev.txt
-  - pip install -e .
 
 script:
   - py.test --cov=keepers --cov-report=term --cov-append tests
