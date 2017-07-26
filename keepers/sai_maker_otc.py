@@ -19,7 +19,9 @@
 
 import argparse
 import operator
+import random
 from functools import reduce
+from itertools import chain
 from typing import List
 
 import logging
@@ -79,7 +81,7 @@ class SaiMakerOtc(SaiKeeper):
         self.every(60*60, self.print_balances)
 
     def shutdown(self):
-        self.cancel_all_offers()
+        self.cancel_offers(self.our_offers())
 
     def print_balances(self):
         def balances():
@@ -104,32 +106,31 @@ class SaiMakerOtc(SaiKeeper):
 
     def synchronize_offers(self):
         """Update our positions in the order book to reflect settings."""
-        self.cancel_excessive_buy_offers()
-        self.cancel_excessive_sell_offers()
+        self.cancel_offers(chain(self.excessive_buy_offers(), self.excessive_sell_offers()))
         self.create_new_buy_offer()
         self.create_new_sell_offer()
 
-    def cancel_excessive_buy_offers(self):
-        """Cancel buy offers with rates outside allowed margin range."""
+    def excessive_buy_offers(self):
+        """Return buy offers with rates outside allowed margin range."""
         for offer in self.our_buy_offers():
             rate = self.rate_buy(offer)
             rate_min = self.apply_buy_margin(self.target_rate(), self.min_margin)
             rate_max = self.apply_buy_margin(self.target_rate(), self.max_margin)
             if (rate < rate_max) or (rate > rate_min):
-                self.otc.kill(offer.offer_id)
+                yield offer
 
-    def cancel_excessive_sell_offers(self):
-        """Cancel sell offers with rates outside allowed margin range."""
+    def excessive_sell_offers(self):
+        """Return sell offers with rates outside allowed margin range."""
         for offer in self.our_sell_offers():
             rate = self.rate_sell(offer)
             rate_min = self.apply_sell_margin(self.target_rate(), self.min_margin)
             rate_max = self.apply_sell_margin(self.target_rate(), self.max_margin)
             if (rate < rate_min) or (rate > rate_max):
-                self.otc.kill(offer.offer_id)
+                yield offer
 
-    def cancel_all_offers(self):
-        """Cancel all our offers."""
-        synchronize([self.otc.kill_async(offer.offer_id) for offer in self.our_offers()])
+    def cancel_offers(self, offers):
+        """Cancel offers asynchronously."""
+        synchronize([self.otc.kill_async(offer.offer_id) for offer in offers])
 
     def create_new_buy_offer(self):
         """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
