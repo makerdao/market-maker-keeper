@@ -24,6 +24,8 @@ from typing import List
 
 import logging
 
+import asyncio
+
 from api.approval import directly
 from api.feed import DSValue
 from api.numeric import Wad
@@ -126,8 +128,11 @@ class SaiMakerOtc(SaiKeeper):
 
     def cancel_all_offers(self):
         """Cancel all our offers."""
-        for offer in self.our_offers():
-            self.otc.kill(offer.offer_id)
+        kills = [self.otc.kill_async(offer.offer_id) for offer in self.our_offers()]
+        # kills = map(lambda offer: self.otc.kill_async(offer.offer_id), self.our_offers())
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(asyncio.wait(kills))
+
 
     def create_new_buy_offer(self):
         """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
