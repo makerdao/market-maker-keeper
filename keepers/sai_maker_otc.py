@@ -19,14 +19,11 @@
 
 import argparse
 import operator
-import random
 from functools import reduce
 from itertools import chain
 from typing import List
 
 import logging
-
-import asyncio
 
 from api.approval import directly
 from api.feed import DSValue
