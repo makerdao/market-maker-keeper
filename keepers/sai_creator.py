@@ -17,23 +17,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import argparse
-import operator
-from functools import reduce
+import logging
 from typing import List
 
-import logging
-
-from api import Transfer, Address
+from api import Address
 from api.approval import directly
 from api.numeric import Ray
 from api.numeric import Wad
-from api.oasis import OfferInfo, LogTake
-from api.token import ERC20Token
-from keepers.arbitrage.conversion import Conversion
-from keepers.arbitrage.conversion import LpcTakeAltConversion, LpcTakeRefConversion
-from keepers.arbitrage.opportunity import Sequence
-from keepers.arbitrage.transfer_formatter import TransferFormatter
+from keepers.conversion import Conversion
+from keepers.conversion import LpcTakeAltConversion, LpcTakeRefConversion
+from keepers.opportunity import Sequence
 from keepers.sai import SaiKeeper
 
 
