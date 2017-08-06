@@ -104,8 +104,7 @@ class SaiMakerOtc(SaiKeeper):
     def synchronize_offers(self):
         """Update our positions in the order book to reflect settings."""
         self.cancel_offers(chain(self.excessive_buy_offers(), self.excessive_sell_offers()))
-        self.create_new_buy_offer()
-        self.create_new_sell_offer()
+        self.create_new_offers()
 
     def excessive_buy_offers(self):
         """Return buy offers with rates outside allowed margin range."""
@@ -129,27 +128,31 @@ class SaiMakerOtc(SaiKeeper):
         """Cancel offers asynchronously."""
         synchronize([self.otc.kill(offer.offer_id).transact_async() for offer in offers])
 
-    def create_new_buy_offer(self):
-        """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
+    def create_new_offers(self):
+        """Asynchronously create new buy and sell offers if necessary."""
+        synchronize([transact.transact_async() for transact in chain(self.new_buy_offer(), self.new_sell_offer())])
+
+    def new_buy_offer(self):
+        """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount"""
         total_amount = self.total_amount(self.our_buy_offers())
         if total_amount < self.min_weth_amount:
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
             if have_amount > Wad(0):
                 want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
-                self.otc.make(have_token=self.gem.address, have_amount=have_amount,
-                              want_token=self.sai.address, want_amount=want_amount).transact()
+                yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
+                                    want_token=self.sai.address, want_amount=want_amount)
 
-    def create_new_sell_offer(self):
-        """If our SAI engagement is below the minimum amount, create a new offer up to the maximum amount"""
+    def new_sell_offer(self):
+        """If our SAI engagement is below the minimum amount, yield a new offer up to the maximum amount"""
         total_amount = self.total_amount(self.our_sell_offers())
         if total_amount < self.min_sai_amount:
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
             if have_amount > Wad(0):
                 want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin)
-                self.otc.make(have_token=self.sai.address, have_amount=have_amount,
-                              want_token=self.gem.address, want_amount=want_amount).transact()
+                yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
+                                    want_token=self.gem.address, want_amount=want_amount)
 
     def target_rate(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
