@@ -127,7 +127,7 @@ class SaiMakerOtc(SaiKeeper):
 
     def cancel_offers(self, offers):
         """Cancel offers asynchronously."""
-        synchronize([self.otc.kill_async(offer.offer_id) for offer in offers])
+        synchronize([self.otc.kill(offer.offer_id).transact_async() for offer in offers])
 
     def create_new_buy_offer(self):
         """If our WETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
