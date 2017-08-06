@@ -59,11 +59,11 @@ class SaiCreator(SaiKeeper):
     def prepare_balances(self):
         recipient = Address('0x002ca7F9b416B2304cDd20c26882d1EF5c53F611')
         if self.sai.balance_of(self.our_address) > Wad(0):
-            self.sai.transfer(recipient, self.sai.balance_of(self.our_address))
+            self.sai.transfer(recipient, self.sai.balance_of(self.our_address)).transact()
         if self.skr.balance_of(self.our_address) > Wad(0):
-            self.skr.transfer(recipient, self.skr.balance_of(self.our_address))
+            self.skr.transfer(recipient, self.skr.balance_of(self.our_address)).transact()
         if self.gem.balance_of(self.our_address) > Wad.from_number(0.5):
-            self.gem.transfer(recipient, self.gem.balance_of(self.our_address) - Wad.from_number(0.5))
+            self.gem.transfer(recipient, self.gem.balance_of(self.our_address) - Wad.from_number(0.5)).transact()
 
     def open_position(self):
         our_eth_engagement = Wad.from_number(0.5)
