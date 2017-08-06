@@ -87,7 +87,7 @@ class SaiMakerOtc(SaiKeeper):
         logging.info(f"Keeper balances are {', '.join(balances())}.")
 
     def approve(self):
-        """Approve OasisDEX to access our balances, so we can place orders"""
+        """Approve OasisDEX to access our balances, so we can place orders."""
         self.otc.approve([self.gem, self.sai], directly())
 
     def our_offers(self):
@@ -102,7 +102,7 @@ class SaiMakerOtc(SaiKeeper):
                                          offer.sell_which_token == self.sai.address, self.our_offers()))
 
     def synchronize_offers(self):
-        """Update our positions in the order book to reflect settings."""
+        """Update our positions in the order book to reflect keeper parameters."""
         self.cancel_offers(chain(self.excessive_buy_offers(), self.excessive_sell_offers()))
         self.create_new_offers()
 
@@ -133,7 +133,7 @@ class SaiMakerOtc(SaiKeeper):
         synchronize([transact.transact_async() for transact in chain(self.new_buy_offer(), self.new_sell_offer())])
 
     def new_buy_offer(self):
-        """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount"""
+        """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount."""
         total_amount = self.total_amount(self.our_buy_offers())
         if total_amount < self.min_weth_amount:
             our_balance = self.gem.balance_of(self.our_address)
@@ -144,7 +144,7 @@ class SaiMakerOtc(SaiKeeper):
                                     want_token=self.sai.address, want_amount=want_amount)
 
     def new_sell_offer(self):
-        """If our SAI engagement is below the minimum amount, yield a new offer up to the maximum amount"""
+        """If our SAI engagement is below the minimum amount, yield a new offer up to the maximum amount."""
         total_amount = self.total_amount(self.our_sell_offers())
         if total_amount < self.min_sai_amount:
             our_balance = self.sai.balance_of(self.our_address)
