@@ -23,8 +23,6 @@ from functools import reduce
 from itertools import chain
 from typing import List
 
-import logging
-
 from api.approval import directly
 from api.feed import DSValue
 from api.numeric import Wad
@@ -128,12 +126,12 @@ class SaiMakerOtc(SaiKeeper):
 
     def cancel_offers(self, offers):
         """Cancel offers asynchronously."""
-        synchronize([self.otc.kill(offer.offer_id).transact_async() for offer in offers])
+        synchronize([self.otc.kill(offer.offer_id).transact_async(self.default_options()) for offer in offers])
 
     def create_new_offers(self, active_offers: list):
         """Asynchronously create new buy and sell offers if necessary."""
-        synchronize([transact.transact_async() for transact in chain(self.new_buy_offer(active_offers),
-                                                                     self.new_sell_offer(active_offers))])
+        synchronize([transact.transact_async(self.default_options())
+                     for transact in chain(self.new_buy_offer(active_offers), self.new_sell_offer(active_offers))])
 
     def new_buy_offer(self, active_offers: list):
         """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount."""
