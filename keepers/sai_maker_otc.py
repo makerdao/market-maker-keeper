@@ -84,7 +84,7 @@ class SaiMakerOtc(SaiKeeper):
         def balances():
             for token in [self.sai, self.gem]:
                 yield f"{token.balance_of(self.our_address)} {token.name()}"
-        logging.info(f"Keeper balances are {', '.join(balances())}.")
+        self.logger.info(f"Keeper balances are {', '.join(balances())}.")
 
     def approve(self):
         """Approve OasisDEX to access our balances, so we can place orders."""

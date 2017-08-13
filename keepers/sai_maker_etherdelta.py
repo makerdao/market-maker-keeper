@@ -97,7 +97,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         eth_owned = self.eth_balance(self.our_address)
         eth_deposited = self.etherdelta.balance_of(self.our_address)
 
-        logging.info(f"Keeper balances are {sai_owned} + {sai_deposited} SAI, {eth_owned} + {eth_deposited} ETH")
+        self.logger.info(f"Keeper balances are {sai_owned} + {sai_deposited} SAI, {eth_owned} + {eth_deposited} ETH")
 
     def approve(self):
         """Approve EtherDelta to access our SAI, so we can deposit it with the exchange"""
