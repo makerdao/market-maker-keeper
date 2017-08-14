@@ -60,6 +60,7 @@ class SaiMakerOtc(SaiKeeper):
         self.min_margin = self.arguments.min_margin
         self.avg_margin = self.arguments.avg_margin
         self.max_margin = self.arguments.max_margin
+        self.round_places = self.arguments.round_places
 
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--min-margin", help="Minimum margin allowed", type=float, required=True)
@@ -69,6 +70,7 @@ class SaiMakerOtc(SaiKeeper):
         parser.add_argument("--min-weth-amount", help="Minimum value of open WETH sell orders", type=float, required=True)
         parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float, required=True)
         parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float, required=True)
+        parser.add_argument("--round-places", help="Number of decimal places to round order prices to (default=2)", type=int, default=2)
 
     def startup(self):
         self.approve()
@@ -140,7 +142,7 @@ class SaiMakerOtc(SaiKeeper):
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
             if have_amount > Wad(0):
-                want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
+                want_amount = have_amount / round(self.apply_buy_margin(self.target_rate(), self.avg_margin), self.round_places)
                 yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                     want_token=self.sai.address, want_amount=want_amount)
 
@@ -151,7 +153,7 @@ class SaiMakerOtc(SaiKeeper):
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
             if have_amount > Wad(0):
-                want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin)
+                want_amount = have_amount * round(self.apply_sell_margin(self.target_rate(), self.avg_margin), self.round_places)
                 yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                                     want_token=self.gem.address, want_amount=want_amount)
 
