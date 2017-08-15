@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-#
 # This file is part of Maker Keeper Framework.
 #
 # Copyright (C) 2017 reverendus
@@ -32,7 +30,7 @@ from keepers.sai import SaiKeeper
 
 
 class SaiMakerOtc(SaiKeeper):
-    """SAI keeper to act as a market maker on OasisDEX.
+    """SAI keeper to act as a market maker on OasisDEX, on the W-ETH/SAI pair.
 
     Keeper continuously monitors and adjusts its positions in order to act as a market maker.
     It aims to have open SAI sell orders for at least `--min-sai-amount` and open WETH sell
@@ -63,6 +61,7 @@ class SaiMakerOtc(SaiKeeper):
         self.min_margin_sell = self.arguments.min_margin_sell
         self.avg_margin_sell = self.arguments.avg_margin_sell
         self.max_margin_sell = self.arguments.max_margin_sell
+        self.round_places = self.arguments.round_places
 
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--min-margin-buy", help="Minimum margin allowed (buy)", type=float, required=True)
@@ -75,6 +74,7 @@ class SaiMakerOtc(SaiKeeper):
         parser.add_argument("--min-weth-amount", help="Minimum value of open WETH sell orders", type=float, required=True)
         parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float, required=True)
         parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float, required=True)
+        parser.add_argument("--round-places", help="Number of decimal places to round order prices to (default=2)", type=int, default=2)
 
     def startup(self):
         self.approve()
@@ -97,11 +97,11 @@ class SaiMakerOtc(SaiKeeper):
     def our_offers(self, active_offers: list):
         return list(filter(lambda offer: offer.owner == self.our_address, active_offers))
 
-    def our_buy_offers(self, active_offers: list):
+    def our_sell_offers(self, active_offers: list):
         return list(filter(lambda offer: offer.buy_which_token == self.sai.address and
                                          offer.sell_which_token == self.gem.address, self.our_offers(active_offers)))
 
-    def our_sell_offers(self, active_offers: list):
+    def our_buy_offers(self, active_offers: list):
         return list(filter(lambda offer: offer.buy_which_token == self.gem.address and
                                          offer.sell_which_token == self.sai.address, self.our_offers(active_offers)))
 
@@ -116,8 +116,8 @@ class SaiMakerOtc(SaiKeeper):
         """Return buy offers with rates outside allowed margin range."""
         for offer in self.our_buy_offers(active_offers):
             rate = self.rate_buy(offer)
-            rate_min = self.apply_buy_margin(self.target_rate(), self.min_margin_buy)
-            rate_max = self.apply_buy_margin(self.target_rate(), self.max_margin_buy)
+            rate_min = self.apply_buy_margin(self.target_price(), self.min_margin_buy)
+            rate_max = self.apply_buy_margin(self.target_price(), self.max_margin_buy)
             if (rate < rate_max) or (rate > rate_min):
                 yield offer
 
@@ -125,8 +125,8 @@ class SaiMakerOtc(SaiKeeper):
         """Return sell offers with rates outside allowed margin range."""
         for offer in self.our_sell_offers(active_offers):
             rate = self.rate_sell(offer)
-            rate_min = self.apply_sell_margin(self.target_rate(), self.min_margin_sell)
-            rate_max = self.apply_sell_margin(self.target_rate(), self.max_margin_sell)
+            rate_min = self.apply_sell_margin(self.target_price(), self.min_margin_sell)
+            rate_max = self.apply_sell_margin(self.target_price(), self.max_margin_sell)
             if (rate < rate_min) or (rate > rate_max):
                 yield offer
 
@@ -139,31 +139,31 @@ class SaiMakerOtc(SaiKeeper):
         synchronize([transact.transact_async(self.default_options())
                      for transact in chain(self.new_buy_offer(active_offers), self.new_sell_offer(active_offers))])
 
-    def new_buy_offer(self, active_offers: list):
+    def new_sell_offer(self, active_offers: list):
         """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount."""
-        total_amount = self.total_amount(self.our_buy_offers(active_offers))
+        total_amount = self.total_amount(self.our_sell_offers(active_offers))
         if total_amount < self.min_weth_amount:
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
             if have_amount > Wad(0):
-                want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin_buy)
+                want_amount = have_amount * round(self.apply_sell_margin(self.target_price(), self.avg_margin_sell), self.round_places)
                 yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                     want_token=self.sai.address, want_amount=want_amount)
 
-    def new_sell_offer(self, active_offers: list):
+    def new_buy_offer(self, active_offers: list):
         """If our SAI engagement is below the minimum amount, yield a new offer up to the maximum amount."""
-        total_amount = self.total_amount(self.our_sell_offers(active_offers))
+        total_amount = self.total_amount(self.our_buy_offers(active_offers))
         if total_amount < self.min_sai_amount:
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
             if have_amount > Wad(0):
-                want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin_sell)
+                want_amount = have_amount / round(self.apply_buy_margin(self.target_price(), self.avg_margin_buy), self.round_places)
                 yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                                     want_token=self.gem.address, want_amount=want_amount)
 
-    def target_rate(self) -> Wad:
+    def target_price(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
-        return self.tub.par() / ref_per_gem
+        return ref_per_gem / self.tub.par()
 
     @staticmethod
     def rate_buy(offer: OfferInfo) -> Wad:
