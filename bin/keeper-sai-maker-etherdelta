@@ -1,0 +1,8 @@
+#!/bin/sh
+
+cd "$(dirname "$0")"
+cd ..
+
+export PYTHONPATH=$(pwd)
+
+python3 keepers/sai_maker_etherdelta.py $@
