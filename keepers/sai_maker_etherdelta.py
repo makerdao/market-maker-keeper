@@ -34,7 +34,7 @@ from keepers.sai import SaiKeeper
 
 
 class SaiMakerEtherDelta(SaiKeeper):
-    """SAI keeper to act as a market maker on EtherDelta.
+    """SAI keeper to act as a market maker on EtherDelta, on the ETH/SAI pair.
 
     Due to limitations of EtherDelta, this keeper has been discontinued for now.
 
