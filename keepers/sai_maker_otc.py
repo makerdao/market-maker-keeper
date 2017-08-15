@@ -55,15 +55,21 @@ class SaiMakerOtc(SaiKeeper):
         self.min_weth_amount = Wad.from_number(self.arguments.min_weth_amount)
         self.max_sai_amount = Wad.from_number(self.arguments.max_sai_amount)
         self.min_sai_amount = Wad.from_number(self.arguments.min_sai_amount)
-        self.min_margin = self.arguments.min_margin
-        self.avg_margin = self.arguments.avg_margin
-        self.max_margin = self.arguments.max_margin
+        self.min_margin_buy = self.arguments.min_margin_buy
+        self.avg_margin_buy = self.arguments.avg_margin_buy
+        self.max_margin_buy = self.arguments.max_margin_buy
+        self.min_margin_sell = self.arguments.min_margin_sell
+        self.avg_margin_sell = self.arguments.avg_margin_sell
+        self.max_margin_sell = self.arguments.max_margin_sell
         self.round_places = self.arguments.round_places
 
     def args(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--min-margin", help="Minimum margin allowed", type=float, required=True)
-        parser.add_argument("--avg-margin", help="Target margin, used on new order creation", type=float, required=True)
-        parser.add_argument("--max-margin", help="Maximum margin allowed", type=float, required=True)
+        parser.add_argument("--min-margin-buy", help="Minimum margin allowed (buy)", type=float, required=True)
+        parser.add_argument("--avg-margin-buy", help="Target margin, used on new order creation (buy)", type=float, required=True)
+        parser.add_argument("--max-margin-buy", help="Maximum margin allowed (buy)", type=float, required=True)
+        parser.add_argument("--min-margin-sell", help="Minimum margin allowed (sell)", type=float, required=True)
+        parser.add_argument("--avg-margin-sell", help="Target margin, used on new order creation (sell)", type=float, required=True)
+        parser.add_argument("--max-margin-sell", help="Maximum margin allowed (sell)", type=float, required=True)
         parser.add_argument("--max-weth-amount", help="Maximum value of open WETH sell orders", type=float, required=True)
         parser.add_argument("--min-weth-amount", help="Minimum value of open WETH sell orders", type=float, required=True)
         parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float, required=True)
@@ -110,8 +116,8 @@ class SaiMakerOtc(SaiKeeper):
         """Return buy offers with rates outside allowed margin range."""
         for offer in self.our_buy_offers(active_offers):
             rate = self.rate_buy(offer)
-            rate_min = self.apply_buy_margin(self.target_price(), self.min_margin)
-            rate_max = self.apply_buy_margin(self.target_price(), self.max_margin)
+            rate_min = self.apply_buy_margin(self.target_price(), self.min_margin_buy)
+            rate_max = self.apply_buy_margin(self.target_price(), self.max_margin_buy)
             if (rate < rate_max) or (rate > rate_min):
                 yield offer
 
@@ -119,8 +125,8 @@ class SaiMakerOtc(SaiKeeper):
         """Return sell offers with rates outside allowed margin range."""
         for offer in self.our_sell_offers(active_offers):
             rate = self.rate_sell(offer)
-            rate_min = self.apply_sell_margin(self.target_price(), self.min_margin)
-            rate_max = self.apply_sell_margin(self.target_price(), self.max_margin)
+            rate_min = self.apply_sell_margin(self.target_price(), self.min_margin_sell)
+            rate_max = self.apply_sell_margin(self.target_price(), self.max_margin_sell)
             if (rate < rate_min) or (rate > rate_max):
                 yield offer
 
@@ -140,7 +146,7 @@ class SaiMakerOtc(SaiKeeper):
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
             if have_amount > Wad(0):
-                want_amount = have_amount * round(self.apply_sell_margin(self.target_price(), self.avg_margin), self.round_places)
+                want_amount = have_amount * round(self.apply_sell_margin(self.target_price(), self.avg_margin_sell), self.round_places)
                 yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                     want_token=self.sai.address, want_amount=want_amount)
 
@@ -151,7 +157,7 @@ class SaiMakerOtc(SaiKeeper):
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
             if have_amount > Wad(0):
-                want_amount = have_amount / round(self.apply_buy_margin(self.target_price(), self.avg_margin), self.round_places)
+                want_amount = have_amount / round(self.apply_buy_margin(self.target_price(), self.avg_margin_buy), self.round_places)
                 yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                                     want_token=self.gem.address, want_amount=want_amount)
 
