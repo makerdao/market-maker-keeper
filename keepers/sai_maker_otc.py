@@ -35,7 +35,7 @@ class SaiMakerOtc(SaiKeeper):
     Keeper continuously monitors and adjusts its positions in order to act as a market maker.
     It aims to have open SAI sell orders for at least `--min-sai-amount` and open WETH sell
     orders for at least `--min-weth-amount`, with their price in the <min-margin,max-margin>
-    range from the current SAI/GEM price.
+    range from the current SAI/W-ETH price.
 
     When started, the keeper places orders for the maximum allowed amounts (`--max-sai-amount`
     and `--max-weth-amount`) and uses `avg-margin` to calculate the order price.
