@@ -157,7 +157,7 @@ class SaiMakerOtc(SaiKeeper):
     def new_buy_offer(self, active_offers: list):
         """If our SAI engagement is below the minimum amount, yield a new offer up to the maximum amount."""
         total_amount = self.total_amount(self.our_buy_offers(active_offers))
-        if total_amount <= self.min_sai_amount:
+        if total_amount < self.min_sai_amount:
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
             if (have_amount >= self.sai_dust_cutoff) and (have_amount > Wad(0)):
