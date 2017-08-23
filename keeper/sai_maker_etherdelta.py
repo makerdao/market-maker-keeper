@@ -20,15 +20,13 @@ import operator
 from functools import reduce
 from typing import List
 
-import logging
+from keeper.api import Address
+from keeper.api.approval import directly
+from keeper.api.feed import DSValue
+from keeper.api.numeric import Wad
 
-from api import Address
-from api.approval import directly
-from api.etherdelta import EtherDelta, Order
-from api.feed import DSValue
-from api.numeric import Wad
-from api.oasis import OfferInfo
-from keepers.sai import SaiKeeper
+from keeper.api.etherdelta import EtherDelta, Order
+from keeper.sai import SaiKeeper
 
 
 class SaiMakerEtherDelta(SaiKeeper):

@@ -5,4 +5,4 @@ cd ..
 
 export PYTHONPATH=$(pwd)
 
-python3 keepers/sai_maker_otc.py $@
+python3 keeper/sai_maker_otc.py $@

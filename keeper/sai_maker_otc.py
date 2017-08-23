@@ -21,12 +21,13 @@ from functools import reduce
 from itertools import chain
 from typing import List
 
-from api.approval import directly
-from api.feed import DSValue
-from api.numeric import Wad
-from api.oasis import OfferInfo
-from api.util import synchronize
-from keepers.sai import SaiKeeper
+from keeper.api.approval import directly
+from keeper.api.numeric import Wad
+from keeper.api.oasis import OfferInfo
+from keeper.api.util import synchronize
+
+from keeper.api.feed import DSValue
+from keeper.sai import SaiKeeper
 
 
 class SaiMakerOtc(SaiKeeper):

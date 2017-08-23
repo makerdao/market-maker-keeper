@@ -17,7 +17,7 @@ install:
   - pip install -r requirements-dev.txt
 
 script:
-  - py.test --cov=. --cov-report=term --cov-append .
+  - py.test --cov=keeper --cov-report=term --cov-append tests/
 
 after_success:
   - codecov
