@@ -113,25 +113,26 @@ class SaiMakerOtc(SaiKeeper):
     def synchronize_offers(self):
         """Update our positions in the order book to reflect keeper parameters."""
         active_offers = self.otc.active_offers()
-        self.cancel_offers(chain(self.excessive_buy_offers(active_offers),
-                                 self.excessive_sell_offers(active_offers)))
-        self.create_new_offers(active_offers)
+        target_price = self.tub_target_price()
+        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price),
+                                 self.excessive_sell_offers(active_offers, target_price)))
+        self.create_new_offers(active_offers, target_price)
 
-    def excessive_buy_offers(self, active_offers: list):
+    def excessive_buy_offers(self, active_offers: list, target_price: Wad):
         """Return buy offers with rates outside allowed margin range."""
         for offer in self.our_buy_offers(active_offers):
             rate = self.rate_buy(offer)
-            rate_min = self.apply_buy_margin(self.target_price(), self.min_margin_buy)
-            rate_max = self.apply_buy_margin(self.target_price(), self.max_margin_buy)
+            rate_min = self.apply_buy_margin(target_price, self.min_margin_buy)
+            rate_max = self.apply_buy_margin(target_price, self.max_margin_buy)
             if (rate < rate_max) or (rate > rate_min):
                 yield offer
 
-    def excessive_sell_offers(self, active_offers: list):
+    def excessive_sell_offers(self, active_offers: list, target_price: Wad):
         """Return sell offers with rates outside allowed margin range."""
         for offer in self.our_sell_offers(active_offers):
             rate = self.rate_sell(offer)
-            rate_min = self.apply_sell_margin(self.target_price(), self.min_margin_sell)
-            rate_max = self.apply_sell_margin(self.target_price(), self.max_margin_sell)
+            rate_min = self.apply_sell_margin(target_price, self.min_margin_sell)
+            rate_max = self.apply_sell_margin(target_price, self.max_margin_sell)
             if (rate < rate_min) or (rate > rate_max):
                 yield offer
 
@@ -139,34 +140,35 @@ class SaiMakerOtc(SaiKeeper):
         """Cancel offers asynchronously."""
         synchronize([self.otc.kill(offer.offer_id).transact_async(self.default_options()) for offer in offers])
 
-    def create_new_offers(self, active_offers: list):
+    def create_new_offers(self, active_offers: list, target_price: Wad):
         """Asynchronously create new buy and sell offers if necessary."""
         synchronize([transact.transact_async(self.default_options())
-                     for transact in chain(self.new_buy_offer(active_offers), self.new_sell_offer(active_offers))])
+                     for transact in chain(self.new_buy_offer(active_offers, target_price),
+                                           self.new_sell_offer(active_offers, target_price))])
 
-    def new_sell_offer(self, active_offers: list):
+    def new_sell_offer(self, active_offers: list, target_price: Wad):
         """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount."""
         total_amount = self.total_amount(self.our_sell_offers(active_offers))
         if total_amount < self.min_weth_amount:
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
             if (have_amount >= self.weth_dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount * round(self.apply_sell_margin(self.target_price(), self.avg_margin_sell), self.round_places)
+                want_amount = have_amount * round(self.apply_sell_margin(target_price, self.avg_margin_sell), self.round_places)
                 yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                     want_token=self.sai.address, want_amount=want_amount)
 
-    def new_buy_offer(self, active_offers: list):
+    def new_buy_offer(self, active_offers: list, target_price: Wad):
         """If our SAI engagement is below the minimum amount, yield a new offer up to the maximum amount."""
         total_amount = self.total_amount(self.our_buy_offers(active_offers))
         if total_amount < self.min_sai_amount:
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
             if (have_amount >= self.sai_dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount / round(self.apply_buy_margin(self.target_price(), self.avg_margin_buy), self.round_places)
+                want_amount = have_amount / round(self.apply_buy_margin(target_price, self.avg_margin_buy), self.round_places)
                 yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                                     want_token=self.gem.address, want_amount=want_amount)
 
-    def target_price(self) -> Wad:
+    def tub_target_price(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
         return ref_per_gem / self.tub.par()
 
