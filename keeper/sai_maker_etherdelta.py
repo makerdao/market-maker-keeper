@@ -144,21 +144,21 @@ class SaiMakerEtherDelta(SaiKeeper):
             rate_min = self.apply_sell_margin(self.target_rate(), self.min_margin)
             rate_max = self.apply_sell_margin(self.target_rate(), self.max_margin)
             if (rate < rate_min) or (rate > rate_max):
-                self.etherdelta.cancel_order(order)
+                self.etherdelta.cancel_order(order).transact()
 
     def cancel_all_orders(self):
         """Cancel all our orders."""
         for order in self.our_orders():
-            self.etherdelta.cancel_order(order)
+            self.etherdelta.cancel_order(order).transact()
 
     def withdraw_everything(self):
         eth_balance = self.etherdelta.balance_of(self.our_address)
         if eth_balance > Wad(0):
-            self.etherdelta.withdraw(eth_balance)
+            self.etherdelta.withdraw(eth_balance).transact()
 
         sai_balance = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
         if sai_balance > Wad(0):
-            self.etherdelta.withdraw_token(self.sai.address, sai_balance)
+            self.etherdelta.withdraw_token(self.sai.address, sai_balance).transact()
 
     def create_new_buy_order(self):
         """If our ETH engagement is below the minimum amount, create a new offer up to the maximum amount"""
@@ -201,7 +201,7 @@ class SaiMakerEtherDelta(SaiKeeper):
             depositable_eth = Wad.max(self.eth_balance(self.our_address) - self.eth_reserve, Wad(0))
             additional_deposit = Wad.min(order_total - currently_deposited, depositable_eth)
             if additional_deposit > Wad(0):
-                self.etherdelta.deposit(additional_deposit)
+                self.etherdelta.deposit(additional_deposit).transact()
 
     def deposit_for_sell_orders(self):
         order_total = self.total_amount(self.our_sell_orders())
@@ -209,7 +209,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         if order_total > currently_deposited:
             additional_deposit = Wad.min(order_total - currently_deposited, self.sai.balance_of(self.our_address))
             if additional_deposit > Wad(0):
-                self.etherdelta.deposit_token(self.sai.address, additional_deposit)
+                self.etherdelta.deposit_token(self.sai.address, additional_deposit).transact()
 
     def target_rate(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
