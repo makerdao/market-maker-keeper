@@ -7,4 +7,4 @@ __pycache__
 
 .DS_Store
 
-_doc
+docs/_doc
