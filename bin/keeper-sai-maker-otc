@@ -1,8 +1,2 @@
 #!/bin/sh
-
-cd "$(dirname "$0")"
-cd ..
-
-export PYTHONPATH=$(pwd)
-
-python3 keeper/sai_maker_otc.py $@
+python3 -m keeper.sai_maker_otc $@
