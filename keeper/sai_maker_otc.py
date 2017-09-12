@@ -18,6 +18,7 @@
 import argparse
 import operator
 import random
+from enum import Enum
 from functools import reduce
 from itertools import chain
 from typing import List
@@ -33,11 +34,18 @@ from keeper.api.feed import DSValue
 from keeper.sai import SaiKeeper
 
 
+class BandType(Enum):
+    BUY = 1
+    SELL = 2
+
+
 class Band:
-    def __init__(self, min_margin, avg_margin, max_margin, min_amount: Wad, max_amount: Wad, dust_cutoff: Wad):
+    def __init__(self, type: BandType, min_margin, avg_margin, max_margin, min_amount: Wad, max_amount: Wad, dust_cutoff: Wad):
+        assert(isinstance(type, BandType))
         assert(isinstance(min_amount, Wad))
         assert(isinstance(max_amount, Wad))
         assert(isinstance(dust_cutoff, Wad))
+        self.type = type
         self.min_margin = min_margin
         self.avg_margin = avg_margin
         self.max_margin = max_margin
@@ -45,15 +53,18 @@ class Band:
         self.max_amount = max_amount
         self.dust_cutoff = dust_cutoff
 
-    def does_include_rate_buy(self, rate: Wad, target_price: Wad) -> bool:
-        rate_min = apply_buy_margin(target_price, self.min_margin)
-        rate_max = apply_buy_margin(target_price, self.max_margin)
-        return (rate > rate_max) and (rate <= rate_min)
-
-    def does_include_rate_sell(self, rate: Wad, target_price: Wad) -> bool:
-        rate_min = apply_sell_margin(target_price, self.min_margin)
-        rate_max = apply_sell_margin(target_price, self.max_margin)
-        return (rate > rate_min) and (rate <= rate_max)
+    def does_include_offer(self, offer: OfferInfo, target_price: Wad) -> bool:
+        #TODO probably to be replaced with two separate band classes for buy and sell
+        if self.type == BandType.BUY:
+            rate = rate_buy(offer)
+            rate_min = apply_buy_margin(target_price, self.min_margin)
+            rate_max = apply_buy_margin(target_price, self.max_margin)
+            return (rate > rate_max) and (rate <= rate_min)
+        else:
+            rate = rate_sell(offer)
+            rate_min = apply_sell_margin(target_price, self.min_margin)
+            rate_max = apply_sell_margin(target_price, self.max_margin)
+            return (rate > rate_min) and (rate <= rate_max)
 
 
 def apply_buy_margin(rate: Wad, margin: float) -> Wad:
@@ -61,6 +72,12 @@ def apply_buy_margin(rate: Wad, margin: float) -> Wad:
 
 def apply_sell_margin(rate: Wad, margin: float) -> Wad:
     return rate * Wad.from_number(1 + margin)
+
+def rate_buy(offer: OfferInfo) -> Wad:
+    return offer.sell_how_much / offer.buy_how_much
+
+def rate_sell(offer: OfferInfo) -> Wad:
+    return offer.buy_how_much / offer.sell_how_much
 
 
 class SaiMakerOtc(SaiKeeper):
@@ -85,14 +102,16 @@ class SaiMakerOtc(SaiKeeper):
     """
     def __init__(self):
         super().__init__()
-        self.buy_band = Band(min_margin=self.arguments.min_margin_buy,
+        self.buy_band = Band(type=BandType.BUY,
+                             min_margin=self.arguments.min_margin_buy,
                              avg_margin=self.arguments.avg_margin_buy,
                              max_margin=self.arguments.max_margin_buy,
                              min_amount=Wad.from_number(self.arguments.min_sai_amount),
                              max_amount=Wad.from_number(self.arguments.max_sai_amount),
                              dust_cutoff=Wad.from_number(self.arguments.sai_dust_cutoff))
         self.buy_bands = [self.buy_band]
-        self.sell_band = Band(min_margin=self.arguments.min_margin_sell,
+        self.sell_band = Band(type=BandType.SELL,
+                              min_margin=self.arguments.min_margin_sell,
                               avg_margin=self.arguments.avg_margin_sell,
                               max_margin=self.arguments.max_margin_sell,
                               min_amount=Wad.from_number(self.arguments.min_weth_amount),
@@ -149,22 +168,22 @@ class SaiMakerOtc(SaiKeeper):
         """Update our positions in the order book to reflect keeper parameters."""
         active_offers = self.otc.active_offers()
         target_price = self.tub_target_price()
-        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price, self.buy_bands),
-                                 self.excessive_sell_offers(active_offers, target_price, self.sell_bands)))
+        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price),
+                                 self.excessive_sell_offers(active_offers, target_price)))
         self.create_new_offers(active_offers, target_price)
 
-    def excessive_buy_offers(self, active_offers: list, target_price: Wad, buy_bands: List[Band]):
+    def excessive_buy_offers(self, active_offers: list, target_price: Wad):
         """Return buy offers which do not fall into any buy band."""
-        for offer in self.our_buy_offers(active_offers):
-            rate = self.rate_buy(offer)
-            if not any(band.does_include_rate_buy(rate, target_price) for band in buy_bands):
-                yield offer
+        return self.excessive_offers(self.our_buy_offers(active_offers), self.buy_bands, target_price)
 
-    def excessive_sell_offers(self, active_offers: list, target_price: Wad, sell_bands: List[Band]):
+    def excessive_sell_offers(self, active_offers: list, target_price: Wad):
         """Return sell offers which do not fall into any sell band."""
-        for offer in self.our_sell_offers(active_offers):
-            rate = self.rate_sell(offer)
-            if not any(band.does_include_rate_sell(rate, target_price) for band in sell_bands):
+        return self.excessive_offers(self.our_sell_offers(active_offers), self.sell_bands, target_price)
+
+    @staticmethod
+    def excessive_offers(offers: list, bands: List[Band], target_price: Wad):
+        for offer in offers:
+            if not any(band.does_include_offer(offer, target_price) for band in bands):
                 yield offer
 
     def cancel_offers(self, offers):
@@ -202,14 +221,6 @@ class SaiMakerOtc(SaiKeeper):
     def tub_target_price(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
         return ref_per_gem / self.tub.par()
-
-    @staticmethod
-    def rate_buy(offer: OfferInfo) -> Wad:
-        return offer.sell_how_much / offer.buy_how_much
-
-    @staticmethod
-    def rate_sell(offer: OfferInfo) -> Wad:
-        return offer.buy_how_much / offer.sell_how_much
 
     @staticmethod
     def total_amount(offers: List[OfferInfo]):
