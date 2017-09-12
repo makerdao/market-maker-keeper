@@ -42,6 +42,23 @@ class Band:
         self.max_amount = max_amount
         self.dust_cutoff = dust_cutoff
 
+    def does_include_rate_buy(self, rate: Wad, target_price: Wad) -> bool:
+        rate_min = apply_buy_margin(target_price, self.min_margin)
+        rate_max = apply_buy_margin(target_price, self.max_margin)
+        return (rate > rate_max) and (rate <= rate_min)
+
+    def does_include_rate_sell(self, rate: Wad, target_price: Wad) -> bool:
+        rate_min = apply_sell_margin(target_price, self.min_margin)
+        rate_max = apply_sell_margin(target_price, self.max_margin)
+        return (rate > rate_min) and (rate <= rate_max)
+
+
+def apply_buy_margin(rate: Wad, margin: float) -> Wad:
+    return rate * Wad.from_number(1 - margin)
+
+def apply_sell_margin(rate: Wad, margin: float) -> Wad:
+    return rate * Wad.from_number(1 + margin)
+
 
 class SaiMakerOtc(SaiKeeper):
     """SAI keeper to act as a market maker on OasisDEX, on the W-ETH/SAI pair.
@@ -135,18 +152,14 @@ class SaiMakerOtc(SaiKeeper):
         """Return buy offers with rates outside allowed margin range."""
         for offer in self.our_buy_offers(active_offers):
             rate = self.rate_buy(offer)
-            rate_min = self.apply_buy_margin(target_price, self.buy_band.min_margin)
-            rate_max = self.apply_buy_margin(target_price, self.buy_band.max_margin)
-            if (rate < rate_max) or (rate > rate_min):
+            if not self.buy_band.does_include_rate_buy(rate, target_price):
                 yield offer
 
     def excessive_sell_offers(self, active_offers: list, target_price: Wad):
         """Return sell offers with rates outside allowed margin range."""
         for offer in self.our_sell_offers(active_offers):
             rate = self.rate_sell(offer)
-            rate_min = self.apply_sell_margin(target_price, self.sell_band.min_margin)
-            rate_max = self.apply_sell_margin(target_price, self.sell_band.max_margin)
-            if (rate < rate_min) or (rate > rate_max):
+            if not self.sell_band.does_include_rate_sell(rate, target_price):
                 yield offer
 
     def cancel_offers(self, offers):
@@ -166,7 +179,7 @@ class SaiMakerOtc(SaiKeeper):
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(self.sell_band.max_amount - total_amount, our_balance)
             if (have_amount >= self.sell_band.dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount * round(self.apply_sell_margin(target_price, self.sell_band.avg_margin), self.round_places)
+                want_amount = have_amount * round(apply_sell_margin(target_price, self.sell_band.avg_margin), self.round_places)
                 yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                     want_token=self.sai.address, want_amount=want_amount)
 
@@ -177,7 +190,7 @@ class SaiMakerOtc(SaiKeeper):
             our_balance = self.sai.balance_of(self.our_address)
             have_amount = Wad.min(self.buy_band.max_amount - total_amount, our_balance)
             if (have_amount >= self.buy_band.dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount / round(self.apply_buy_margin(target_price, self.buy_band.avg_margin), self.round_places)
+                want_amount = have_amount / round(apply_buy_margin(target_price, self.buy_band.avg_margin), self.round_places)
                 yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                                     want_token=self.gem.address, want_amount=want_amount)
 
@@ -197,13 +210,6 @@ class SaiMakerOtc(SaiKeeper):
     def total_amount(offers: List[OfferInfo]):
         return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
 
-    @staticmethod
-    def apply_buy_margin(rate: Wad, margin: float) -> Wad:
-        return rate * Wad.from_number(1 - margin)
-
-    @staticmethod
-    def apply_sell_margin(rate: Wad, margin: float) -> Wad:
-        return rate * Wad.from_number(1 + margin)
 
 
 if __name__ == '__main__':
