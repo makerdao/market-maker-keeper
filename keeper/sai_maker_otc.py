@@ -30,6 +30,19 @@ from keeper.api.feed import DSValue
 from keeper.sai import SaiKeeper
 
 
+class Band:
+    def __init__(self, min_margin, avg_margin, max_margin, min_amount: Wad, max_amount: Wad, dust_cutoff: Wad):
+        assert(isinstance(min_amount, Wad))
+        assert(isinstance(max_amount, Wad))
+        assert(isinstance(dust_cutoff, Wad))
+        self.min_margin = min_margin
+        self.avg_margin = avg_margin
+        self.max_margin = max_margin
+        self.min_amount = min_amount
+        self.max_amount = max_amount
+        self.dust_cutoff = dust_cutoff
+
+
 class SaiMakerOtc(SaiKeeper):
     """SAI keeper to act as a market maker on OasisDEX, on the W-ETH/SAI pair.
 
@@ -52,18 +65,18 @@ class SaiMakerOtc(SaiKeeper):
     """
     def __init__(self):
         super().__init__()
-        self.max_weth_amount = Wad.from_number(self.arguments.max_weth_amount)
-        self.min_weth_amount = Wad.from_number(self.arguments.min_weth_amount)
-        self.max_sai_amount = Wad.from_number(self.arguments.max_sai_amount)
-        self.min_sai_amount = Wad.from_number(self.arguments.min_sai_amount)
-        self.sai_dust_cutoff = Wad.from_number(self.arguments.sai_dust_cutoff)
-        self.weth_dust_cutoff = Wad.from_number(self.arguments.weth_dust_cutoff)
-        self.min_margin_buy = self.arguments.min_margin_buy
-        self.avg_margin_buy = self.arguments.avg_margin_buy
-        self.max_margin_buy = self.arguments.max_margin_buy
-        self.min_margin_sell = self.arguments.min_margin_sell
-        self.avg_margin_sell = self.arguments.avg_margin_sell
-        self.max_margin_sell = self.arguments.max_margin_sell
+        self.buy_band = Band(min_margin=self.arguments.min_margin_buy,
+                             avg_margin=self.arguments.avg_margin_buy,
+                             max_margin=self.arguments.max_margin_buy,
+                             min_amount=Wad.from_number(self.arguments.min_sai_amount),
+                             max_amount=Wad.from_number(self.arguments.max_sai_amount),
+                             dust_cutoff=Wad.from_number(self.arguments.sai_dust_cutoff))
+        self.sell_band = Band(min_margin=self.arguments.min_margin_sell,
+                              avg_margin=self.arguments.avg_margin_sell,
+                              max_margin=self.arguments.max_margin_sell,
+                              min_amount=Wad.from_number(self.arguments.min_weth_amount),
+                              max_amount=Wad.from_number(self.arguments.max_weth_amount),
+                              dust_cutoff=Wad.from_number(self.arguments.weth_dust_cutoff))
         self.round_places = self.arguments.round_places
 
     def args(self, parser: argparse.ArgumentParser):
@@ -122,8 +135,8 @@ class SaiMakerOtc(SaiKeeper):
         """Return buy offers with rates outside allowed margin range."""
         for offer in self.our_buy_offers(active_offers):
             rate = self.rate_buy(offer)
-            rate_min = self.apply_buy_margin(target_price, self.min_margin_buy)
-            rate_max = self.apply_buy_margin(target_price, self.max_margin_buy)
+            rate_min = self.apply_buy_margin(target_price, self.buy_band.min_margin)
+            rate_max = self.apply_buy_margin(target_price, self.buy_band.max_margin)
             if (rate < rate_max) or (rate > rate_min):
                 yield offer
 
@@ -131,8 +144,8 @@ class SaiMakerOtc(SaiKeeper):
         """Return sell offers with rates outside allowed margin range."""
         for offer in self.our_sell_offers(active_offers):
             rate = self.rate_sell(offer)
-            rate_min = self.apply_sell_margin(target_price, self.min_margin_sell)
-            rate_max = self.apply_sell_margin(target_price, self.max_margin_sell)
+            rate_min = self.apply_sell_margin(target_price, self.sell_band.min_margin)
+            rate_max = self.apply_sell_margin(target_price, self.sell_band.max_margin)
             if (rate < rate_min) or (rate > rate_max):
                 yield offer
 
@@ -149,22 +162,22 @@ class SaiMakerOtc(SaiKeeper):
     def new_sell_offer(self, active_offers: list, target_price: Wad):
         """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount."""
         total_amount = self.total_amount(self.our_sell_offers(active_offers))
-        if total_amount < self.min_weth_amount:
+        if total_amount < self.sell_band.min_amount:
             our_balance = self.gem.balance_of(self.our_address)
-            have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
-            if (have_amount >= self.weth_dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount * round(self.apply_sell_margin(target_price, self.avg_margin_sell), self.round_places)
+            have_amount = Wad.min(self.sell_band.max_amount - total_amount, our_balance)
+            if (have_amount >= self.sell_band.dust_cutoff) and (have_amount > Wad(0)):
+                want_amount = have_amount * round(self.apply_sell_margin(target_price, self.sell_band.avg_margin), self.round_places)
                 yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                     want_token=self.sai.address, want_amount=want_amount)
 
     def new_buy_offer(self, active_offers: list, target_price: Wad):
         """If our SAI engagement is below the minimum amount, yield a new offer up to the maximum amount."""
         total_amount = self.total_amount(self.our_buy_offers(active_offers))
-        if total_amount < self.min_sai_amount:
+        if total_amount < self.buy_band.min_amount:
             our_balance = self.sai.balance_of(self.our_address)
-            have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
-            if (have_amount >= self.sai_dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount / round(self.apply_buy_margin(target_price, self.avg_margin_buy), self.round_places)
+            have_amount = Wad.min(self.buy_band.max_amount - total_amount, our_balance)
+            if (have_amount >= self.buy_band.dust_cutoff) and (have_amount > Wad(0)):
+                want_amount = have_amount / round(self.apply_buy_margin(target_price, self.buy_band.avg_margin), self.round_places)
                 yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                                     want_token=self.gem.address, want_amount=want_amount)
 
