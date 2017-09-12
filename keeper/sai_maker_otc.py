@@ -91,12 +91,14 @@ class SaiMakerOtc(SaiKeeper):
                              min_amount=Wad.from_number(self.arguments.min_sai_amount),
                              max_amount=Wad.from_number(self.arguments.max_sai_amount),
                              dust_cutoff=Wad.from_number(self.arguments.sai_dust_cutoff))
+        self.buy_bands = [self.buy_band]
         self.sell_band = Band(min_margin=self.arguments.min_margin_sell,
                               avg_margin=self.arguments.avg_margin_sell,
                               max_margin=self.arguments.max_margin_sell,
                               min_amount=Wad.from_number(self.arguments.min_weth_amount),
                               max_amount=Wad.from_number(self.arguments.max_weth_amount),
                               dust_cutoff=Wad.from_number(self.arguments.weth_dust_cutoff))
+        self.sell_bands = [self.sell_band]
         self.round_places = self.arguments.round_places
 
     def args(self, parser: argparse.ArgumentParser):
@@ -147,8 +149,8 @@ class SaiMakerOtc(SaiKeeper):
         """Update our positions in the order book to reflect keeper parameters."""
         active_offers = self.otc.active_offers()
         target_price = self.tub_target_price()
-        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price, [self.buy_band]),
-                                 self.excessive_sell_offers(active_offers, target_price, [self.sell_band])))
+        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price, self.buy_bands),
+                                 self.excessive_sell_offers(active_offers, target_price, self.sell_bands)))
         self.create_new_offers(active_offers, target_price)
 
     def excessive_buy_offers(self, active_offers: list, target_price: Wad, buy_bands: List[Band]):
