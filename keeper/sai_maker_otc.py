@@ -53,6 +53,7 @@ class Band:
         self.avg_amount = avg_amount
         self.max_amount = max_amount
         self.dust_cutoff = dust_cutoff
+        # TODO check for minimal band width in terms of margin
 
     def does_include_offer(self, offer: OfferInfo, target_price: Wad) -> bool:
         #TODO probably to be replaced with two separate band classes for buy and sell
@@ -171,10 +172,11 @@ class SaiMakerOtc(SaiKeeper):
         """Update our positions in the order book to reflect keeper parameters."""
         active_offers = self.otc.active_offers()
         target_price = self.tub_target_price()
-        self.cancel_offers(chain(self.outside_any_band_buy_offers(active_offers, target_price),
+        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price),
+                                 self.excessive_sell_offers(active_offers, target_price),
+                                 self.outside_any_band_buy_offers(active_offers, target_price),
                                  self.outside_any_band_sell_offers(active_offers, target_price)))
         self.create_new_offers(active_offers, target_price)
-        self.cancel_offers(self.excessive_offers_in_band(self.sell_band, self.our_sell_offers(active_offers), target_price))
         self.top_up_sell_band(self.sell_band, active_offers, target_price)
 
     def outside_any_band_buy_offers(self, active_offers: list, target_price: Wad):
@@ -200,18 +202,26 @@ class SaiMakerOtc(SaiKeeper):
         synchronize([transact.transact_async(self.default_options())
                      for transact in self.new_buy_offer(active_offers, target_price)])
 
-    def excessive_offers_in_band(self, band: Band, offers: list, target_price: Wad):
-        offers_in_band = [offer for offer in offers if band.does_include_offer(offer, target_price)]
-        total_amount = self.total_amount(offers_in_band)
+    def excessive_sell_offers(self, active_offers: list, target_price: Wad):
+        """Return sell offers which need to be cancelled to bring total amounts within all sell bands below maximums."""
+        for band in self.sell_bands:
+            for offer in self.excessive_offers_in_band(band, self.our_sell_offers(active_offers), target_price):
+                yield offer
 
+    def excessive_buy_offers(self, active_offers: list, target_price: Wad):
+        """Return buy offers which need to be cancelled to bring total amounts within all buy bands below maximums."""
+        for band in self.buy_bands:
+            for offer in self.excessive_offers_in_band(band, self.our_buy_offers(active_offers), target_price):
+                yield offer
+
+    def excessive_offers_in_band(self, band: Band, offers: list, target_price: Wad):
+        """Return offers which need to be cancelled to bring the total offer amount in the band below maximum."""
         # if total amount of orders in this band is greater than the maximum, we cancel them all
         #
         # if may not be the best solution as cancelling only some of them could bring us below
         # the maximum, but let's stick to it for now
-        if total_amount > band.max_amount:
-            return offers_in_band
-        else:
-            return []
+        offers_in_band = [offer for offer in offers if band.does_include_offer(offer, target_price)]
+        return offers_in_band if self.total_amount(offers_in_band) > band.max_amount else []
 
     def top_up_sell_band(self, band: Band, active_offers: list, target_price: Wad):
         """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount."""
