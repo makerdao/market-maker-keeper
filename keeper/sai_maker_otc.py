@@ -17,9 +17,12 @@
 
 import argparse
 import operator
+import random
 from functools import reduce
 from itertools import chain
 from typing import List
+
+import math
 
 from keeper.api.approval import directly
 from keeper.api.numeric import Wad
@@ -144,22 +147,22 @@ class SaiMakerOtc(SaiKeeper):
         """Update our positions in the order book to reflect keeper parameters."""
         active_offers = self.otc.active_offers()
         target_price = self.tub_target_price()
-        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price),
-                                 self.excessive_sell_offers(active_offers, target_price)))
+        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price, [self.buy_band]),
+                                 self.excessive_sell_offers(active_offers, target_price, [self.sell_band])))
         self.create_new_offers(active_offers, target_price)
 
-    def excessive_buy_offers(self, active_offers: list, target_price: Wad):
-        """Return buy offers with rates outside allowed margin range."""
+    def excessive_buy_offers(self, active_offers: list, target_price: Wad, buy_bands: List[Band]):
+        """Return buy offers which do not fall into any buy band."""
         for offer in self.our_buy_offers(active_offers):
             rate = self.rate_buy(offer)
-            if not self.buy_band.does_include_rate_buy(rate, target_price):
+            if not any(band.does_include_rate_buy(rate, target_price) for band in buy_bands):
                 yield offer
 
-    def excessive_sell_offers(self, active_offers: list, target_price: Wad):
-        """Return sell offers with rates outside allowed margin range."""
+    def excessive_sell_offers(self, active_offers: list, target_price: Wad, sell_bands: List[Band]):
+        """Return sell offers which do not fall into any sell band."""
         for offer in self.our_sell_offers(active_offers):
             rate = self.rate_sell(offer)
-            if not self.sell_band.does_include_rate_sell(rate, target_price):
+            if not any(band.does_include_rate_sell(rate, target_price) for band in sell_bands):
                 yield offer
 
     def cancel_offers(self, offers):
