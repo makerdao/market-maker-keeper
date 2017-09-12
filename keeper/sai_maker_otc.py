@@ -168,20 +168,20 @@ class SaiMakerOtc(SaiKeeper):
         """Update our positions in the order book to reflect keeper parameters."""
         active_offers = self.otc.active_offers()
         target_price = self.tub_target_price()
-        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price),
-                                 self.excessive_sell_offers(active_offers, target_price)))
+        self.cancel_offers(chain(self.outside_any_band_buy_offers(active_offers, target_price),
+                                 self.outside_any_band_sell_offers(active_offers, target_price)))
         self.create_new_offers(active_offers, target_price)
 
-    def excessive_buy_offers(self, active_offers: list, target_price: Wad):
+    def outside_any_band_buy_offers(self, active_offers: list, target_price: Wad):
         """Return buy offers which do not fall into any buy band."""
-        return self.excessive_offers(self.our_buy_offers(active_offers), self.buy_bands, target_price)
+        return self.outside_any_band_offers(self.our_buy_offers(active_offers), self.buy_bands, target_price)
 
-    def excessive_sell_offers(self, active_offers: list, target_price: Wad):
+    def outside_any_band_sell_offers(self, active_offers: list, target_price: Wad):
         """Return sell offers which do not fall into any sell band."""
-        return self.excessive_offers(self.our_sell_offers(active_offers), self.sell_bands, target_price)
+        return self.outside_any_band_offers(self.our_sell_offers(active_offers), self.sell_bands, target_price)
 
     @staticmethod
-    def excessive_offers(offers: list, bands: List[Band], target_price: Wad):
+    def outside_any_band_offers(offers: list, bands: List[Band], target_price: Wad):
         for offer in offers:
             if not any(band.does_include_offer(offer, target_price) for band in bands):
                 yield offer
