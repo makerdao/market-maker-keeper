@@ -16,14 +16,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import json
 import operator
-import random
 from enum import Enum
 from functools import reduce
 from itertools import chain
 from typing import List
-
-import math
 
 from keeper.api.approval import directly
 from keeper.api.numeric import Wad
@@ -130,37 +128,10 @@ class SaiMakerOtc(SaiKeeper):
     """
     def __init__(self):
         super().__init__()
-        self.buy_bands = [Band(type=BandType.BUY,
-                               min_margin=self.arguments.min_margin_buy,
-                               avg_margin=self.arguments.avg_margin_buy,
-                               max_margin=self.arguments.max_margin_buy,
-                               min_amount=Wad.from_number(self.arguments.min_sai_amount),
-                               avg_amount=Wad.from_number(self.arguments.max_sai_amount),  # TODO for now avg=max
-                               max_amount=Wad.from_number(self.arguments.max_sai_amount),
-                               dust_cutoff=Wad.from_number(self.arguments.sai_dust_cutoff))]
-        self.sell_bands = [Band(type=BandType.SELL,
-                                min_margin=self.arguments.min_margin_sell,
-                                avg_margin=self.arguments.avg_margin_sell,
-                                max_margin=self.arguments.max_margin_sell,
-                                min_amount=Wad.from_number(self.arguments.min_weth_amount),
-                                avg_amount=Wad.from_number(self.arguments.max_weth_amount),  # TODO for now avg=max
-                                max_amount=Wad.from_number(self.arguments.max_weth_amount),
-                                dust_cutoff=Wad.from_number(self.arguments.weth_dust_cutoff))]
         self.round_places = self.arguments.round_places
 
     def args(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--min-margin-buy", help="Minimum margin allowed (buy)", type=float, required=True)
-        parser.add_argument("--avg-margin-buy", help="Target margin, used on new order creation (buy)", type=float, required=True)
-        parser.add_argument("--max-margin-buy", help="Maximum margin allowed (buy)", type=float, required=True)
-        parser.add_argument("--min-margin-sell", help="Minimum margin allowed (sell)", type=float, required=True)
-        parser.add_argument("--avg-margin-sell", help="Target margin, used on new order creation (sell)", type=float, required=True)
-        parser.add_argument("--max-margin-sell", help="Maximum margin allowed (sell)", type=float, required=True)
-        parser.add_argument("--max-weth-amount", help="Maximum value of open WETH sell orders", type=float, required=True)
-        parser.add_argument("--min-weth-amount", help="Minimum value of open WETH sell orders", type=float, required=True)
-        parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float, required=True)
-        parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float, required=True)
-        parser.add_argument("--sai-dust-cutoff", help="Minimum order value (SAI) for buy orders", type=int, default=0)
-        parser.add_argument("--weth-dust-cutoff", help="Minimum order value (WETH) for sell orders", type=int, default=0)
+        parser.add_argument("--config", help="Buy/sell bands configuration file", type=str, required=True)
         parser.add_argument("--round-places", help="Number of decimal places to round order prices to (default=2)", type=int, default=2)
 
     def startup(self):
@@ -181,6 +152,35 @@ class SaiMakerOtc(SaiKeeper):
         """Approve OasisDEX to access our balances, so we can place orders."""
         self.otc.approve([self.gem, self.sai], directly())
 
+    def band_configuration(self):
+        def load_buy_band(dictionary: dict):
+            return Band(type=BandType.BUY,
+                        min_margin=dictionary['minMargin'],
+                        avg_margin=dictionary['avgMargin'],
+                        max_margin=dictionary['maxMargin'],
+                        min_amount=Wad.from_number(dictionary['minSaiAmount']),
+                        avg_amount=Wad.from_number(dictionary['avgSaiAmount']),
+                        max_amount=Wad.from_number(dictionary['maxSaiAmount']),
+                        dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
+
+        def load_sell_band(dictionary: dict):
+            return Band(type=BandType.SELL,
+                        min_margin=dictionary['minMargin'],
+                        avg_margin=dictionary['avgMargin'],
+                        max_margin=dictionary['maxMargin'],
+                        min_amount=Wad.from_number(dictionary['minWEthAmount']),
+                        avg_amount=Wad.from_number(dictionary['avgWEthAmount']),
+                        max_amount=Wad.from_number(dictionary['maxWEthAmount']),
+                        dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
+
+        with open(self.arguments.config) as data_file:
+            data = json.load(data_file)
+            buy_bands = list(map(load_buy_band, data['buyBands']))
+            sell_bands = list(map(load_sell_band, data['sellBands']))
+            # TODO we should check if bands do not intersect
+
+            return buy_bands, sell_bands
+
     def our_offers(self, active_offers: list):
         return list(filter(lambda offer: offer.owner == self.our_address, active_offers))
 
@@ -194,37 +194,39 @@ class SaiMakerOtc(SaiKeeper):
 
     def synchronize_offers(self):
         """Update our positions in the order book to reflect keeper parameters."""
+        buy_bands, sell_bands = self.band_configuration()
         active_offers = self.otc.active_offers()
         target_price = self.tub_target_price()
-        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price),
-                                 self.excessive_sell_offers(active_offers, target_price),
-                                 self.outside_offers(active_offers, target_price)))
+        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, buy_bands, target_price),
+                                 self.excessive_sell_offers(active_offers, sell_bands, target_price),
+                                 self.outside_offers(active_offers, buy_bands, sell_bands, target_price)))
 
-        self.top_up_bands(self.otc.active_offers(), target_price)
+        active_offers = self.otc.active_offers()
+        self.top_up_bands(active_offers, buy_bands, sell_bands, target_price)
 
-    def outside_offers(self, active_offers: list, target_price: Wad):
+    def outside_offers(self, active_offers: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return offers which do not fall into any buy or sell band."""
         def outside_any_band_offers(offers: list, bands: List[Band], target_price: Wad):
             for offer in offers:
                 if not any(band.includes(offer, target_price) for band in bands):
                     yield offer
 
-        return chain(outside_any_band_offers(self.our_buy_offers(active_offers), self.buy_bands, target_price),
-                     outside_any_band_offers(self.our_sell_offers(active_offers), self.sell_bands, target_price))
+        return chain(outside_any_band_offers(self.our_buy_offers(active_offers), buy_bands, target_price),
+                     outside_any_band_offers(self.our_sell_offers(active_offers), sell_bands, target_price))
 
     def cancel_offers(self, offers):
         """Cancel offers asynchronously."""
         synchronize([self.otc.kill(offer.offer_id).transact_async(self.default_options()) for offer in offers])
 
-    def excessive_sell_offers(self, active_offers: list, target_price: Wad):
+    def excessive_sell_offers(self, active_offers: list, sell_bands: list, target_price: Wad):
         """Return sell offers which need to be cancelled to bring total amounts within all sell bands below maximums."""
-        for band in self.sell_bands:
+        for band in sell_bands:
             for offer in self.excessive_offers_in_band(band, self.our_sell_offers(active_offers), target_price):
                 yield offer
 
-    def excessive_buy_offers(self, active_offers: list, target_price: Wad):
+    def excessive_buy_offers(self, active_offers: list, buy_bands: list, target_price: Wad):
         """Return buy offers which need to be cancelled to bring total amounts within all buy bands below maximums."""
-        for band in self.buy_bands:
+        for band in buy_bands:
             for offer in self.excessive_offers_in_band(band, self.our_buy_offers(active_offers), target_price):
                 yield offer
 
@@ -237,18 +239,20 @@ class SaiMakerOtc(SaiKeeper):
         offers_in_band = [offer for offer in offers if band.includes(offer, target_price)]
         return offers_in_band if self.total_amount(offers_in_band) > band.max_amount else []
 
-    def top_up_bands(self, active_offers: list, target_price: Wad):
+    def top_up_bands(self, active_offers: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Asynchronously create new buy and sell offers in all send and buy bands if necessary."""
         synchronize([transact.transact_async(self.default_options())
-                     for transact in chain(self.top_up_buy_bands(active_offers, target_price),
-                                           self.top_up_sell_bands(active_offers, target_price))])
+                     for transact in chain(self.top_up_buy_bands(active_offers, buy_bands, target_price),
+                                           self.top_up_sell_bands(active_offers, sell_bands, target_price))])
 
-    def top_up_sell_bands(self, active_offers: list, target_price: Wad):
+    def top_up_sell_bands(self, active_offers: list, sell_bands: list, target_price: Wad):
         """Ensure our WETH engagement if not below minimum in all sell bands. Yield new offers if necessary."""
-        for band in self.sell_bands:
+        for band in sell_bands:
             offers = [offer for offer in self.our_sell_offers(active_offers) if band.includes(offer, target_price)]
             total_amount = self.total_amount(offers)
             if total_amount < band.min_amount:
+                #TODO balance checking does not work correctly as orders are placed in parallel
+                #TODO it means that if we do not have enough balance for all bands, some txs will fail
                 our_balance = self.gem.balance_of(self.our_address)
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
@@ -256,12 +260,14 @@ class SaiMakerOtc(SaiKeeper):
                     yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                         want_token=self.sai.address, want_amount=want_amount)
 
-    def top_up_buy_bands(self, active_offers: list, target_price: Wad):
+    def top_up_buy_bands(self, active_offers: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement if not below minimum in all buy bands. Yield new offers if necessary."""
-        for band in self.buy_bands:
+        for band in buy_bands:
             offers = [offer for offer in self.our_buy_offers(active_offers) if band.includes(offer, target_price)]
             total_amount = self.total_amount(offers)
             if total_amount < band.min_amount:
+                #TODO balance checking does not work correctly as orders are placed in parallel
+                #TODO it means that if we do not have enough balance for all bands, some txs will fail
                 our_balance = self.sai.balance_of(self.our_address)
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
