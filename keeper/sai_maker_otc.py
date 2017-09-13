@@ -40,11 +40,29 @@ class BandType(Enum):
 
 
 class Band:
-    def __init__(self, type: BandType, min_margin, avg_margin, max_margin, min_amount: Wad, avg_amount: Wad, max_amount: Wad, dust_cutoff: Wad):
+    def __init__(self,
+                 type: BandType,
+                 min_margin: float,
+                 avg_margin: float,
+                 max_margin: float,
+                 min_amount: Wad,
+                 avg_amount: Wad,
+                 max_amount: Wad,
+                 dust_cutoff: Wad):
         assert(isinstance(type, BandType))
+        assert(isinstance(min_margin, float))
+        assert(isinstance(avg_margin, float))
+        assert(isinstance(max_margin, float))
         assert(isinstance(min_amount, Wad))
+        assert(isinstance(avg_amount, Wad))
         assert(isinstance(max_amount, Wad))
         assert(isinstance(dust_cutoff, Wad))
+        assert(min_amount <= avg_amount)
+        assert(avg_amount <= max_amount)
+        assert(min_margin <= avg_margin)
+        assert(avg_margin <= max_margin)
+        assert(min_margin < max_margin)  # if min_margin == max_margin, we wouldn't be able to tell which order
+
         self.type = type
         self.min_margin = min_margin
         self.avg_margin = avg_margin
@@ -53,8 +71,6 @@ class Band:
         self.avg_amount = avg_amount
         self.max_amount = max_amount
         self.dust_cutoff = dust_cutoff
-        # TODO check for minimal band width in terms of margin
-        # TODO check min<avg<max for margines and amounts, otherwise the keeper will go crazy
 
     def includes_offer(self, offer: OfferInfo, target_price: Wad) -> bool:
         #TODO probably to be replaced with two separate band classes for buy and sell
