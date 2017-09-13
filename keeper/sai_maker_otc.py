@@ -213,7 +213,7 @@ class SaiMakerOtc(SaiKeeper):
         return offers_in_band if self.total_amount(offers_in_band) > band.max_amount else []
 
     def top_up_bands(self, active_offers: list, target_price: Wad):
-        """Asynchronously create new buy and sell offers if necessary."""
+        """Asynchronously create new buy and sell offers in all send and buy bands if necessary."""
         synchronize([transact.transact_async(self.default_options())
                      for transact in chain(self.top_up_buy_bands(active_offers, target_price),
                                            self.top_up_sell_bands(active_offers, target_price))])
@@ -221,38 +221,30 @@ class SaiMakerOtc(SaiKeeper):
     def top_up_sell_bands(self, active_offers: list, target_price: Wad):
         """Ensure our WETH engagement if not below minimum in all sell bands. Yield new offers if necessary."""
         for band in self.sell_bands:
-            yield self.top_up_sell_band(active_offers, target_price, band)
-
-    def top_up_sell_band(self, active_offers: list, target_price: Wad, band: Band):
-        """If our WETH engagement in this sell band is below minimum, yield a new offer up to the average amount."""
-        sell_offers_in_band = [sell_offer for sell_offer in self.our_sell_offers(active_offers)
-                               if band.includes_offer(sell_offer, target_price)]
-        total_amount = self.total_amount(sell_offers_in_band)
-        if total_amount < band.min_amount:
-            our_balance = self.gem.balance_of(self.our_address)
-            have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
-            if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount * round(apply_sell_margin(target_price, band.avg_margin), self.round_places)
-                yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
-                                    want_token=self.sai.address, want_amount=want_amount).transact()
+            sell_offers_in_band = [sell_offer for sell_offer in self.our_sell_offers(active_offers)
+                                   if band.includes_offer(sell_offer, target_price)]
+            total_amount = self.total_amount(sell_offers_in_band)
+            if total_amount < band.min_amount:
+                our_balance = self.gem.balance_of(self.our_address)
+                have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
+                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
+                    want_amount = have_amount * round(apply_sell_margin(target_price, band.avg_margin), self.round_places)
+                    yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
+                                        want_token=self.sai.address, want_amount=want_amount)
 
     def top_up_buy_bands(self, active_offers: list, target_price: Wad):
         """Ensure our SAI engagement if not below minimum in all buy bands. Yield new offers if necessary."""
         for band in self.buy_bands:
-            yield self.top_up_buy_band(active_offers, target_price, band)
-
-    def top_up_buy_band(self, active_offers: list, target_price: Wad, band: Band):
-        """If our SAI engagement in this buy band is below minimum, yield a new offer up to the average amount."""
-        buy_offers_in_band = [buy_offer for buy_offer in self.our_buy_offers(active_offers)
-                              if band.includes_offer(buy_offer, target_price)]
-        total_amount = self.total_amount(buy_offers_in_band)
-        if total_amount < band.min_amount:
-            our_balance = self.sai.balance_of(self.our_address)
-            have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
-            if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount / round(apply_buy_margin(target_price, band.avg_margin), self.round_places)
-                yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
-                                    want_token=self.gem.address, want_amount=want_amount)
+            buy_offers_in_band = [buy_offer for buy_offer in self.our_buy_offers(active_offers)
+                                  if band.includes_offer(buy_offer, target_price)]
+            total_amount = self.total_amount(buy_offers_in_band)
+            if total_amount < band.min_amount:
+                our_balance = self.sai.balance_of(self.our_address)
+                have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
+                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
+                    want_amount = have_amount / round(apply_buy_margin(target_price, band.avg_margin), self.round_places)
+                    yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
+                                        want_token=self.gem.address, want_amount=want_amount)
 
     def tub_target_price(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
