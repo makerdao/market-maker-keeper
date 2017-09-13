@@ -250,30 +250,28 @@ class SaiMakerOtc(SaiKeeper):
 
     def top_up_sell_bands(self, active_offers: list, sell_bands: list, target_price: Wad):
         """Ensure our WETH engagement if not below minimum in all sell bands. Yield new offers if necessary."""
+        our_balance = self.gem.balance_of(self.our_address)
         for band in sell_bands:
             offers = [offer for offer in self.our_sell_offers(active_offers) if band.includes(offer, target_price)]
             total_amount = self.total_amount(offers)
             if total_amount < band.min_amount:
-                #TODO balance checking does not work correctly as orders are placed in parallel
-                #TODO it means that if we do not have enough balance for all bands, some txs will fail
-                our_balance = self.gem.balance_of(self.our_address)
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
+                    our_balance = our_balance - have_amount
                     want_amount = have_amount * round(band.avg_price(target_price), self.round_places)
                     yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                         want_token=self.sai.address, want_amount=want_amount)
 
     def top_up_buy_bands(self, active_offers: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement if not below minimum in all buy bands. Yield new offers if necessary."""
+        our_balance = self.sai.balance_of(self.our_address)
         for band in buy_bands:
             offers = [offer for offer in self.our_buy_offers(active_offers) if band.includes(offer, target_price)]
             total_amount = self.total_amount(offers)
             if total_amount < band.min_amount:
-                #TODO balance checking does not work correctly as orders are placed in parallel
-                #TODO it means that if we do not have enough balance for all bands, some txs will fail
-                our_balance = self.sai.balance_of(self.our_address)
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
+                    our_balance = our_balance - have_amount
                     want_amount = have_amount / round(band.avg_price(target_price), self.round_places)
                     yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                                         want_token=self.gem.address, want_amount=want_amount)
