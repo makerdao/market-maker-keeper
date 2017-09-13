@@ -54,8 +54,9 @@ class Band:
         self.max_amount = max_amount
         self.dust_cutoff = dust_cutoff
         # TODO check for minimal band width in terms of margin
+        # TODO check min<avg<max for margines and amounts, otherwise the keeper will go crazy
 
-    def does_include_offer(self, offer: OfferInfo, target_price: Wad) -> bool:
+    def includes_offer(self, offer: OfferInfo, target_price: Wad) -> bool:
         #TODO probably to be replaced with two separate band classes for buy and sell
         if self.type == BandType.BUY:
             rate = rate_buy(offer)
@@ -104,24 +105,22 @@ class SaiMakerOtc(SaiKeeper):
     """
     def __init__(self):
         super().__init__()
-        self.buy_band = Band(type=BandType.BUY,
-                             min_margin=self.arguments.min_margin_buy,
-                             avg_margin=self.arguments.avg_margin_buy,
-                             max_margin=self.arguments.max_margin_buy,
-                             min_amount=Wad.from_number(self.arguments.min_sai_amount),
-                             avg_amount=Wad.from_number(self.arguments.max_sai_amount),  # TODO for now avg=max
-                             max_amount=Wad.from_number(self.arguments.max_sai_amount),
-                             dust_cutoff=Wad.from_number(self.arguments.sai_dust_cutoff))
-        self.buy_bands = [self.buy_band]
-        self.sell_band = Band(type=BandType.SELL,
-                              min_margin=self.arguments.min_margin_sell,
-                              avg_margin=self.arguments.avg_margin_sell,
-                              max_margin=self.arguments.max_margin_sell,
-                              min_amount=Wad.from_number(self.arguments.min_weth_amount),
-                              avg_amount=Wad.from_number(self.arguments.max_weth_amount),  # TODO for now avg=max
-                              max_amount=Wad.from_number(self.arguments.max_weth_amount),
-                              dust_cutoff=Wad.from_number(self.arguments.weth_dust_cutoff))
-        self.sell_bands = [self.sell_band]
+        self.buy_bands = [Band(type=BandType.BUY,
+                               min_margin=self.arguments.min_margin_buy,
+                               avg_margin=self.arguments.avg_margin_buy,
+                               max_margin=self.arguments.max_margin_buy,
+                               min_amount=Wad.from_number(self.arguments.min_sai_amount),
+                               avg_amount=Wad.from_number(self.arguments.max_sai_amount),  # TODO for now avg=max
+                               max_amount=Wad.from_number(self.arguments.max_sai_amount),
+                               dust_cutoff=Wad.from_number(self.arguments.sai_dust_cutoff))]
+        self.sell_bands = [Band(type=BandType.SELL,
+                                min_margin=self.arguments.min_margin_sell,
+                                avg_margin=self.arguments.avg_margin_sell,
+                                max_margin=self.arguments.max_margin_sell,
+                                min_amount=Wad.from_number(self.arguments.min_weth_amount),
+                                avg_amount=Wad.from_number(self.arguments.max_weth_amount),  # TODO for now avg=max
+                                max_amount=Wad.from_number(self.arguments.max_weth_amount),
+                                dust_cutoff=Wad.from_number(self.arguments.weth_dust_cutoff))]
         self.round_places = self.arguments.round_places
 
     def args(self, parser: argparse.ArgumentParser):
@@ -174,33 +173,23 @@ class SaiMakerOtc(SaiKeeper):
         target_price = self.tub_target_price()
         self.cancel_offers(chain(self.excessive_buy_offers(active_offers, target_price),
                                  self.excessive_sell_offers(active_offers, target_price),
-                                 self.outside_any_band_buy_offers(active_offers, target_price),
-                                 self.outside_any_band_sell_offers(active_offers, target_price)))
-        self.create_new_offers(active_offers, target_price)
-        self.top_up_sell_band(self.sell_band, active_offers, target_price)
+                                 self.outside_offers(active_offers, target_price)))
 
-    def outside_any_band_buy_offers(self, active_offers: list, target_price: Wad):
-        """Return buy offers which do not fall into any buy band."""
-        return self.outside_any_band_offers(self.our_buy_offers(active_offers), self.buy_bands, target_price)
+        self.top_up_bands(self.otc.active_offers(), target_price)
 
-    def outside_any_band_sell_offers(self, active_offers: list, target_price: Wad):
-        """Return sell offers which do not fall into any sell band."""
-        return self.outside_any_band_offers(self.our_sell_offers(active_offers), self.sell_bands, target_price)
+    def outside_offers(self, active_offers: list, target_price: Wad):
+        """Return offers which do not fall into any buy or sell band."""
+        def outside_any_band_offers(offers: list, bands: List[Band], target_price: Wad):
+            for offer in offers:
+                if not any(band.includes_offer(offer, target_price) for band in bands):
+                    yield offer
 
-    @staticmethod
-    def outside_any_band_offers(offers: list, bands: List[Band], target_price: Wad):
-        for offer in offers:
-            if not any(band.does_include_offer(offer, target_price) for band in bands):
-                yield offer
+        return chain(outside_any_band_offers(self.our_buy_offers(active_offers), self.buy_bands, target_price),
+                     outside_any_band_offers(self.our_sell_offers(active_offers), self.sell_bands, target_price))
 
     def cancel_offers(self, offers):
         """Cancel offers asynchronously."""
         synchronize([self.otc.kill(offer.offer_id).transact_async(self.default_options()) for offer in offers])
-
-    def create_new_offers(self, active_offers: list, target_price: Wad):
-        """Asynchronously create new buy and sell offers if necessary."""
-        synchronize([transact.transact_async(self.default_options())
-                     for transact in self.new_buy_offer(active_offers, target_price)])
 
     def excessive_sell_offers(self, active_offers: list, target_price: Wad):
         """Return sell offers which need to be cancelled to bring total amounts within all sell bands below maximums."""
@@ -220,42 +209,48 @@ class SaiMakerOtc(SaiKeeper):
         #
         # if may not be the best solution as cancelling only some of them could bring us below
         # the maximum, but let's stick to it for now
-        offers_in_band = [offer for offer in offers if band.does_include_offer(offer, target_price)]
+        offers_in_band = [offer for offer in offers if band.includes_offer(offer, target_price)]
         return offers_in_band if self.total_amount(offers_in_band) > band.max_amount else []
 
-    def top_up_sell_band(self, band: Band, active_offers: list, target_price: Wad):
-        """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount."""
+    def top_up_bands(self, active_offers: list, target_price: Wad):
+        """Asynchronously create new buy and sell offers if necessary."""
+        synchronize([transact.transact_async(self.default_options())
+                     for transact in chain(self.top_up_buy_bands(active_offers, target_price),
+                                           self.top_up_sell_bands(active_offers, target_price))])
+
+    def top_up_sell_bands(self, active_offers: list, target_price: Wad):
+        """Ensure our WETH engagement if not below minimum in all sell bands. Yield new offers if necessary."""
+        for band in self.sell_bands:
+            yield self.top_up_sell_band(active_offers, target_price, band)
+
+    def top_up_sell_band(self, active_offers: list, target_price: Wad, band: Band):
+        """If our WETH engagement in this sell band is below minimum, yield a new offer up to the average amount."""
         sell_offers_in_band = [sell_offer for sell_offer in self.our_sell_offers(active_offers)
-                               if band.does_include_offer(sell_offer, target_price)]
+                               if band.includes_offer(sell_offer, target_price)]
         total_amount = self.total_amount(sell_offers_in_band)
         if total_amount < band.min_amount:
             our_balance = self.gem.balance_of(self.our_address)
             have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
             if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
                 want_amount = have_amount * round(apply_sell_margin(target_price, band.avg_margin), self.round_places)
-                # yield
-                self.otc.make(have_token=self.gem.address, have_amount=have_amount,
+                yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                     want_token=self.sai.address, want_amount=want_amount).transact()
 
-    def new_sell_offer(self, active_offers: list, target_price: Wad):
-        """If our WETH engagement is below the minimum amount, yield a new offer up to the maximum amount."""
-        total_amount = self.total_amount(self.our_sell_offers(active_offers))
-        if total_amount < self.sell_band.min_amount:
-            our_balance = self.gem.balance_of(self.our_address)
-            have_amount = Wad.min(self.sell_band.max_amount - total_amount, our_balance)
-            if (have_amount >= self.sell_band.dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount * round(apply_sell_margin(target_price, self.sell_band.avg_margin), self.round_places)
-                yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
-                                    want_token=self.sai.address, want_amount=want_amount)
+    def top_up_buy_bands(self, active_offers: list, target_price: Wad):
+        """Ensure our SAI engagement if not below minimum in all buy bands. Yield new offers if necessary."""
+        for band in self.buy_bands:
+            yield self.top_up_buy_band(active_offers, target_price, band)
 
-    def new_buy_offer(self, active_offers: list, target_price: Wad):
-        """If our SAI engagement is below the minimum amount, yield a new offer up to the maximum amount."""
-        total_amount = self.total_amount(self.our_buy_offers(active_offers))
-        if total_amount < self.buy_band.min_amount:
+    def top_up_buy_band(self, active_offers: list, target_price: Wad, band: Band):
+        """If our SAI engagement in this buy band is below minimum, yield a new offer up to the average amount."""
+        buy_offers_in_band = [buy_offer for buy_offer in self.our_buy_offers(active_offers)
+                              if band.includes_offer(buy_offer, target_price)]
+        total_amount = self.total_amount(buy_offers_in_band)
+        if total_amount < band.min_amount:
             our_balance = self.sai.balance_of(self.our_address)
-            have_amount = Wad.min(self.buy_band.max_amount - total_amount, our_balance)
-            if (have_amount >= self.buy_band.dust_cutoff) and (have_amount > Wad(0)):
-                want_amount = have_amount / round(apply_buy_margin(target_price, self.buy_band.avg_margin), self.round_places)
+            have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
+            if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
+                want_amount = have_amount / round(apply_buy_margin(target_price, band.avg_margin), self.round_places)
                 yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                                     want_token=self.gem.address, want_amount=want_amount)
 
@@ -266,7 +261,6 @@ class SaiMakerOtc(SaiKeeper):
     @staticmethod
     def total_amount(offers: List[OfferInfo]):
         return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
-
 
 
 if __name__ == '__main__':
