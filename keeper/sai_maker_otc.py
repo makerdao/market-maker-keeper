@@ -75,34 +75,37 @@ class Band:
     def includes(self, offer: OfferInfo, target_price: Wad) -> bool:
         #TODO probably to be replaced with two separate band classes for buy and sell
         if self.type == BandType.BUY:
-            rate = rate_buy(offer)
-            rate_min = apply_buy_margin(target_price, self.min_margin)
-            rate_max = apply_buy_margin(target_price, self.max_margin)
+            rate = self._rate_buy(offer)
+            rate_min = self._apply_buy_margin(target_price, self.min_margin)
+            rate_max = self._apply_buy_margin(target_price, self.max_margin)
             return (rate > rate_max) and (rate <= rate_min)
         else:
-            rate = rate_sell(offer)
-            rate_min = apply_sell_margin(target_price, self.min_margin)
-            rate_max = apply_sell_margin(target_price, self.max_margin)
+            rate = self._rate_sell(offer)
+            rate_min = self._apply_sell_margin(target_price, self.min_margin)
+            rate_max = self._apply_sell_margin(target_price, self.max_margin)
             return (rate > rate_min) and (rate <= rate_max)
 
     def avg_price(self, target_price: Wad) -> Wad:
         if self.type == BandType.BUY:
-            return apply_buy_margin(target_price, self.avg_margin)
+            return self._apply_buy_margin(target_price, self.avg_margin)
         else:
-            return apply_sell_margin(target_price, self.avg_margin)
+            return self._apply_sell_margin(target_price, self.avg_margin)
 
+    @staticmethod
+    def _apply_buy_margin(rate: Wad, margin: float) -> Wad:
+        return rate * Wad.from_number(1 - margin)
 
-def apply_buy_margin(rate: Wad, margin: float) -> Wad:
-    return rate * Wad.from_number(1 - margin)
+    @staticmethod
+    def _apply_sell_margin(rate: Wad, margin: float) -> Wad:
+        return rate * Wad.from_number(1 + margin)
 
-def apply_sell_margin(rate: Wad, margin: float) -> Wad:
-    return rate * Wad.from_number(1 + margin)
+    @staticmethod
+    def _rate_buy(offer: OfferInfo) -> Wad:
+        return offer.sell_how_much / offer.buy_how_much
 
-def rate_buy(offer: OfferInfo) -> Wad:
-    return offer.sell_how_much / offer.buy_how_much
-
-def rate_sell(offer: OfferInfo) -> Wad:
-    return offer.buy_how_much / offer.sell_how_much
+    @staticmethod
+    def _rate_sell(offer: OfferInfo) -> Wad:
+        return offer.buy_how_much / offer.sell_how_much
 
 
 class SaiMakerOtc(SaiKeeper):
