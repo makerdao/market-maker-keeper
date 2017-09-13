@@ -179,6 +179,9 @@ class SaiMakerOtc(SaiKeeper):
             sell_bands = list(map(load_sell_band, data['sellBands']))
             # TODO we should check if bands do not intersect
 
+            # TODO we should sort bands so it we run out of tokens, the bands closest to the
+            # TODO target_price will be served first
+
             return buy_bands, sell_bands
 
     def our_offers(self, active_offers: list):
