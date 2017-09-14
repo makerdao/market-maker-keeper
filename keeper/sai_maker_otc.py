@@ -110,21 +110,35 @@ class SaiMakerOtc(SaiKeeper):
     """SAI keeper to act as a market maker on OasisDEX, on the W-ETH/SAI pair.
 
     Keeper continuously monitors and adjusts its positions in order to act as a market maker.
-    It aims to have open SAI sell orders for at least `--min-sai-amount` and open WETH sell
-    orders for at least `--min-weth-amount`, with their price in the <min-margin,max-margin>
-    range from the current SAI/W-ETH price.
+    It maintains buy and sell orders in multiple bands at the same time. In each buy band,
+    it aims to have open SAI sell orders for at least `minSaiAmount`. In each sell band
+    it aims to have open WETH sell orders for at least `minWEthAmount`. In both cases,
+    it will ensure the price of open orders stays within the <minMargin,maxMargin> range
+    from the current SAI/W-ETH price.
 
-    When started, the keeper places orders for the maximum allowed amounts (`--max-sai-amount`
-    and `--max-weth-amount`) and uses `avg-margin` to calculate the order price.
+    When started, the keeper places orders for the average amounts (`avgSaiAmount`
+    and `avgWEthAmount`) in each band and uses `avgMargin` to calculate the order price.
 
-    As long as the price of existing orders is within the <min-margin,max-margin> range,
-    the keeper keeps them open. If they fall outside that range, they get cancelled.
-    If the total amount of open orders falls below either `--min-sai-amount` or
-    `--min-weth-amount`, a new order gets created for the remaining amount so the total
-    amount of orders is equal to `--max-sai-amount` / `--max-weth-amount`.
+    As long as the price of orders stays within the band (i.e. is in the <minMargin,maxMargin>
+    range from the current SAI/W-ETH price, which is of course constantly moving), the keeper
+    keeps them open. If they leave the band, they either enter another adjacent band
+    or fall outside all bands. In case of the latter, they get immediately cancelled. In case of
+    the former, the keeper can keep these orders open as long as their amount is within the
+    <minSaiAmount,maxSaiAmount> (for buy bands) or <minWEthAmount,maxWEthAmount> (for sell bands)
+    ranges for the band they just entered. If it is above the maximum, all open orders will get
+    cancelled and a new one will be created (for the `avgSaiAmount` / `avgWEthAmount`). If it is below
+    the minimum, a new order gets created for the remaining amount so the total amount of orders
+    in this band is equal to `avgSaiAmount` or `avgWEthAmount`.
 
-    This keeper will constantly use gas to move orders as the SAI/GEM price changes,
-    but it can be limited by setting the margin and amount ranges wide enough.
+    The same thing will happen if the total amount of open orders in a band falls below either
+    `minSaiAmount` or `minWEthAmount` as a result of other market participants taking these orders.
+    In this case also a new order gets created for the remaining amount so the total
+    amount of orders in this band is equal to `avgSaiAmount` / `avgWEthAmount`.
+
+    This keeper will constantly use gas to move orders as the SAI/GEM price changes. Gas usage
+    can be limited by setting the margin and amount ranges wide enough and also by making
+    sure that bands are always adjacent to each other and that their <min,max> amount ranges
+    overlap.
     """
     def __init__(self):
         super().__init__()
