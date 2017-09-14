@@ -18,7 +18,6 @@
 import argparse
 import json
 import operator
-from enum import Enum
 from functools import reduce
 from itertools import chain
 from typing import List
@@ -32,74 +31,68 @@ from keeper.api.feed import DSValue
 from keeper.sai import SaiKeeper
 
 
-class BandType(Enum):
-    BUY = 1
-    SELL = 2
+class BuyBand:
+    def __init__(self, dictionary: dict):
+        self.min_margin=dictionary['minMargin']
+        self.avg_margin=dictionary['avgMargin']
+        self.max_margin=dictionary['maxMargin']
+        self.min_amount=Wad.from_number(dictionary['minSaiAmount'])
+        self.avg_amount=Wad.from_number(dictionary['avgSaiAmount'])
+        self.max_amount=Wad.from_number(dictionary['maxSaiAmount'])
+        self.dust_cutoff=Wad.from_number(dictionary['dustCutoff'])
 
-
-class Band:
-    def __init__(self,
-                 type: BandType,
-                 min_margin: float,
-                 avg_margin: float,
-                 max_margin: float,
-                 min_amount: Wad,
-                 avg_amount: Wad,
-                 max_amount: Wad,
-                 dust_cutoff: Wad):
-        assert(isinstance(type, BandType))
-        assert(isinstance(min_margin, float))
-        assert(isinstance(avg_margin, float))
-        assert(isinstance(max_margin, float))
-        assert(isinstance(min_amount, Wad))
-        assert(isinstance(avg_amount, Wad))
-        assert(isinstance(max_amount, Wad))
-        assert(isinstance(dust_cutoff, Wad))
-        assert(min_amount <= avg_amount)
-        assert(avg_amount <= max_amount)
-        assert(min_margin <= avg_margin)
-        assert(avg_margin <= max_margin)
-        assert(min_margin < max_margin)  # if min_margin == max_margin, we wouldn't be able to tell which order
-
-        self.type = type
-        self.min_margin = min_margin
-        self.avg_margin = avg_margin
-        self.max_margin = max_margin
-        self.min_amount = min_amount
-        self.avg_amount = avg_amount
-        self.max_amount = max_amount
-        self.dust_cutoff = dust_cutoff
+        assert(self.min_amount <= self.avg_amount)
+        assert(self.avg_amount <= self.max_amount)
+        assert(self.min_margin <= self.avg_margin)
+        assert(self.avg_margin <= self.max_margin)
+        assert(self.min_margin < self.max_margin)  # if min_margin == max_margin, we wouldn't be able to tell which order
 
     def includes(self, offer: OfferInfo, target_price: Wad) -> bool:
-        #TODO probably to be replaced with two separate band classes for buy and sell
-        if self.type == BandType.BUY:
-            rate = self._rate_buy(offer)
-            rate_min = self._apply_buy_margin(target_price, self.min_margin)
-            rate_max = self._apply_buy_margin(target_price, self.max_margin)
-            return (rate > rate_max) and (rate <= rate_min)
-        else:
-            rate = self._rate_sell(offer)
-            rate_min = self._apply_sell_margin(target_price, self.min_margin)
-            rate_max = self._apply_sell_margin(target_price, self.max_margin)
-            return (rate > rate_min) and (rate <= rate_max)
+        rate = self._rate_buy(offer)
+        rate_min = self._apply_buy_margin(target_price, self.min_margin)
+        rate_max = self._apply_buy_margin(target_price, self.max_margin)
+        return (rate > rate_max) and (rate <= rate_min)
 
     def avg_price(self, target_price: Wad) -> Wad:
-        if self.type == BandType.BUY:
-            return self._apply_buy_margin(target_price, self.avg_margin)
-        else:
-            return self._apply_sell_margin(target_price, self.avg_margin)
+        return self._apply_buy_margin(target_price, self.avg_margin)
 
     @staticmethod
     def _apply_buy_margin(rate: Wad, margin: float) -> Wad:
         return rate * Wad.from_number(1 - margin)
 
     @staticmethod
-    def _apply_sell_margin(rate: Wad, margin: float) -> Wad:
-        return rate * Wad.from_number(1 + margin)
-
-    @staticmethod
     def _rate_buy(offer: OfferInfo) -> Wad:
         return offer.sell_how_much / offer.buy_how_much
+
+
+class SellBand:
+    def __init__(self, dictionary: dict):
+        self.min_margin=dictionary['minMargin']
+        self.avg_margin=dictionary['avgMargin']
+        self.max_margin=dictionary['maxMargin']
+        self.min_amount=Wad.from_number(dictionary['minWEthAmount'])
+        self.avg_amount=Wad.from_number(dictionary['avgWEthAmount'])
+        self.max_amount=Wad.from_number(dictionary['maxWEthAmount'])
+        self.dust_cutoff=Wad.from_number(dictionary['dustCutoff'])
+
+        assert(self.min_amount <= self.avg_amount)
+        assert(self.avg_amount <= self.max_amount)
+        assert(self.min_margin <= self.avg_margin)
+        assert(self.avg_margin <= self.max_margin)
+        assert(self.min_margin < self.max_margin)  # if min_margin == max_margin, we wouldn't be able to tell which order
+
+    def includes(self, offer: OfferInfo, target_price: Wad) -> bool:
+        rate = self._rate_sell(offer)
+        rate_min = self._apply_sell_margin(target_price, self.min_margin)
+        rate_max = self._apply_sell_margin(target_price, self.max_margin)
+        return (rate > rate_min) and (rate <= rate_max)
+
+    def avg_price(self, target_price: Wad) -> Wad:
+        return self._apply_sell_margin(target_price, self.avg_margin)
+
+    @staticmethod
+    def _apply_sell_margin(rate: Wad, margin: float) -> Wad:
+        return rate * Wad.from_number(1 + margin)
 
     @staticmethod
     def _rate_sell(offer: OfferInfo) -> Wad:
@@ -167,30 +160,10 @@ class SaiMakerOtc(SaiKeeper):
         self.otc.approve([self.gem, self.sai], directly())
 
     def band_configuration(self):
-        def load_buy_band(dictionary: dict):
-            return Band(type=BandType.BUY,
-                        min_margin=dictionary['minMargin'],
-                        avg_margin=dictionary['avgMargin'],
-                        max_margin=dictionary['maxMargin'],
-                        min_amount=Wad.from_number(dictionary['minSaiAmount']),
-                        avg_amount=Wad.from_number(dictionary['avgSaiAmount']),
-                        max_amount=Wad.from_number(dictionary['maxSaiAmount']),
-                        dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
-
-        def load_sell_band(dictionary: dict):
-            return Band(type=BandType.SELL,
-                        min_margin=dictionary['minMargin'],
-                        avg_margin=dictionary['avgMargin'],
-                        max_margin=dictionary['maxMargin'],
-                        min_amount=Wad.from_number(dictionary['minWEthAmount']),
-                        avg_amount=Wad.from_number(dictionary['avgWEthAmount']),
-                        max_amount=Wad.from_number(dictionary['maxWEthAmount']),
-                        dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
-
         with open(self.arguments.config) as data_file:
             data = json.load(data_file)
-            buy_bands = list(map(load_buy_band, data['buyBands']))
-            sell_bands = list(map(load_sell_band, data['sellBands']))
+            buy_bands = list(map(BuyBand, data['buyBands']))
+            sell_bands = list(map(SellBand, data['sellBands']))
             # TODO we should check if bands do not intersect
 
             # TODO we should sort bands so it we run out of tokens, the bands closest to the
@@ -223,7 +196,7 @@ class SaiMakerOtc(SaiKeeper):
 
     def outside_offers(self, active_offers: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return offers which do not fall into any buy or sell band."""
-        def outside_any_band_offers(offers: list, bands: List[Band], target_price: Wad):
+        def outside_any_band_offers(offers: list, bands: list, target_price: Wad):
             for offer in offers:
                 if not any(band.includes(offer, target_price) for band in bands):
                     yield offer
@@ -247,7 +220,7 @@ class SaiMakerOtc(SaiKeeper):
             for offer in self.excessive_offers_in_band(band, self.our_buy_offers(active_offers), target_price):
                 yield offer
 
-    def excessive_offers_in_band(self, band: Band, offers: list, target_price: Wad):
+    def excessive_offers_in_band(self, band, offers: list, target_price: Wad):
         """Return offers which need to be cancelled to bring the total offer amount in the band below maximum."""
         # if total amount of orders in this band is greater than the maximum, we cancel them all
         #
