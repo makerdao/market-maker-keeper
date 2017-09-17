@@ -87,3 +87,42 @@ class TestSaiMakerOtc:
 
         # then
         assert len(keeper.otc.active_offers()) == 2
+
+    def test_should_cancel_offers_on_shutdown(self, sai: SaiDeployment):
+        # given
+        keeper = self.setup_keeper(sai)
+        keeper.max_weth_amount = Wad.from_number(10)
+        keeper.min_weth_amount = Wad.from_number(5)
+        keeper.max_sai_amount = Wad.from_number(100)
+        keeper.min_sai_amount = Wad.from_number(50)
+        keeper.sai_dust_cutoff = Wad.from_number(0)
+        keeper.weth_dust_cutoff = Wad.from_number(0)
+        keeper.min_margin_buy = 0.01
+        keeper.avg_margin_buy = 0.02
+        keeper.max_margin_buy = 0.03
+        keeper.min_margin_sell = 0.02
+        keeper.avg_margin_sell = 0.03
+        keeper.max_margin_sell = 0.04
+        keeper.round_places = 2
+        keeper.arguments = lambda: None
+        keeper.arguments.gas_price = 0
+
+        # and
+        DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
+
+        # and
+        print(sai.tub.pip())
+        DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
+
+        # and
+        keeper.approve()
+        keeper.synchronize_offers()
+        assert len(keeper.otc.active_offers()) == 2
+
+        # when
+        keeper.shutdown()
+
+        # then
+        assert len(keeper.otc.active_offers()) == 0
+
