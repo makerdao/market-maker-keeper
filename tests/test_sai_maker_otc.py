@@ -35,7 +35,7 @@ class TestSaiMakerOtc:
         keeper.web3.eth.defaultAccount = keeper.web3.eth.accounts[0]
         keeper.our_address = Address(keeper.web3.eth.defaultAccount)
         keeper.chain = 'unittest'
-        keeper.config = None  # intentional, don't know how to deal with config in unit tests yet
+        keeper.config = None
         keeper.terminated = False
         keeper.fatal_termination = False
         keeper._last_block_time = None
