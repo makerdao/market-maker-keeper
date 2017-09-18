@@ -237,8 +237,9 @@ class SaiMakerOtc(SaiKeeper):
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
                     our_balance = our_balance - have_amount
                     want_amount = have_amount * round(band.avg_price(target_price), self.round_places)
-                    yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
-                                        want_token=self.sai.address, want_amount=want_amount)
+                    if want_amount > Wad(0):
+                        yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
+                                            want_token=self.sai.address, want_amount=want_amount)
 
     def top_up_buy_bands(self, active_offers: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement if not below minimum in all buy bands. Yield new offers if necessary."""
@@ -251,8 +252,9 @@ class SaiMakerOtc(SaiKeeper):
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
                     our_balance = our_balance - have_amount
                     want_amount = have_amount / round(band.avg_price(target_price), self.round_places)
-                    yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
-                                        want_token=self.gem.address, want_amount=want_amount)
+                    if want_amount > Wad(0):
+                        yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
+                                            want_token=self.gem.address, want_amount=want_amount)
 
     def tub_target_price(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
