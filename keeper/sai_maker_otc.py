@@ -154,8 +154,9 @@ class SaiMakerOtc(SaiKeeper):
             have_amount = Wad.min(self.max_weth_amount - total_amount, our_balance)
             if (have_amount >= self.weth_dust_cutoff) and (have_amount > Wad(0)):
                 want_amount = have_amount * round(self.apply_sell_margin(target_price, self.avg_margin_sell), self.round_places)
-                yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
-                                    want_token=self.sai.address, want_amount=want_amount)
+                if want_amount > Wad(0):
+                    yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
+                                        want_token=self.sai.address, want_amount=want_amount)
 
     def new_buy_offer(self, active_offers: list, target_price: Wad):
         """If our SAI engagement is below the minimum amount, yield a new offer up to the maximum amount."""
@@ -165,8 +166,9 @@ class SaiMakerOtc(SaiKeeper):
             have_amount = Wad.min(self.max_sai_amount - total_amount, our_balance)
             if (have_amount >= self.sai_dust_cutoff) and (have_amount > Wad(0)):
                 want_amount = have_amount / round(self.apply_buy_margin(target_price, self.avg_margin_buy), self.round_places)
-                yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
-                                    want_token=self.gem.address, want_amount=want_amount)
+                if want_amount > Wad(0):
+                    yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
+                                        want_token=self.gem.address, want_amount=want_amount)
 
     def tub_target_price(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
