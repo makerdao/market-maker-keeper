@@ -138,11 +138,11 @@ class SaiMakerOtc(SaiKeeper):
 
     def cancel_offers(self, offers):
         """Cancel offers asynchronously."""
-        synchronize([self.otc.kill(offer.offer_id).transact_async(gas_price=self.gas_price()) for offer in offers])
+        synchronize([self.otc.kill(offer.offer_id).transact_async(gas_price=self.gas_price) for offer in offers])
 
     def create_new_offers(self, active_offers: list, target_price: Wad):
         """Asynchronously create new buy and sell offers if necessary."""
-        synchronize([transact.transact_async(gas_price=self.gas_price())
+        synchronize([transact.transact_async(gas_price=self.gas_price)
                      for transact in chain(self.new_buy_offer(active_offers, target_price),
                                            self.new_sell_offer(active_offers, target_price))])
 
