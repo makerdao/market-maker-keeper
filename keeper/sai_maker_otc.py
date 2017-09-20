@@ -197,7 +197,7 @@ class SaiMakerOtc(SaiKeeper):
 
     def cancel_offers(self, offers):
         """Cancel offers asynchronously."""
-        synchronize([self.otc.kill(offer.offer_id).transact_async(self.default_options()) for offer in offers])
+        synchronize([self.otc.kill(offer.offer_id).transact_async(gas_price=self.gas_price) for offer in offers])
 
     def excessive_sell_offers(self, active_offers: list, sell_bands: list, target_price: Wad):
         """Return sell offers which need to be cancelled to bring total amounts within all sell bands below maximums."""
@@ -222,7 +222,7 @@ class SaiMakerOtc(SaiKeeper):
 
     def top_up_bands(self, active_offers: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Asynchronously create new buy and sell offers in all send and buy bands if necessary."""
-        synchronize([transact.transact_async(self.default_options())
+        synchronize([transact.transact_async(gas_price=self.gas_price)
                      for transact in chain(self.top_up_buy_bands(active_offers, buy_bands, target_price),
                                            self.top_up_sell_bands(active_offers, sell_bands, target_price))])
 
