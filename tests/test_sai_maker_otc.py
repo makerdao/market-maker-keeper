@@ -17,7 +17,7 @@
 
 from web3 import Web3, EthereumTesterProvider
 
-from keeper import Address, ERC20Token, Wad
+from keeper import Address, ERC20Token, Wad, DefaultGasPrice
 from keeper.api.feed import DSValue
 from keeper.api.oasis import SimpleMarket
 from keeper.api.token import DSEthToken, DSToken
@@ -70,8 +70,7 @@ class TestSaiMakerOtc:
         keeper.avg_margin_sell = 0.03
         keeper.max_margin_sell = 0.04
         keeper.round_places = 2
-        keeper.arguments = lambda: None
-        keeper.arguments.gas_price = 0
+        keeper.gas_price = DefaultGasPrice()
 
         # and
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
@@ -104,8 +103,7 @@ class TestSaiMakerOtc:
         keeper.avg_margin_sell = 0.03
         keeper.max_margin_sell = 0.04
         keeper.round_places = 2
-        keeper.arguments = lambda: None
-        keeper.arguments.gas_price = 0
+        keeper.gas_price = DefaultGasPrice()
 
         # and
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
