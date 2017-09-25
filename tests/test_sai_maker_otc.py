@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+import py
 from web3 import Web3, EthereumTesterProvider
 
 from keeper import Address, ERC20Token, Wad, DefaultGasPrice
@@ -54,23 +54,43 @@ class TestSaiMakerOtc:
         ERC20Token.register_token(keeper.tub.gem(), 'WETH')
         return keeper
 
-    def test_should_create_offers_on_startup(self, sai: SaiDeployment):
+    @staticmethod
+    def write_sample_config(file):
+        file.write("""{
+            "buyBands": [
+                {
+                    "minMargin": 0.01,
+                    "avgMargin": 0.02,
+                    "maxMargin": 0.03,
+                    "minSaiAmount": 50.0,
+                    "avgSaiAmount": 75.0,
+                    "maxSaiAmount": 100.0,
+                    "dustCutoff": 0.0
+                }
+            ],
+            "sellBands": [
+                {
+                    "minMargin": 0.02,
+                    "avgMargin": 0.03,
+                    "maxMargin": 0.04,
+                    "minWEthAmount": 5.0,
+                    "avgWEthAmount": 7.5,
+                    "maxWEthAmount": 10.0,
+                    "dustCutoff": 0.0
+                }
+            ]
+        }""")
+
+    def test_should_create_offers_on_startup(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
         keeper = self.setup_keeper(sai)
-        keeper.max_weth_amount = Wad.from_number(10)
-        keeper.min_weth_amount = Wad.from_number(5)
-        keeper.max_sai_amount = Wad.from_number(100)
-        keeper.min_sai_amount = Wad.from_number(50)
-        keeper.sai_dust_cutoff = Wad.from_number(0)
-        keeper.weth_dust_cutoff = Wad.from_number(0)
-        keeper.min_margin_buy = 0.01
-        keeper.avg_margin_buy = 0.02
-        keeper.max_margin_buy = 0.03
-        keeper.min_margin_sell = 0.02
-        keeper.avg_margin_sell = 0.03
-        keeper.max_margin_sell = 0.04
         keeper.round_places = 2
+        keeper.arguments = lambda: None
+        keeper.arguments.config = tmpdir.join("config.json")
         keeper.gas_price = DefaultGasPrice()
+
+        # and
+        self.write_sample_config(keeper.arguments.config)
 
         # and
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
@@ -87,23 +107,16 @@ class TestSaiMakerOtc:
         # then
         assert len(keeper.otc.active_offers()) == 2
 
-    def test_should_cancel_offers_on_shutdown(self, sai: SaiDeployment):
+    def test_should_cancel_offers_on_shutdown(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
         keeper = self.setup_keeper(sai)
-        keeper.max_weth_amount = Wad.from_number(10)
-        keeper.min_weth_amount = Wad.from_number(5)
-        keeper.max_sai_amount = Wad.from_number(100)
-        keeper.min_sai_amount = Wad.from_number(50)
-        keeper.sai_dust_cutoff = Wad.from_number(0)
-        keeper.weth_dust_cutoff = Wad.from_number(0)
-        keeper.min_margin_buy = 0.01
-        keeper.avg_margin_buy = 0.02
-        keeper.max_margin_buy = 0.03
-        keeper.min_margin_sell = 0.02
-        keeper.avg_margin_sell = 0.03
-        keeper.max_margin_sell = 0.04
+        keeper.arguments = lambda: None
+        keeper.arguments.config = tmpdir.join("config.json")
         keeper.round_places = 2
         keeper.gas_price = DefaultGasPrice()
+
+        # and
+        self.write_sample_config(keeper.arguments.config)
 
         # and
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
@@ -123,4 +136,3 @@ class TestSaiMakerOtc:
 
         # then
         assert len(keeper.otc.active_offers()) == 0
-
