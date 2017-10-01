@@ -1,0 +1,3 @@
+#!/bin/sh
+. "$(dirname "$0")"/keeper-prelude
+python3 -m keeper.sai_maker_otc_cancel $@
