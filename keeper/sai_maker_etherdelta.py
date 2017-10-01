@@ -20,6 +20,8 @@ import operator
 from functools import reduce
 from typing import List
 
+import sys
+
 from keeper.api import Address
 from keeper.api.approval import directly
 from keeper.api.feed import DSValue
@@ -37,8 +39,8 @@ class SaiMakerEtherDelta(SaiKeeper):
     was a bit unpredictable in terms of placing orders at the time this keeper
     was developed, we abandoned it and decided to stick to SaiMakerOtc for now.
     """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, args: list, **kwargs):
+        super().__init__(args, **kwargs)
         self.offchain = self.arguments.offchain
         self.order_age = self.arguments.order_age
         self.max_eth_amount = Wad.from_number(self.arguments.max_eth_amount)
@@ -237,4 +239,4 @@ class SaiMakerEtherDelta(SaiKeeper):
 
 
 if __name__ == '__main__':
-    SaiMakerEtherDelta().start()
+    SaiMakerEtherDelta(sys.argv[1:]).start()

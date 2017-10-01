@@ -22,6 +22,8 @@ from functools import reduce
 from itertools import chain
 from typing import List
 
+import sys
+
 from keeper.api.approval import directly
 from keeper.api.numeric import Wad
 from keeper.api.oasis import OfferInfo
@@ -89,7 +91,6 @@ class SellBand:
         return price * Wad.from_number(1 + margin)
 
 
-
 class SaiMakerOtc(SaiKeeper):
     """SAI keeper to act as a market maker on OasisDEX, on the W-ETH/SAI pair.
 
@@ -124,8 +125,8 @@ class SaiMakerOtc(SaiKeeper):
     sure that bands are always adjacent to each other and that their <min,max> amount ranges
     overlap.
     """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, args: list, **kwargs):
+        super().__init__(args, **kwargs)
         self.round_places = self.arguments.round_places
 
     def args(self, parser: argparse.ArgumentParser):
@@ -266,4 +267,4 @@ class SaiMakerOtc(SaiKeeper):
 
 
 if __name__ == '__main__':
-    SaiMakerOtc().start()
+    SaiMakerOtc(sys.argv[1:]).start()

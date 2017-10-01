@@ -17,6 +17,9 @@
 
 import os
 import sys
+
+from keeper import Config
+
 sys.path.append(os.path.dirname(__file__) + "/../..")
 
 import json
@@ -56,6 +59,16 @@ class SaiDeployment:
         self.tub = tub
         self.tap = tap
         self.top = top
+
+    def get_config(self):
+        return Config({
+            'contracts': {
+                "otc": self.tub.address.address, #TODO this is fake!!
+                "saiTub": self.tub.address.address,
+                "saiTap": self.tap.address.address,
+                "saiTop": self.top.address.address
+            }
+        })
 
 
 @pytest.fixture(scope='session')
