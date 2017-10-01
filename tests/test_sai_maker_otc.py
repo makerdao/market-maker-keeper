@@ -14,46 +14,18 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import py
-from web3 import Web3, EthereumTesterProvider
 
-from keeper import Address, ERC20Token, Wad, DefaultGasPrice
+import py
+
+from keeper import Wad
 from keeper.api.feed import DSValue
-from keeper.api.oasis import SimpleMarket
-from keeper.api.token import DSEthToken, DSToken
-from keeper.sai_bite import SaiBite
+from keeper.api.token import DSToken
 from keeper.sai_maker_otc import SaiMakerOtc
 from tests.conftest import SaiDeployment
+from tests.helper import args
 
 
 class TestSaiMakerOtc:
-    @staticmethod
-    def setup_keeper(sai: SaiDeployment):
-        # for Keeper
-        keeper = SaiMakerOtc.__new__(SaiMakerOtc)
-        keeper.web3 = sai.web3
-        keeper.web3.eth.defaultAccount = keeper.web3.eth.accounts[0]
-        keeper.our_address = Address(keeper.web3.eth.defaultAccount)
-        keeper.chain = 'unittest'
-        keeper.config = None
-        keeper.terminated = False
-        keeper.fatal_termination = False
-        keeper._last_block_time = None
-        keeper._on_block_callback = None
-
-        # for SaiKeeper
-        keeper.tub = sai.tub
-        keeper.tap = sai.tap
-        keeper.top = sai.top
-        keeper.otc = SimpleMarket.deploy(keeper.web3)
-        keeper.skr = ERC20Token(web3=keeper.web3, address=keeper.tub.skr())
-        keeper.sai = ERC20Token(web3=keeper.web3, address=keeper.tub.sai())
-        keeper.gem = DSEthToken(web3=keeper.web3, address=keeper.tub.gem())
-        ERC20Token.register_token(keeper.tub.skr(), 'SKR')
-        ERC20Token.register_token(keeper.tub.sai(), 'SAI')
-        ERC20Token.register_token(keeper.tub.gem(), 'WETH')
-        return keeper
-
     @staticmethod
     def write_sample_config(file):
         file.write("""{
@@ -83,21 +55,18 @@ class TestSaiMakerOtc:
 
     def test_should_create_offers_on_startup(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
-        keeper = self.setup_keeper(sai)
-        keeper.round_places = 2
-        keeper.arguments = lambda: None
-        keeper.arguments.config = tmpdir.join("config.json")
-        keeper.gas_price = DefaultGasPrice()
+        config_file = tmpdir.join("config.json")
+        self.write_sample_config(config_file)
 
-        # and
-        self.write_sample_config(keeper.arguments.config)
+        # given
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
 
         # and
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
         DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
 
         # and
-        print(sai.tub.pip())
         DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
 
         # when
@@ -109,21 +78,18 @@ class TestSaiMakerOtc:
 
     def test_should_cancel_offers_on_shutdown(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
-        keeper = self.setup_keeper(sai)
-        keeper.arguments = lambda: None
-        keeper.arguments.config = tmpdir.join("config.json")
-        keeper.round_places = 2
-        keeper.gas_price = DefaultGasPrice()
+        config_file = tmpdir.join("config.json")
+        self.write_sample_config(config_file)
 
-        # and
-        self.write_sample_config(keeper.arguments.config)
+        # given
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
 
         # and
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
         DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
 
         # and
-        print(sai.tub.pip())
         DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
 
         # and

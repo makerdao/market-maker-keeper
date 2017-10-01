@@ -19,6 +19,7 @@ import os
 import sys
 
 from keeper import Config
+from keeper.api.oasis import SimpleMarket, MatchingMarket
 
 sys.path.append(os.path.dirname(__file__) + "/../..")
 
@@ -49,7 +50,8 @@ class SaiDeployment:
                  skr: DSToken,
                  tub: Tub,
                  tap: Tap,
-                 top: Top):
+                 top: Top,
+                 otc: MatchingMarket):
         self.web3 = web3
         self.our_address = our_address
         self.gem = gem
@@ -59,11 +61,12 @@ class SaiDeployment:
         self.tub = tub
         self.tap = tap
         self.top = top
+        self.otc = otc
 
     def get_config(self):
         return Config({
             'contracts': {
-                "otc": self.tub.address.address, #TODO this is fake!!
+                "otc": self.otc.address.address,
                 "saiTub": self.tub.address.address,
                 "saiTap": self.tap.address.address,
                 "saiTop": self.top.address.address
@@ -98,6 +101,7 @@ def new_sai() -> SaiDeployment:
     tub = Tub.deploy(web3, Address(jar), Address(jug), pot.address, pit.address, Address(tip))
     tap = Tap.deploy(web3, tub.address, pit.address)
     top = Top.deploy(web3, tub.address, tap.address)
+    otc = MatchingMarket.deploy(web3, 2600000000)
 
     # set permissions
     dad.permit(DSGuard.ANY, DSGuard.ANY, DSGuard.ANY).transact()
@@ -105,12 +109,15 @@ def new_sai() -> SaiDeployment:
     for auth in [sai, sin, skr, pot, pit, tap, top]:
         auth.set_authority(dad.address).transact()
 
+    # whitelist pairs
+    otc.add_token_pair_whitelist(sai.address, gem.address).transact()
+
     # approve, mint some GEMs
     tub.approve(directly())
     gem.mint(Wad.from_number(1000000)).transact()
 
     web3.currentProvider.rpc_methods.evm_snapshot()
-    return SaiDeployment(web3, our_address, gem, sai, sin, skr, tub, tap, top)
+    return SaiDeployment(web3, our_address, gem, sai, sin, skr, tub, tap, top, otc)
 
 
 @pytest.fixture()
