@@ -79,3 +79,26 @@ class TestSaiMakerOtcCancel:
         # then
         assert len(sai.otc.active_offers()) == 1
         assert sai.otc.active_offers()[0].owner == Address(sai.web3.eth.accounts[1])
+
+    def test_should_use_gas_price_specified(self, sai: SaiDeployment):
+        # given
+        some_gas_price = 15000000000
+        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --gas-price {some_gas_price}"),
+                                   web3=sai.web3, config=sai.get_config())
+
+        # and
+        DSToken(web3=sai.web3, address=sai.gem.address).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=sai.web3, address=sai.sai.address).mint(Wad.from_number(1000)).transact()
+
+        # and
+        sai.otc.approve([sai.gem, sai.sai], directly())
+        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(12)).transact()
+        assert len(sai.otc.active_offers()) == 1
+
+        # when
+        keeper.startup()
+        keeper.shutdown()
+
+        # then
+        assert len(sai.otc.active_offers()) == 0
+        assert sai.web3.eth.getBlock('latest', True)['transactions'][0]['gasPrice'] == some_gas_price
