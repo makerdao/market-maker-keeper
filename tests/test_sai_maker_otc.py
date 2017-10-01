@@ -58,7 +58,7 @@ class TestSaiMakerOtc:
         config_file = tmpdir.join("config.json")
         self.write_sample_config(config_file)
 
-        # given
+        # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
 
@@ -81,7 +81,7 @@ class TestSaiMakerOtc:
         config_file = tmpdir.join("config.json")
         self.write_sample_config(config_file)
 
-        # given
+        # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
 
