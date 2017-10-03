@@ -85,7 +85,7 @@ class TestSaiMakerOtc:
         keeper.synchronize_offers()
 
         # then
-        assert len(keeper.otc.active_offers()) == 2
+        assert len(sai.otc.active_offers()) == 2
 
         # and
         assert self.offers_by_token(sai, sai.sai)[0].owner == sai.our_address
@@ -116,13 +116,13 @@ class TestSaiMakerOtc:
         # and
         keeper.approve()
         keeper.synchronize_offers()
-        assert len(keeper.otc.active_offers()) == 2
+        assert len(sai.otc.active_offers()) == 2
 
         # when
         keeper.shutdown()
 
         # then
-        assert len(keeper.otc.active_offers()) == 0
+        assert len(sai.otc.active_offers()) == 0
 
     def test_should_place_extra_offer_only_if_offer_brought_below_min(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
@@ -139,7 +139,7 @@ class TestSaiMakerOtc:
         # and
         keeper.approve()
         keeper.synchronize_offers()
-        assert len(keeper.otc.active_offers()) == 2
+        assert len(sai.otc.active_offers()) == 2
         sai_offer_id = self.offers_by_token(sai, sai.sai)[0].offer_id
 
         # when
@@ -147,22 +147,22 @@ class TestSaiMakerOtc:
         # and
         keeper.synchronize_offers()
         # then
-        assert len(keeper.otc.active_offers()) == 2
+        assert len(sai.otc.active_offers()) == 2
 
         # when
         sai.otc.take(sai_offer_id, Wad.from_number(5)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(keeper.otc.active_offers()) == 2
+        assert len(sai.otc.active_offers()) == 2
 
         # when
         sai.otc.take(sai_offer_id, Wad.from_number(1)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(keeper.otc.active_offers()) == 3
-        assert keeper.otc.active_offers()[2].sell_how_much == Wad.from_number(26)
-        assert keeper.otc.active_offers()[2].sell_which_token == sai.sai.address
-        assert keeper.otc.active_offers()[2].buy_how_much == Wad(108333333333333333)
-        assert keeper.otc.active_offers()[2].buy_which_token == sai.gem.address
+        assert len(sai.otc.active_offers()) == 3
+        assert sai.otc.active_offers()[2].sell_how_much == Wad.from_number(26)
+        assert sai.otc.active_offers()[2].sell_which_token == sai.sai.address
+        assert sai.otc.active_offers()[2].buy_how_much == Wad(108333333333333333)
+        assert sai.otc.active_offers()[2].buy_which_token == sai.gem.address
