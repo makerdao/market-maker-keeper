@@ -60,6 +60,10 @@ class TestSaiMakerOtc:
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
         DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
 
+    @staticmethod
+    def set_price(sai: SaiDeployment, price: Wad):
+        DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(price.value).transact()
+
     def test_should_create_offers_on_startup(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
         config_file = self.write_sample_config(tmpdir)
@@ -70,9 +74,7 @@ class TestSaiMakerOtc:
 
         # and
         self.mint_tokens(sai)
-
-        # and
-        DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
+        self.set_price(sai, Wad.from_number(250))
 
         # when
         keeper.approve()
@@ -91,9 +93,7 @@ class TestSaiMakerOtc:
 
         # and
         self.mint_tokens(sai)
-
-        # and
-        DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
+        self.set_price(sai, Wad.from_number(250))
 
         # and
         keeper.approve()
@@ -116,9 +116,7 @@ class TestSaiMakerOtc:
 
         # and
         self.mint_tokens(sai)
-
-        # and
-        DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
+        self.set_price(sai, Wad.from_number(250))
 
         # and
         keeper.approve()
