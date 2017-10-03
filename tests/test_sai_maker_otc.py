@@ -27,7 +27,8 @@ from tests.helper import args
 
 class TestSaiMakerOtc:
     @staticmethod
-    def write_sample_config(file):
+    def write_sample_config(tmpdir):
+        file = tmpdir.join("config.json")
         file.write("""{
             "buyBands": [
                 {
@@ -52,11 +53,11 @@ class TestSaiMakerOtc:
                 }
             ]
         }""")
+        return file
 
     def test_should_create_offers_on_startup(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
-        config_file = tmpdir.join("config.json")
-        self.write_sample_config(config_file)
+        config_file = self.write_sample_config(tmpdir)
 
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
@@ -78,8 +79,7 @@ class TestSaiMakerOtc:
 
     def test_should_cancel_offers_on_shutdown(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
-        config_file = tmpdir.join("config.json")
-        self.write_sample_config(config_file)
+        config_file = self.write_sample_config(tmpdir)
 
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
