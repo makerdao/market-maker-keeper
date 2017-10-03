@@ -19,7 +19,7 @@ import py
 
 from keeper import Wad
 from keeper.api.feed import DSValue
-from keeper.api.token import DSToken
+from keeper.api.token import DSToken, ERC20Token
 from keeper.sai_maker_otc import SaiMakerOtc
 from tests.conftest import SaiDeployment
 from tests.helper import args
@@ -32,9 +32,9 @@ class TestSaiMakerOtc:
         file.write("""{
             "buyBands": [
                 {
-                    "minMargin": 0.01,
-                    "avgMargin": 0.02,
-                    "maxMargin": 0.03,
+                    "minMargin": 0.02,
+                    "avgMargin": 0.04,
+                    "maxMargin": 0.06,
                     "minSaiAmount": 50.0,
                     "avgSaiAmount": 75.0,
                     "maxSaiAmount": 100.0,
@@ -44,8 +44,8 @@ class TestSaiMakerOtc:
             "sellBands": [
                 {
                     "minMargin": 0.02,
-                    "avgMargin": 0.03,
-                    "maxMargin": 0.04,
+                    "avgMargin": 0.04,
+                    "maxMargin": 0.06,
                     "minWEthAmount": 5.0,
                     "avgWEthAmount": 7.5,
                     "maxWEthAmount": 10.0,
@@ -63,6 +63,10 @@ class TestSaiMakerOtc:
     @staticmethod
     def set_price(sai: SaiDeployment, price: Wad):
         DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(price.value).transact()
+
+    @staticmethod
+    def offers_by_token(sai: SaiDeployment, token: ERC20Token):
+        return list(filter(lambda offer: offer.sell_which_token == token.address, sai.otc.active_offers()))
 
     def test_should_create_offers_on_startup(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
@@ -82,6 +86,20 @@ class TestSaiMakerOtc:
 
         # then
         assert len(keeper.otc.active_offers()) == 2
+
+        # and
+        assert self.offers_by_token(sai, sai.sai)[0].owner == sai.our_address
+        assert self.offers_by_token(sai, sai.sai)[0].sell_how_much == Wad.from_number(75)
+        assert self.offers_by_token(sai, sai.sai)[0].sell_which_token == sai.sai.address
+        assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.3125)
+        assert self.offers_by_token(sai, sai.sai)[0].buy_which_token == sai.gem.address
+
+        # and
+        assert self.offers_by_token(sai, sai.gem)[0].owner == sai.our_address
+        assert self.offers_by_token(sai, sai.gem)[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_by_token(sai, sai.gem)[0].sell_which_token == sai.gem.address
+        assert self.offers_by_token(sai, sai.gem)[0].buy_how_much == Wad.from_number(1950)
+        assert self.offers_by_token(sai, sai.gem)[0].buy_which_token == sai.sai.address
 
     def test_should_cancel_offers_on_shutdown(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
@@ -122,7 +140,7 @@ class TestSaiMakerOtc:
         keeper.approve()
         keeper.synchronize_offers()
         assert len(keeper.otc.active_offers()) == 2
-        sai_offer_id = list(filter(lambda o: o.sell_which_token == sai.sai.address, keeper.otc.active_offers()))[0].offer_id
+        sai_offer_id = self.offers_by_token(sai, sai.sai)[0].offer_id
 
         # when
         sai.otc.take(sai_offer_id, Wad.from_number(20)).transact()
