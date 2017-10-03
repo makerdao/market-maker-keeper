@@ -102,3 +102,47 @@ class TestSaiMakerOtc:
 
         # then
         assert len(keeper.otc.active_offers()) == 0
+
+    def test_should_place_extra_offer_only_if_offer_brought_below_min(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.write_sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
+
+        # and
+        DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
+
+        # and
+        keeper.approve()
+        keeper.synchronize_offers()
+        assert len(keeper.otc.active_offers()) == 2
+        sai_offer_id = list(filter(lambda o: o.sell_which_token == sai.sai.address, keeper.otc.active_offers()))[0].offer_id
+
+        # when
+        sai.otc.take(sai_offer_id, Wad.from_number(20)).transact()
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(keeper.otc.active_offers()) == 2
+
+        # when
+        sai.otc.take(sai_offer_id, Wad.from_number(5)).transact()
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(keeper.otc.active_offers()) == 2
+
+        # when
+        sai.otc.take(sai_offer_id, Wad.from_number(1)).transact()
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(keeper.otc.active_offers()) == 3
+        assert keeper.otc.active_offers()[2].sell_which_token == sai.sai.address
+        assert keeper.otc.active_offers()[2].sell_how_much == Wad.from_number(26)
