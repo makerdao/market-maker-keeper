@@ -55,6 +55,11 @@ class TestSaiMakerOtc:
         }""")
         return file
 
+    @staticmethod
+    def mint_tokens(sai: SaiDeployment):
+        DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
+
     def test_should_create_offers_on_startup(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
         config_file = self.write_sample_config(tmpdir)
@@ -64,8 +69,7 @@ class TestSaiMakerOtc:
                              web3=sai.web3, config=sai.get_config())
 
         # and
-        DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
-        DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
+        self.mint_tokens(sai)
 
         # and
         DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
@@ -86,8 +90,7 @@ class TestSaiMakerOtc:
                              web3=sai.web3, config=sai.get_config())
 
         # and
-        DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
-        DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
+        self.mint_tokens(sai)
 
         # and
         DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
@@ -112,8 +115,7 @@ class TestSaiMakerOtc:
                              web3=sai.web3, config=sai.get_config())
 
         # and
-        DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
-        DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
+        self.mint_tokens(sai)
 
         # and
         DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(Wad.from_number(250).value).transact()
