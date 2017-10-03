@@ -162,5 +162,7 @@ class TestSaiMakerOtc:
         keeper.synchronize_offers()
         # then
         assert len(keeper.otc.active_offers()) == 3
-        assert keeper.otc.active_offers()[2].sell_which_token == sai.sai.address
         assert keeper.otc.active_offers()[2].sell_how_much == Wad.from_number(26)
+        assert keeper.otc.active_offers()[2].sell_which_token == sai.sai.address
+        assert keeper.otc.active_offers()[2].buy_how_much == Wad(108333333333333333)
+        assert keeper.otc.active_offers()[2].buy_which_token == sai.gem.address
