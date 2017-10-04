@@ -199,7 +199,7 @@ class TestSaiMakerOtc:
         assert sai.otc.active_offers()[2].buy_how_much == Wad(270833333333333333)
         assert sai.otc.active_offers()[2].buy_which_token == sai.gem.address
 
-    def test_should_cancel_all_offers_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_all_buy_offers_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
@@ -241,6 +241,49 @@ class TestSaiMakerOtc:
         assert self.offers_by_token(sai, sai.sai)[0].sell_which_token == sai.sai.address
         assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.78125)
         assert self.offers_by_token(sai, sai.sai)[0].buy_which_token == sai.gem.address
+
+    def test_should_cancel_all_sell_offers_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_offers()
+        assert len(sai.otc.active_offers()) == 2
+
+        # when [7.5+2.0 = 9.5]
+        sai.otc.make(sai.gem.address, Wad.from_number(2), sai.sai.address, Wad.from_number(208)).transact()
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(sai.otc.active_offers()) == 3
+
+        # when [9.5+0.5 = 10]
+        sai.otc.make(sai.gem.address, Wad.from_number(0.5), sai.sai.address, Wad.from_number(52)).transact()
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(sai.otc.active_offers()) == 4
+
+        # when [10+0.1 = 10.1] --> above max!
+        sai.otc.make(sai.gem.address, Wad.from_number(0.1), sai.sai.address, Wad.from_number(10.4)).transact()
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(sai.otc.active_offers()) == 2
+        assert self.offers_by_token(sai, sai.gem)[0].owner == sai.our_address
+        assert self.offers_by_token(sai, sai.gem)[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_by_token(sai, sai.gem)[0].sell_which_token == sai.gem.address
+        assert self.offers_by_token(sai, sai.gem)[0].buy_how_much == Wad.from_number(780)
+        assert self.offers_by_token(sai, sai.gem)[0].buy_which_token == sai.sai.address
 
     def test_should_cancel_all_offers_outside_bands(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
