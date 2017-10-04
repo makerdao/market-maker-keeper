@@ -96,6 +96,10 @@ class TestSaiMakerOtc:
     def offers_by_token(sai: SaiDeployment, token: ERC20Token):
         return list(filter(lambda offer: offer.sell_which_token == token.address, sai.otc.active_offers()))
 
+    @staticmethod
+    def offers_sorted(offers: list) -> list:
+        return sorted(offers, key=lambda offer: (offer.sell_how_much, offer.buy_how_much))
+
     def test_should_create_offers_on_startup(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
@@ -286,15 +290,73 @@ class TestSaiMakerOtc:
         assert len(sai.otc.active_offers()) == 2
 
         # and
-        assert sai.otc.active_offers()[0].owner == sai.our_address
-        assert sai.otc.active_offers()[0].sell_how_much == Wad.from_number(7.5)
-        assert sai.otc.active_offers()[0].sell_which_token == sai.gem.address
-        assert sai.otc.active_offers()[0].buy_how_much == Wad.from_number(780)
-        assert sai.otc.active_offers()[0].buy_which_token == sai.sai.address
+        assert self.offers_sorted(sai.otc.active_offers())[0].owner == sai.our_address
+        assert self.offers_sorted(sai.otc.active_offers())[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_sorted(sai.otc.active_offers())[0].sell_which_token == sai.gem.address
+        assert self.offers_sorted(sai.otc.active_offers())[0].buy_how_much == Wad.from_number(780)
+        assert self.offers_sorted(sai.otc.active_offers())[0].buy_which_token == sai.sai.address
 
         # and
-        assert sai.otc.active_offers()[1].owner == sai.our_address
-        assert sai.otc.active_offers()[1].sell_how_much == Wad.from_number(9.5)
-        assert sai.otc.active_offers()[1].sell_which_token == sai.gem.address
-        assert sai.otc.active_offers()[1].buy_how_much == Wad.from_number(1026)
-        assert sai.otc.active_offers()[1].buy_which_token == sai.sai.address
+        assert self.offers_sorted(sai.otc.active_offers())[1].owner == sai.our_address
+        assert self.offers_sorted(sai.otc.active_offers())[1].sell_how_much == Wad.from_number(9.5)
+        assert self.offers_sorted(sai.otc.active_offers())[1].sell_which_token == sai.gem.address
+        assert self.offers_sorted(sai.otc.active_offers())[1].buy_how_much == Wad.from_number(1026)
+        assert self.offers_sorted(sai.otc.active_offers())[1].buy_which_token == sai.sai.address
+
+    def test_should_take_over_offer_from_adjacent_band_when_price_changes(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.two_adjacent_bands_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_offers()
+
+        # then
+        assert len(sai.otc.active_offers()) == 2
+
+        # and
+        assert self.offers_sorted(sai.otc.active_offers())[0].owner == sai.our_address
+        assert self.offers_sorted(sai.otc.active_offers())[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_sorted(sai.otc.active_offers())[0].sell_which_token == sai.gem.address
+        assert self.offers_sorted(sai.otc.active_offers())[0].buy_how_much == Wad.from_number(780)
+        assert self.offers_sorted(sai.otc.active_offers())[0].buy_which_token == sai.sai.address
+
+        # and
+        assert self.offers_sorted(sai.otc.active_offers())[1].owner == sai.our_address
+        assert self.offers_sorted(sai.otc.active_offers())[1].sell_how_much == Wad.from_number(9.5)
+        assert self.offers_sorted(sai.otc.active_offers())[1].sell_which_token == sai.gem.address
+        assert self.offers_sorted(sai.otc.active_offers())[1].buy_how_much == Wad.from_number(1026)
+        assert self.offers_sorted(sai.otc.active_offers())[1].buy_which_token == sai.sai.address
+
+        # when
+        self.set_price(sai, Wad.from_number(96))
+        # and
+        keeper.synchronize_offers()
+
+        # then
+        assert len(sai.otc.active_offers()) == 2
+
+        # and
+        # ...new offer in the <0.02,0.06> band gets created
+        assert self.offers_sorted(sai.otc.active_offers())[0].owner == sai.our_address
+        assert self.offers_sorted(sai.otc.active_offers())[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_sorted(sai.otc.active_offers())[0].sell_which_token == sai.gem.address
+        assert self.offers_sorted(sai.otc.active_offers())[0].buy_how_much == Wad.from_number(748.8)
+        assert self.offers_sorted(sai.otc.active_offers())[0].buy_which_token == sai.sai.address
+
+        # and
+        # ...the offer from <0.02,0.06> ends up in the <0.06,0.10> band
+        assert self.offers_sorted(sai.otc.active_offers())[1].owner == sai.our_address
+        assert self.offers_sorted(sai.otc.active_offers())[1].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_sorted(sai.otc.active_offers())[1].sell_which_token == sai.gem.address
+        assert self.offers_sorted(sai.otc.active_offers())[1].buy_how_much == Wad.from_number(780)
+        assert self.offers_sorted(sai.otc.active_offers())[1].buy_which_token == sai.sai.address
+
