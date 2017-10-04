@@ -166,3 +166,46 @@ class TestSaiMakerOtc:
         assert sai.otc.active_offers()[2].sell_which_token == sai.sai.address
         assert sai.otc.active_offers()[2].buy_how_much == Wad(108333333333333333)
         assert sai.otc.active_offers()[2].buy_which_token == sai.gem.address
+
+    def test_should_cancel_all_offers_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.write_sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(250))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_offers()
+        assert len(sai.otc.active_offers()) == 2
+
+        # when [50+20 = 70]
+        sai.otc.make(sai.sai.address, Wad.from_number(20), sai.gem.address, Wad.from_number(0.083)).transact()
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(sai.otc.active_offers()) == 3
+
+        # when [50+5 = 75]
+        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(0.02075)).transact()
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(sai.otc.active_offers()) == 4
+
+        # when [75+1 = 76] --> above max!
+        sai.otc.make(sai.sai.address, Wad.from_number(1), sai.gem.address, Wad.from_number(0.00415)).transact()
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(sai.otc.active_offers()) == 2
+        assert self.offers_by_token(sai, sai.sai)[0].owner == sai.our_address
+        assert self.offers_by_token(sai, sai.sai)[0].sell_how_much == Wad.from_number(75)
+        assert self.offers_by_token(sai, sai.sai)[0].sell_which_token == sai.sai.address
+        assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.3125)
+        assert self.offers_by_token(sai, sai.sai)[0].buy_which_token == sai.gem.address
