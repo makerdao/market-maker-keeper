@@ -78,7 +78,7 @@ class TestSaiMakerOtc:
 
         # and
         self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(250))
+        self.set_price(sai, Wad.from_number(100))
 
         # when
         keeper.approve()
@@ -91,14 +91,14 @@ class TestSaiMakerOtc:
         assert self.offers_by_token(sai, sai.sai)[0].owner == sai.our_address
         assert self.offers_by_token(sai, sai.sai)[0].sell_how_much == Wad.from_number(75)
         assert self.offers_by_token(sai, sai.sai)[0].sell_which_token == sai.sai.address
-        assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.3125)
+        assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.78125)
         assert self.offers_by_token(sai, sai.sai)[0].buy_which_token == sai.gem.address
 
         # and
         assert self.offers_by_token(sai, sai.gem)[0].owner == sai.our_address
         assert self.offers_by_token(sai, sai.gem)[0].sell_how_much == Wad.from_number(7.5)
         assert self.offers_by_token(sai, sai.gem)[0].sell_which_token == sai.gem.address
-        assert self.offers_by_token(sai, sai.gem)[0].buy_how_much == Wad.from_number(1950)
+        assert self.offers_by_token(sai, sai.gem)[0].buy_how_much == Wad.from_number(780)
         assert self.offers_by_token(sai, sai.gem)[0].buy_which_token == sai.sai.address
 
     def test_should_cancel_offers_on_shutdown(self, sai: SaiDeployment, tmpdir: py.path.local):
@@ -111,7 +111,7 @@ class TestSaiMakerOtc:
 
         # and
         self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(250))
+        self.set_price(sai, Wad.from_number(100))
 
         # and
         keeper.approve()
@@ -134,7 +134,7 @@ class TestSaiMakerOtc:
 
         # and
         self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(250))
+        self.set_price(sai, Wad.from_number(100))
 
         # and
         keeper.approve()
@@ -164,7 +164,7 @@ class TestSaiMakerOtc:
         assert len(sai.otc.active_offers()) == 3
         assert sai.otc.active_offers()[2].sell_how_much == Wad.from_number(26)
         assert sai.otc.active_offers()[2].sell_which_token == sai.sai.address
-        assert sai.otc.active_offers()[2].buy_how_much == Wad(108333333333333333)
+        assert sai.otc.active_offers()[2].buy_how_much == Wad(270833333333333333)
         assert sai.otc.active_offers()[2].buy_which_token == sai.gem.address
 
     def test_should_cancel_all_offers_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
@@ -177,7 +177,7 @@ class TestSaiMakerOtc:
 
         # and
         self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(250))
+        self.set_price(sai, Wad.from_number(100))
 
         # and
         keeper.approve()
@@ -185,21 +185,21 @@ class TestSaiMakerOtc:
         assert len(sai.otc.active_offers()) == 2
 
         # when [50+20 = 70]
-        sai.otc.make(sai.sai.address, Wad.from_number(20), sai.gem.address, Wad.from_number(0.083)).transact()
+        sai.otc.make(sai.sai.address, Wad.from_number(20), sai.gem.address, Wad.from_number(0.20833)).transact()
         # and
         keeper.synchronize_offers()
         # then
         assert len(sai.otc.active_offers()) == 3
 
         # when [50+5 = 75]
-        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(0.02075)).transact()
+        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(0.052)).transact()
         # and
         keeper.synchronize_offers()
         # then
         assert len(sai.otc.active_offers()) == 4
 
         # when [75+1 = 76] --> above max!
-        sai.otc.make(sai.sai.address, Wad.from_number(1), sai.gem.address, Wad.from_number(0.00415)).transact()
+        sai.otc.make(sai.sai.address, Wad.from_number(1), sai.gem.address, Wad.from_number(0.010416)).transact()
         # and
         keeper.synchronize_offers()
         # then
@@ -207,5 +207,5 @@ class TestSaiMakerOtc:
         assert self.offers_by_token(sai, sai.sai)[0].owner == sai.our_address
         assert self.offers_by_token(sai, sai.sai)[0].sell_how_much == Wad.from_number(75)
         assert self.offers_by_token(sai, sai.sai)[0].sell_which_token == sai.sai.address
-        assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.3125)
+        assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.78125)
         assert self.offers_by_token(sai, sai.sai)[0].buy_which_token == sai.gem.address
