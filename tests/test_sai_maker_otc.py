@@ -27,7 +27,7 @@ from tests.helper import args
 
 class TestSaiMakerOtc:
     @staticmethod
-    def write_sample_config(tmpdir):
+    def sample_config(tmpdir):
         file = tmpdir.join("config.json")
         file.write("""{
             "buyBands": [
@@ -56,6 +56,34 @@ class TestSaiMakerOtc:
         return file
 
     @staticmethod
+    def two_adjacent_bands_config(tmpdir):
+        file = tmpdir.join("config.json")
+        file.write("""{
+            "buyBands": [],
+            "sellBands": [
+                {
+                    "minMargin": 0.02,
+                    "avgMargin": 0.04,
+                    "maxMargin": 0.06,
+                    "minWEthAmount": 5.0,
+                    "avgWEthAmount": 7.5,
+                    "maxWEthAmount": 8.5,
+                    "dustCutoff": 0.0
+                },
+                {
+                    "minMargin": 0.06,
+                    "avgMargin": 0.08,
+                    "maxMargin": 0.10,
+                    "minWEthAmount": 7.0,
+                    "avgWEthAmount": 9.5,
+                    "maxWEthAmount": 12.0,
+                    "dustCutoff": 0.0
+                }
+            ]
+        }""")
+        return file
+
+    @staticmethod
     def mint_tokens(sai: SaiDeployment):
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
         DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
@@ -70,7 +98,7 @@ class TestSaiMakerOtc:
 
     def test_should_create_offers_on_startup(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
-        config_file = self.write_sample_config(tmpdir)
+        config_file = self.sample_config(tmpdir)
 
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
@@ -103,7 +131,7 @@ class TestSaiMakerOtc:
 
     def test_should_cancel_offers_on_shutdown(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
-        config_file = self.write_sample_config(tmpdir)
+        config_file = self.sample_config(tmpdir)
 
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
@@ -126,7 +154,7 @@ class TestSaiMakerOtc:
 
     def test_should_place_extra_offer_only_if_offer_brought_below_min(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
-        config_file = self.write_sample_config(tmpdir)
+        config_file = self.sample_config(tmpdir)
 
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
@@ -169,7 +197,7 @@ class TestSaiMakerOtc:
 
     def test_should_cancel_all_offers_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
-        config_file = self.write_sample_config(tmpdir)
+        config_file = self.sample_config(tmpdir)
 
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
@@ -212,7 +240,7 @@ class TestSaiMakerOtc:
 
     def test_should_cancel_all_offers_outside_bands(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
-        config_file = self.write_sample_config(tmpdir)
+        config_file = self.sample_config(tmpdir)
 
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
@@ -237,3 +265,36 @@ class TestSaiMakerOtc:
         keeper.synchronize_offers()
         # then
         assert len(sai.otc.active_offers()) == 2
+
+    def test_should_create_offers_in_multiple_bands(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.two_adjacent_bands_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_offers()
+
+        # then
+        assert len(sai.otc.active_offers()) == 2
+
+        # and
+        assert sai.otc.active_offers()[0].owner == sai.our_address
+        assert sai.otc.active_offers()[0].sell_how_much == Wad.from_number(7.5)
+        assert sai.otc.active_offers()[0].sell_which_token == sai.gem.address
+        assert sai.otc.active_offers()[0].buy_how_much == Wad.from_number(780)
+        assert sai.otc.active_offers()[0].buy_which_token == sai.sai.address
+
+        # and
+        assert sai.otc.active_offers()[1].owner == sai.our_address
+        assert sai.otc.active_offers()[1].sell_how_much == Wad.from_number(9.5)
+        assert sai.otc.active_offers()[1].sell_which_token == sai.gem.address
+        assert sai.otc.active_offers()[1].buy_how_much == Wad.from_number(1026)
+        assert sai.otc.active_offers()[1].buy_which_token == sai.sai.address
