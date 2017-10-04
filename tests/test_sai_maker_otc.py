@@ -209,3 +209,31 @@ class TestSaiMakerOtc:
         assert self.offers_by_token(sai, sai.sai)[0].sell_which_token == sai.sai.address
         assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.78125)
         assert self.offers_by_token(sai, sai.sai)[0].buy_which_token == sai.gem.address
+
+    def test_should_cancel_all_offers_outside_bands(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.write_sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_offers()
+        assert len(sai.otc.active_offers()) == 2
+
+        # when
+        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(0.0538)).transact() #price=92.936802973977695
+        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(0.0505)).transact() #price=99.0
+        sai.otc.make(sai.gem.address, Wad.from_number(0.5), sai.sai.address, Wad.from_number(50.5)).transact() #price=101
+        sai.otc.make(sai.gem.address, Wad.from_number(0.5), sai.sai.address, Wad.from_number(53.5)).transact() #price=107
+        assert len(sai.otc.active_offers()) == 6
+        # and
+        keeper.synchronize_offers()
+        # then
+        assert len(sai.otc.active_offers()) == 2
