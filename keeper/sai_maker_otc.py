@@ -152,16 +152,16 @@ class SaiMakerOtc(SaiKeeper):
         self.otc.approve([self.gem, self.sai], directly())
 
     def band_configuration(self):
-        with open(self.arguments.config) as data_file:
-            data = json.load(data_file)
-            buy_bands = list(map(BuyBand, data['buyBands']))
-            sell_bands = list(map(SellBand, data['sellBands']))
-            # TODO we should check if bands do not intersect
+        config = self.get_config(self.arguments.config)
+        buy_bands = list(map(BuyBand, config['buyBands']))
+        sell_bands = list(map(SellBand, config['sellBands']))
 
-            # TODO we should sort bands so it we run out of tokens, the bands closest to the
-            # TODO target_price will be served first
+        # TODO we should check if bands do not intersect
 
-            return buy_bands, sell_bands
+        # TODO we should sort bands so it we run out of tokens, the bands closest to the
+        # TODO target_price will be served first
+
+        return buy_bands, sell_bands
 
     def our_offers(self, active_offers: list):
         return list(filter(lambda offer: offer.owner == self.our_address, active_offers))
