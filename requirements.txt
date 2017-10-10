@@ -3,3 +3,5 @@ eth-testrpc == 1.3.0
 sortedcontainers == 1.5.7
 networkx == 1.11
 requests == 2.18.4
+filelock == 2.0.12
+tinydb == 3.6.0
