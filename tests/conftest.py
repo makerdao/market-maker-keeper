@@ -116,13 +116,13 @@ def new_sai() -> SaiDeployment:
     tub.approve(directly())
     gem.mint(Wad.from_number(1000000)).transact()
 
-    web3.currentProvider.rpc_methods.evm_snapshot()
+    web3.providers[0].rpc_methods.evm_snapshot()
     return SaiDeployment(web3, our_address, gem, sai, sin, skr, tub, tap, top, otc)
 
 
 @pytest.fixture()
 def sai(new_sai: SaiDeployment) -> SaiDeployment:
-    new_sai.web3.currentProvider.rpc_methods.evm_revert()
-    new_sai.web3.currentProvider.rpc_methods.evm_snapshot()
+    new_sai.web3.providers[0].rpc_methods.evm_revert()
+    new_sai.web3.providers[0].rpc_methods.evm_snapshot()
     new_sai.otc._none_offers = set()
     return new_sai
