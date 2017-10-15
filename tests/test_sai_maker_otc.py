@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import shutil
+
 import py
 
 from keeper import Wad
@@ -28,7 +30,7 @@ from tests.helper import args
 class TestSaiMakerOtc:
     @staticmethod
     def sample_config(tmpdir):
-        file = tmpdir.join("config.json")
+        file = tmpdir.join("sample_config.json")
         file.write("""{
             "buyBands": [
                 {
@@ -57,7 +59,7 @@ class TestSaiMakerOtc:
 
     @staticmethod
     def two_adjacent_bands_config(tmpdir):
-        file = tmpdir.join("config.json")
+        file = tmpdir.join("two_adjacent_bands_config.json")
         file.write("""{
             "buyBands": [],
             "sellBands": [
@@ -85,7 +87,7 @@ class TestSaiMakerOtc:
 
     @staticmethod
     def with_variables_config(tmpdir):
-        file = tmpdir.join("config.json")
+        file = tmpdir.join("with_variables_config.json")
         file.write("""{
             "variables": {
                 "avgEthBook": 10
@@ -203,6 +205,35 @@ class TestSaiMakerOtc:
         assert self.offers_by_token(sai, sai.gem)[0].sell_which_token == sai.gem.address
         assert self.offers_by_token(sai, sai.gem)[0].buy_how_much == Wad.from_number(520)
         assert self.offers_by_token(sai, sai.gem)[0].buy_which_token == sai.sai.address
+
+    def test_should_reload_config_file_if_changed(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.with_variables_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_offers()
+
+        # then
+        assert len(sai.otc.active_offers()) == 1
+
+        # when
+        second_config_file = self.sample_config(tmpdir)
+        shutil.copyfile(second_config_file, config_file)
+
+        # and
+        keeper.synchronize_offers()
+
+        # then
+        assert len(sai.otc.active_offers()) == 2
 
     def test_should_place_extra_offer_only_if_offer_brought_below_min(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
