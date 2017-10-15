@@ -108,6 +108,34 @@ class TestSaiMakerOtc:
         return file
 
     @staticmethod
+    def bands_overlapping_invalid_config(tmpdir):
+        file = tmpdir.join("bands_overlapping_invalid_config.json")
+        file.write("""{
+            "buyBands": [],
+            "sellBands": [
+                {
+                    "minMargin": 0.02,
+                    "avgMargin": 0.04,
+                    "maxMargin": 0.06,
+                    "minWEthAmount": 5.0,
+                    "avgWEthAmount": 7.5,
+                    "maxWEthAmount": 10.0,
+                    "dustCutoff": 0.0
+                },
+                {
+                    "minMargin": 0.059,
+                    "avgMargin": 0.07,
+                    "maxMargin": 0.08,
+                    "minWEthAmount": 5.0,
+                    "avgWEthAmount": 7.5,
+                    "maxWEthAmount": 10.0,
+                    "dustCutoff": 0.0
+                }
+            ]
+        }""")
+        return file
+
+    @staticmethod
     def mint_tokens(sai: SaiDeployment):
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
         DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
@@ -234,6 +262,28 @@ class TestSaiMakerOtc:
 
         # then
         assert len(sai.otc.active_offers()) == 2
+
+    def test_should_fail_to_operate_if_bands_overlap(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.bands_overlapping_invalid_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_offers()
+
+        # then
+        assert len(sai.otc.active_offers()) == 0
+
+        # and
+        assert keeper.terminated_internally
 
     def test_should_place_extra_offer_only_if_offer_brought_below_min(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given

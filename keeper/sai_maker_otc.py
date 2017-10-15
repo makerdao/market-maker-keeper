@@ -155,7 +155,22 @@ class SaiMakerOtc(SaiKeeper):
         config = self.get_config(self.arguments.config)
         buy_bands = list(map(BuyBand, config['buyBands']))
         sell_bands = list(map(SellBand, config['sellBands']))
-        return buy_bands, sell_bands
+
+        if self.bands_overlap(buy_bands) or self.bands_overlap(sell_bands):
+            self.terminate(f"Bands in the config file overlap. Terminating the keeper.")
+            return [], []
+        else:
+            return buy_bands, sell_bands
+
+    def bands_overlap(self, bands: list):
+        def two_bands_overlap(band1, band2):
+            return band1.min_margin < band2.max_margin and band2.min_margin < band1.max_margin
+
+        for band1 in bands:
+            if len(list(filter(lambda band2: two_bands_overlap(band1, band2), bands))) > 1:
+                return True
+
+        return False
 
     def our_offers(self, active_offers: list):
         return list(filter(lambda offer: offer.owner == self.our_address, active_offers))
