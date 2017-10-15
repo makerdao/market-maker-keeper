@@ -84,6 +84,28 @@ class TestSaiMakerOtc:
         return file
 
     @staticmethod
+    def with_variables_config(tmpdir):
+        file = tmpdir.join("config.json")
+        file.write("""{
+            "variables": {
+                "avgEthBook": 10
+            },
+            "buyBands": [],
+            "sellBands": [
+                {
+                    "minMargin": 0.02,
+                    "avgMargin": 0.04,
+                    "maxMargin": 0.06,
+                    "minWEthAmount": $.variables.avgEthBook * 0.25,
+                    "avgWEthAmount": $.variables.avgEthBook * 0.5,
+                    "maxWEthAmount": $.variables.avgEthBook * 1.0,
+                    "dustCutoff": 0.0
+                }
+            ]
+        }""")
+        return file
+
+    @staticmethod
     def mint_tokens(sai: SaiDeployment):
         DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
         DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
@@ -155,6 +177,32 @@ class TestSaiMakerOtc:
 
         # then
         assert len(sai.otc.active_offers()) == 0
+
+    def test_should_support_config_files_with_variables(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.with_variables_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_offers()
+
+        # then
+        assert len(sai.otc.active_offers()) == 1
+
+        # and
+        assert self.offers_by_token(sai, sai.gem)[0].owner == sai.our_address
+        assert self.offers_by_token(sai, sai.gem)[0].sell_how_much == Wad.from_number(5.0)
+        assert self.offers_by_token(sai, sai.gem)[0].sell_which_token == sai.gem.address
+        assert self.offers_by_token(sai, sai.gem)[0].buy_how_much == Wad.from_number(520)
+        assert self.offers_by_token(sai, sai.gem)[0].buy_which_token == sai.sai.address
 
     def test_should_place_extra_offer_only_if_offer_brought_below_min(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
