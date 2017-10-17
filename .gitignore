@@ -9,5 +9,6 @@ __pycache__
 
 data/*.db
 data/*.lock
+logs/*.json.log
 
 docs/_doc
