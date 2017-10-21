@@ -24,6 +24,7 @@ from typing import List
 
 import sys
 
+from keeper import Event
 from keeper.api.approval import directly
 from keeper.api.numeric import Wad
 from keeper.api.oasis import OfferInfo
@@ -142,10 +143,10 @@ class SaiMakerOtc(SaiKeeper):
         self.cancel_offers(self.our_offers(self.otc.active_offers()))
 
     def print_balances(self):
-        def balances():
-            for token in [self.sai, self.gem]:
-                yield f"{token.balance_of(self.our_address)} {token.name()}"
-        self.logger.info(f"Keeper balances are {', '.join(balances())}.")
+        for token in [self.sai, self.gem]:
+            balance = token.balance_of(self.our_address)
+            self.logger.info(f"Keeper {token.name()} balance is {balance} {token.name()}",
+                             Event.token_balance(self.our_address, token.address, token.name(), balance))
 
     def approve(self):
         """Approve OasisDEX to access our balances, so we can place orders."""
