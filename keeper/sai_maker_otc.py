@@ -137,12 +137,13 @@ class SaiMakerOtc(SaiKeeper):
     def startup(self):
         self.approve()
         self.on_block(self.synchronize_offers)
-        self.every(20*60, self.print_balances)
+        self.every(20 * 60, self.print_eth_balance)
+        self.every(20 * 60, self.print_token_balances)
 
     def shutdown(self):
         self.cancel_offers(self.our_offers(self.otc.active_offers()))
 
-    def print_balances(self):
+    def print_token_balances(self):
         active_offers = self.otc.active_offers()
         for token in [self.sai, self.gem]:
             our_sell_offers = filter(lambda o: o.sell_which_token == token.address, self.our_offers(active_offers))
