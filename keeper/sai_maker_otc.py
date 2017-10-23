@@ -143,10 +143,16 @@ class SaiMakerOtc(SaiKeeper):
         self.cancel_offers(self.our_offers(self.otc.active_offers()))
 
     def print_balances(self):
+        active_offers = self.otc.active_offers()
         for token in [self.sai, self.gem]:
-            balance = token.balance_of(self.our_address)
-            self.logger.info(f"Keeper {token.name()} balance is {balance} {token.name()}",
-                             Event.token_balance(self.our_address, token.address, token.name(), balance))
+            our_sell_offers = filter(lambda o: o.sell_which_token == token.address, self.our_offers(active_offers))
+            balance_in_our_sell_offers = sum(map(lambda o: o.sell_how_much, our_sell_offers), Wad.from_number(0))
+            balance_in_account = token.balance_of(self.our_address)
+            total_balance = balance_in_our_sell_offers + balance_in_account
+            self.logger.info(f"Keeper {token.name()} balance is {total_balance} {token.name()}"
+                             f" ({balance_in_account} {token.name()} in keeper account,"
+                             f" {balance_in_our_sell_offers} {token.name()} in open orders)",
+                             Event.token_balance(self.our_address, token.address, token.name(), total_balance))
 
     def approve(self):
         """Approve OasisDEX to access our balances, so we can place orders."""
