@@ -168,9 +168,9 @@ class SaiMakerEtherDelta(SaiKeeper):
             have_amount = Wad.min(self.max_eth_amount, our_balance) - total_amount
             if have_amount > Wad(0):
                 want_amount = have_amount / self.apply_buy_margin(self.target_rate(), self.avg_margin)
-                self.etherdelta.place_order_offchain(token_get=self.sai.address, amount_get=want_amount,
-                                                     token_give=EtherDelta.ETH_TOKEN, amount_give=have_amount,
-                                                     expires=self.web3.eth.blockNumber+self.order_age)
+                self.etherdelta.create_offchain_order(token_get=self.sai.address, amount_get=want_amount,
+                                                      token_give=EtherDelta.ETH_TOKEN, amount_give=have_amount,
+                                                      expires=self.web3.eth.blockNumber+self.order_age)
 
     def create_new_sell_order(self):
         """If our SAI engagement is below the minimum amount, create a new offer up to the maximum amount"""
@@ -180,9 +180,9 @@ class SaiMakerEtherDelta(SaiKeeper):
             have_amount = Wad.min(self.max_sai_amount, our_balance) - total_amount
             if have_amount > Wad(0):
                 want_amount = have_amount * self.apply_sell_margin(self.target_rate(), self.avg_margin)
-                self.etherdelta.place_order_offchain(token_get=EtherDelta.ETH_TOKEN, amount_get=want_amount,
-                                                     token_give=self.sai.address, amount_give=have_amount,
-                                                     expires=self.web3.eth.blockNumber+self.order_age)
+                self.etherdelta.create_offchain_order(token_get=EtherDelta.ETH_TOKEN, amount_get=want_amount,
+                                                      token_give=self.sai.address, amount_give=have_amount,
+                                                      expires=self.web3.eth.blockNumber+self.order_age)
 
     def deposit_for_buy_orders(self):
         order_total = self.total_amount(self.our_buy_orders())
