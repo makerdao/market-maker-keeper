@@ -22,6 +22,8 @@ from typing import List
 
 import sys
 
+import time
+
 from keeper.api import Address
 from keeper.api.approval import directly
 from keeper.api.feed import DSValue
@@ -56,10 +58,12 @@ class SaiMakerEtherDelta(SaiKeeper):
         if "apiServer" not in self.config.get_config()["etherDelta"]:
             raise Exception("Off-chain EtherDelta orders not supported on this chain")
 
-        self.etherdelta_address = Address(self.config.get_config()["etherDelta"]["contract"])
-        self.etherdelta_api_server = self.config.get_config()["etherDelta"]["apiServer"]
-        self.etherdelta = EtherDelta(web3=self.web3, address=self.etherdelta_address)
-        self.etherdelta_api = EtherDeltaApi(api_server=self.etherdelta_api_server, logger=self.logger)
+        self.etherdelta = EtherDelta(web3=self.web3,
+                                     address=Address(self.config.get_config()["etherDelta"]["contract"]))
+
+        self.etherdelta_api = EtherDeltaApi(contract_address=self.etherdelta.address,
+                                            api_server=self.config.get_config()["etherDelta"]["apiServer"],
+                                            logger=self.logger)
 
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--order-age", help="Age of created orders (in blocks)", type=int, required=True)
@@ -78,9 +82,11 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def startup(self):
         self.approve()
-        # self.etherdelta.place_order_offchain(token_get=self.sai.address, amount_get=Wad.from_number(100),
-        #                                      token_give=EtherDelta.ETH_TOKEN, amount_give=Wad.from_number(0.1),
-        #                                      expires=self.web3.eth.blockNumber+self.order_age)
+        order = self.etherdelta.create_offchain_order(token_get=self.sai.address, amount_get=Wad.from_number(100),
+                                             token_give=EtherDelta.ETH_TOKEN, amount_give=Wad.from_number(0.1),
+                                             expires=self.web3.eth.blockNumber+self.order_age)
+        time.sleep(30)
+        self.etherdelta_api.publish_offchain_order(order)
         # self.on_block(self.synchronize_orders)
         self.every(60*60, self.print_balances)
 
