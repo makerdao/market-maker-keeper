@@ -51,17 +51,15 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.avg_margin = self.arguments.avg_margin
         self.max_margin = self.arguments.max_margin
 
-        self.etherdelta_address = Address(self.config.get_config()["etherDelta"]["contract"])
-        self.etherdelta_api_server = self.config.get_config()["etherDelta"]["apiServer"][1] \
-            if "apiServer" in self.config.get_config()["etherDelta"] \
-            else None
-        self.etherdelta = EtherDelta(web3=self.web3,
-                                     address=self.etherdelta_address,
-                                     api_server=self.etherdelta_api_server)
-        self.etherdelta_api = EtherDeltaApi(self.logger)
-
-        if not self.etherdelta.supports_offchain_orders():
+        # We need to have the API server in order for this keeper to run.
+        # Unfortunately it means it can be run only on Mainnet as there is no test server.
+        if "apiServer" not in self.config.get_config()["etherDelta"]:
             raise Exception("Off-chain EtherDelta orders not supported on this chain")
+
+        self.etherdelta_address = Address(self.config.get_config()["etherDelta"]["contract"])
+        self.etherdelta_api_server = self.config.get_config()["etherDelta"]["apiServer"]
+        self.etherdelta = EtherDelta(web3=self.web3, address=self.etherdelta_address)
+        self.etherdelta_api = EtherDeltaApi(api_server=self.etherdelta_api_server, logger=self.logger)
 
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--order-age", help="Age of created orders (in blocks)", type=int, required=True)
@@ -99,14 +97,8 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.etherdelta.approve([self.sai], directly())
 
     def our_orders(self):
-        # TODO what if the same order gets reported twice, once as an onchain and once as an offchain order.
-        # I think it's very likely
         onchain_orders = self.etherdelta.active_onchain_orders()
-        offchain_orders = self.etherdelta.active_offchain_orders(self.sai.address, EtherDelta.ETH_TOKEN) \
-            if self.etherdelta.supports_offchain_orders() \
-            else []
-
-        return list(filter(lambda order: order.user == self.our_address, onchain_orders + offchain_orders))
+        return list(filter(lambda order: order.user == self.our_address, onchain_orders))
 
     def our_buy_orders(self):
         return list(filter(lambda order: order.token_get == self.sai.address and
