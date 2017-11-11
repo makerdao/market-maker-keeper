@@ -27,7 +27,7 @@ from keeper.api.approval import directly
 from keeper.api.feed import DSValue
 from keeper.api.numeric import Wad
 
-from keeper.api.etherdelta import EtherDelta, Order
+from keeper.api.etherdelta import EtherDelta, Order, EtherDeltaApi
 from keeper.sai import SaiKeeper
 
 
@@ -58,6 +58,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.etherdelta = EtherDelta(web3=self.web3,
                                      address=self.etherdelta_address,
                                      api_server=self.etherdelta_api_server)
+        self.etherdelta_api = EtherDeltaApi(self.logger)
 
         if not self.etherdelta.supports_offchain_orders():
             raise Exception("Off-chain EtherDelta orders not supported on this chain")
@@ -75,11 +76,11 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def startup(self):
         self.approve()
-        self.etherdelta.place_order_offchain(token_get=self.sai.address, amount_get=Wad.from_number(100),
-                                             token_give=EtherDelta.ETH_TOKEN, amount_give=Wad.from_number(0.1),
-                                             expires=self.web3.eth.blockNumber+self.order_age)
+        # self.etherdelta.place_order_offchain(token_get=self.sai.address, amount_get=Wad.from_number(100),
+        #                                      token_give=EtherDelta.ETH_TOKEN, amount_give=Wad.from_number(0.1),
+        #                                      expires=self.web3.eth.blockNumber+self.order_age)
         # self.on_block(self.synchronize_orders)
-        # self.every(60*60, self.print_balances)
+        self.every(60*60, self.print_balances)
 
     def shutdown(self):
         self.cancel_all_orders()
