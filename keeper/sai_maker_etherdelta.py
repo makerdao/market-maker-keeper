@@ -75,8 +75,11 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def startup(self):
         self.approve()
-        self.on_block(self.synchronize_orders)
-        self.every(60*60, self.print_balances)
+        self.etherdelta.place_order_offchain(token_get=self.sai.address, amount_get=Wad.from_number(100),
+                                             token_give=EtherDelta.ETH_TOKEN, amount_give=Wad.from_number(0.1),
+                                             expires=self.web3.eth.blockNumber+self.order_age)
+        # self.on_block(self.synchronize_orders)
+        # self.every(60*60, self.print_balances)
 
     def shutdown(self):
         self.cancel_all_orders()
