@@ -16,7 +16,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import json
 import operator
 from functools import reduce
 from itertools import chain
@@ -31,65 +30,8 @@ from keeper.api.oasis import OfferInfo
 from keeper.api.util import synchronize
 
 from keeper.api.feed import DSValue
+from keeper.band import BuyBand, SellBand
 from keeper.sai import SaiKeeper
-
-
-class BuyBand:
-    def __init__(self, dictionary: dict):
-        self.min_margin=dictionary['minMargin']
-        self.avg_margin=dictionary['avgMargin']
-        self.max_margin=dictionary['maxMargin']
-        self.min_amount=Wad.from_number(dictionary['minSaiAmount'])
-        self.avg_amount=Wad.from_number(dictionary['avgSaiAmount'])
-        self.max_amount=Wad.from_number(dictionary['maxSaiAmount'])
-        self.dust_cutoff=Wad.from_number(dictionary['dustCutoff'])
-
-        assert(self.min_amount <= self.avg_amount)
-        assert(self.avg_amount <= self.max_amount)
-        assert(self.min_margin <= self.avg_margin)
-        assert(self.avg_margin <= self.max_margin)
-        assert(self.min_margin < self.max_margin)  # if min_margin == max_margin, we wouldn't be able to tell which order
-
-    def includes(self, offer: OfferInfo, target_price: Wad) -> bool:
-        price = offer.sell_how_much / offer.buy_how_much
-        price_min = self.apply_margin(target_price, self.min_margin)
-        price_max = self.apply_margin(target_price, self.max_margin)
-        return (price > price_max) and (price <= price_min)
-
-    def avg_price(self, target_price: Wad) -> Wad:
-        return self.apply_margin(target_price, self.avg_margin)
-
-    def apply_margin(self, price: Wad, margin: float) -> Wad:
-        return price * Wad.from_number(1 - margin)
-
-
-class SellBand:
-    def __init__(self, dictionary: dict):
-        self.min_margin=dictionary['minMargin']
-        self.avg_margin=dictionary['avgMargin']
-        self.max_margin=dictionary['maxMargin']
-        self.min_amount=Wad.from_number(dictionary['minWEthAmount'])
-        self.avg_amount=Wad.from_number(dictionary['avgWEthAmount'])
-        self.max_amount=Wad.from_number(dictionary['maxWEthAmount'])
-        self.dust_cutoff=Wad.from_number(dictionary['dustCutoff'])
-
-        assert(self.min_amount <= self.avg_amount)
-        assert(self.avg_amount <= self.max_amount)
-        assert(self.min_margin <= self.avg_margin)
-        assert(self.avg_margin <= self.max_margin)
-        assert(self.min_margin < self.max_margin)  # if min_margin == max_margin, we wouldn't be able to tell which order
-
-    def includes(self, offer: OfferInfo, target_price: Wad) -> bool:
-        price = offer.buy_how_much / offer.sell_how_much
-        price_min = self.apply_margin(target_price, self.min_margin)
-        price_max = self.apply_margin(target_price, self.max_margin)
-        return (price > price_min) and (price <= price_max)
-
-    def avg_price(self, target_price: Wad) -> Wad:
-        return self.apply_margin(target_price, self.avg_margin)
-
-    def apply_margin(self, price: Wad, margin: float) -> Wad:
-        return price * Wad.from_number(1 + margin)
 
 
 class SaiMakerOtc(SaiKeeper):

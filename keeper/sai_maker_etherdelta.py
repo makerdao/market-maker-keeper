@@ -17,19 +17,15 @@
 
 import argparse
 import operator
+import sys
 from functools import reduce
 from typing import List
 
-import sys
-
-import time
-
 from keeper.api import Address
 from keeper.api.approval import directly
+from keeper.api.etherdelta import EtherDelta, Order, EtherDeltaApi, OffChainOrder
 from keeper.api.feed import DSValue
 from keeper.api.numeric import Wad
-
-from keeper.api.etherdelta import EtherDelta, Order, EtherDeltaApi, OffChainOrder
 from keeper.sai import SaiKeeper
 
 
