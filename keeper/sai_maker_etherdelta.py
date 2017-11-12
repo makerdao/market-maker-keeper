@@ -29,7 +29,7 @@ from keeper.api.approval import directly
 from keeper.api.feed import DSValue
 from keeper.api.numeric import Wad
 
-from keeper.api.etherdelta import EtherDelta, Order, EtherDeltaApi
+from keeper.api.etherdelta import EtherDelta, Order, EtherDeltaApi, OffChainOrder
 from keeper.sai import SaiKeeper
 
 
@@ -65,6 +65,8 @@ class SaiMakerEtherDelta(SaiKeeper):
                                             api_server=self.config.get_config()["etherDelta"]["apiServer"],
                                             logger=self.logger)
 
+        self.our_orders = set()
+
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--order-age", help="Age of created orders (in blocks)", type=int, required=True)
         parser.add_argument("--min-margin", help="Minimum margin allowed", type=float, required=True)
@@ -85,10 +87,10 @@ class SaiMakerEtherDelta(SaiKeeper):
         order = self.etherdelta.create_offchain_order(token_get=self.sai.address, amount_get=Wad.from_number(100),
                                              token_give=EtherDelta.ETH_TOKEN, amount_give=Wad.from_number(0.1),
                                              expires=self.web3.eth.blockNumber+self.order_age)
-        time.sleep(30)
-        self.etherdelta_api.publish_offchain_order(order)
+        self.place_order(order)
         # self.on_block(self.synchronize_orders)
         self.every(60*60, self.print_balances)
+        self.every(20, self.publish_orders)
 
     def shutdown(self):
         self.cancel_all_orders()
@@ -107,17 +109,25 @@ class SaiMakerEtherDelta(SaiKeeper):
         """Approve EtherDelta to access our SAI, so we can deposit it with the exchange"""
         self.etherdelta.approve([self.sai], directly())
 
-    def our_orders(self):
-        onchain_orders = self.etherdelta.active_onchain_orders()
-        return list(filter(lambda order: order.user == self.our_address, onchain_orders))
+    def place_order(self, order: OffChainOrder):
+        self.logger.info(f"Placing off-chain EtherDelta order ('{order.token_get}',"
+                         f" '{order.amount_get}', '{order.token_give}', '{order.amount_give}', '{order.expires}',"
+                         f" '{order.nonce}') in progress...")
+
+        self.our_orders.add(order)
+        self.etherdelta_api.publish_offchain_order(order)
+
+    def publish_orders(self):
+        for order in self.our_orders:
+            self.etherdelta_api.publish_offchain_order(order)
 
     def our_buy_orders(self):
         return list(filter(lambda order: order.token_get == self.sai.address and
-                                         order.token_give == EtherDelta.ETH_TOKEN, self.our_orders()))
+                                         order.token_give == EtherDelta.ETH_TOKEN, self.our_orders))
 
     def our_sell_orders(self):
         return list(filter(lambda order: order.token_get == EtherDelta.ETH_TOKEN and
-                                         order.token_give == self.sai.address, self.our_orders()))
+                                         order.token_give == self.sai.address, self.our_orders))
 
     def synchronize_orders(self):
         """Update our positions in the order book to reflect settings."""
