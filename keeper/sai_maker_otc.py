@@ -187,7 +187,7 @@ class SaiMakerOtc(SaiKeeper):
                                            self.top_up_sell_bands(active_offers, sell_bands, target_price))])
 
     def top_up_sell_bands(self, active_offers: list, sell_bands: list, target_price: Wad):
-        """Ensure our WETH engagement if not below minimum in all sell bands. Yield new offers if necessary."""
+        """Ensure our WETH engagement is not below minimum in all sell bands. Yield new offers if necessary."""
         our_balance = self.gem.balance_of(self.our_address)
         for band in sell_bands:
             offers = [offer for offer in self.our_sell_offers(active_offers) if band.includes(offer, target_price)]
@@ -202,7 +202,7 @@ class SaiMakerOtc(SaiKeeper):
                                             want_token=self.sai.address, want_amount=want_amount)
 
     def top_up_buy_bands(self, active_offers: list, buy_bands: list, target_price: Wad):
-        """Ensure our SAI engagement if not below minimum in all buy bands. Yield new offers if necessary."""
+        """Ensure our SAI engagement is not below minimum in all buy bands. Yield new offers if necessary."""
         our_balance = self.sai.balance_of(self.our_address)
         for band in buy_bands:
             offers = [offer for offer in self.our_buy_offers(active_offers) if band.includes(offer, target_price)]
