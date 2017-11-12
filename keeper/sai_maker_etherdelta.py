@@ -78,9 +78,13 @@ class SaiMakerEtherDelta(SaiKeeper):
         parser.add_argument("--max-sai-amount", help="Maximum value of open SAI sell orders", type=float, required=True)
         parser.add_argument("--min-sai-amount", help="Minimum value of open SAI sell orders", type=float, required=True)
 
+        parser.add_argument('--cancel-on-shutdown', dest='cancel_on_shutdown', action='store_true',
+                            help="Whether should cancel all open orders on EtherDelta on keeper shutdown")
+
         parser.add_argument('--withdraw-on-shutdown', dest='withdraw_on_shutdown', action='store_true',
                             help="Whether should withdraw all tokens from EtherDelta on keeper shutdown")
-        parser.set_defaults(withdraw_on_shutdown=False)
+
+        parser.set_defaults(cancel_on_shutdown=False, withdraw_on_shutdown=False)
 
     def startup(self):
         self.approve()
@@ -92,7 +96,9 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.every(60*60, self.print_balances)
 
     def shutdown(self):
-        self.cancel_all_orders()
+        if self.arguments.cancel_on_shutdown:
+            self.cancel_all_orders()
+
         if self.arguments.withdraw_on_shutdown:
             self.withdraw_everything()
 
