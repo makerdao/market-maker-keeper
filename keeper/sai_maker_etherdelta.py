@@ -90,7 +90,6 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.place_order(order)
         # self.on_block(self.synchronize_orders)
         self.every(60*60, self.print_balances)
-        self.every(20, self.publish_orders)
 
     def shutdown(self):
         self.cancel_all_orders()
@@ -110,16 +109,8 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.etherdelta.approve([self.sai], directly())
 
     def place_order(self, order: OffChainOrder):
-        self.logger.info(f"Placing off-chain EtherDelta order ('{order.token_get}',"
-                         f" '{order.amount_get}', '{order.token_give}', '{order.amount_give}', '{order.expires}',"
-                         f" '{order.nonce}') in progress...")
-
         self.our_orders.add(order)
         self.etherdelta_api.publish_offchain_order(order)
-
-    def publish_orders(self):
-        for order in self.our_orders:
-            self.etherdelta_api.publish_offchain_order(order)
 
     def our_buy_orders(self):
         return list(filter(lambda order: order.token_get == self.sai.address and
@@ -161,7 +152,7 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def cancel_all_orders(self):
         """Cancel all our orders."""
-        for order in self.our_orders():
+        for order in self.our_orders:
             self.etherdelta.cancel_order(order).transact()
 
     def withdraw_everything(self):
