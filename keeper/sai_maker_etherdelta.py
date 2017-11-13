@@ -59,7 +59,8 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.our_orders = set()
 
     def args(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--config", help="Buy/sell bands configuration file", type=str, required=True)
+        parser.add_argument("--config", type=str, required=True,
+                            help="Buy/sell bands configuration file")
 
         parser.add_argument("--order-age", type=int, required=True,
                             help="Age of created orders (in blocks)")
@@ -67,7 +68,8 @@ class SaiMakerEtherDelta(SaiKeeper):
         parser.add_argument("--order-expiry-threshold", type=int, default=0,
                             help="Order age at which order is considered already expired (in blocks)")
 
-        parser.add_argument("--eth-reserve", help="Minimum amount of ETH to keep in order to cover gas", type=float, required=True)
+        parser.add_argument("--eth-reserve", type=float, required=True,
+                            help="Minimum amount of ETH to keep in order to cover gas")
 
         parser.add_argument('--cancel-on-shutdown', dest='cancel_on_shutdown', action='store_true',
                             help="Whether should cancel all open orders on EtherDelta on keeper shutdown")
