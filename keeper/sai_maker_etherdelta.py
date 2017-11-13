@@ -43,6 +43,8 @@ class SaiMakerEtherDelta(SaiKeeper):
         super().__init__(args, **kwargs)
         self.order_age = self.arguments.order_age
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
+        self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
+        self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
 
         # We need to have the API server in order for this keeper to run.
         # Unfortunately it means it can be run only on Mainnet as there is no test server.
@@ -70,6 +72,12 @@ class SaiMakerEtherDelta(SaiKeeper):
 
         parser.add_argument("--eth-reserve", type=float, required=True,
                             help="Minimum amount of ETH to keep in order to cover gas")
+
+        parser.add_argument("--min-eth-deposit", type=float, required=True,
+                            help="Minimum amount of ETH that can be deposited in one transaction")
+
+        parser.add_argument("--min-sai-deposit", type=float, required=True,
+                            help="Minimum amount of SAI that can be deposited in one transaction")
 
         parser.add_argument('--cancel-on-shutdown', dest='cancel_on_shutdown', action='store_true',
                             help="Whether should cancel all open orders on EtherDelta on keeper shutdown")
@@ -148,12 +156,6 @@ class SaiMakerEtherDelta(SaiKeeper):
                                  self.outside_offers(buy_bands, sell_bands, target_price)))
         self.top_up_bands(buy_bands, sell_bands, target_price)
 
-        # TODO apparently deposits have to be made before we place orders, otherwise the EtherDelta backend
-        # TODO seems to ignore new offchain orders. even if we deposit the tokens shortly afterwards, the orders
-        # TODO will not reappear
-        # self.deposit_for_buy_orders()
-        # self.deposit_for_sell_orders()
-
     def remove_expired_orders(self, block_number: int):
         self.our_orders = set(filter(lambda order: order.expires - block_number > self.arguments.order_expiry_threshold,
                                      self.our_orders))
@@ -207,7 +209,7 @@ class SaiMakerEtherDelta(SaiKeeper):
             self.etherdelta.withdraw_token(self.sai.address, sai_balance).transact()
 
     def top_up_bands(self, buy_bands: list, sell_bands: list, target_price: Wad):
-        """Asynchronously create new buy and sell offers in all send and buy bands if necessary."""
+        """Create new buy and sell offers in all send and buy bands if necessary."""
         self.top_up_buy_bands(buy_bands, target_price)
         self.top_up_sell_bands(sell_bands, target_price)
 
@@ -223,10 +225,14 @@ class SaiMakerEtherDelta(SaiKeeper):
                     our_balance = our_balance - have_amount
                     want_amount = self.fix_amount(have_amount * round(band.avg_price(target_price)))
                     if want_amount > Wad(0):
-                        self.place_order(
-                            self.etherdelta.create_offchain_order(token_get=self.sai.address, amount_get=want_amount,
-                                                                  token_give=EtherDelta.ETH_TOKEN, amount_give=have_amount,
-                                                                  expires=self.web3.eth.blockNumber+self.order_age))
+                        order = self.etherdelta.create_offchain_order(token_get=self.sai.address,
+                                                                      amount_get=want_amount,
+                                                                      token_give=EtherDelta.ETH_TOKEN,
+                                                                      amount_give=have_amount,
+                                                                      expires=self.web3.eth.blockNumber + self.order_age)
+                        if self.deposit_for_sell_order_if_needed(order):
+                            return
+                        self.place_order(order)
 
     def top_up_buy_bands(self, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Place new offers if necessary."""
@@ -240,37 +246,44 @@ class SaiMakerEtherDelta(SaiKeeper):
                     our_balance = our_balance - have_amount
                     want_amount = self.fix_amount(have_amount / round(band.avg_price(target_price)))
                     if want_amount > Wad(0):
-                        self.place_order(
-                            self.etherdelta.create_offchain_order(token_get=EtherDelta.ETH_TOKEN, amount_get=want_amount,
-                                                                  token_give=self.sai.address, amount_give=have_amount,
-                                                                  expires=self.web3.eth.blockNumber+self.order_age))
-
-    def deposit_for_buy_order_if_needed(self, order: OffChainOrder):
-        order_total = self.total_amount(self.our_buy_offers())
-        currently_deposited = self.etherdelta.balance_of(self.our_address)
-        if order_total > currently_deposited:
-            depositable_eth = Wad.max(self.eth_balance(self.our_address) - self.eth_reserve, Wad(0))
-            additional_deposit = Wad.min(order_total - currently_deposited, depositable_eth)
-            if additional_deposit > Wad(0):
-                self.etherdelta.deposit(additional_deposit).transact()
-
-    def deposit_for_buy_order(self):
-        order_total = self.total_amount(self.our_buy_offers())
-        currently_deposited = self.etherdelta.balance_of(self.our_address)
-        if order_total > currently_deposited:
-            depositable_eth = Wad.max(self.eth_balance(self.our_address) - self.eth_reserve, Wad(0))
-            additional_deposit = Wad.min(order_total - currently_deposited, depositable_eth)
-            if additional_deposit > Wad(0):
-                self.etherdelta.deposit(additional_deposit).transact()
+                        order = self.etherdelta.create_offchain_order(token_get=EtherDelta.ETH_TOKEN,
+                                                                      amount_get=want_amount,
+                                                                      token_give=self.sai.address,
+                                                                      amount_give=have_amount,
+                                                                      expires=self.web3.eth.blockNumber + self.order_age)
+                        if self.deposit_for_buy_order_if_needed(order):
+                            return
+                        self.place_order(order)
 
     def deposit_for_sell_order_if_needed(self, order: OffChainOrder):
-        currently_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
-        currently_reserved_by_open_orders = self.total_amount(self.our_sell_offers())
-        if currently_deposited - currently_reserved_by_open_orders < order.amount_give:
-            self.deposit_for_sell_order()
+        currently_deposited = self.etherdelta.balance_of(self.our_address)
+        currently_reserved_by_open_buy_orders = self.total_amount(self.our_sell_offers())
+        if currently_deposited - currently_reserved_by_open_buy_orders < order.amount_give:
+            return self.deposit_for_sell_order()
+        else:
+            return False
 
     def deposit_for_sell_order(self):
-        self.etherdelta.deposit_token(self.sai.address, self.sai.balance_of(self.our_address)).transact()
+        depositable_eth = Wad.max(self.eth_balance(self.our_address) - self.eth_reserve, Wad(0))
+        if depositable_eth > self.min_eth_deposit:
+            return self.etherdelta.deposit(depositable_eth).transact().successful
+        else:
+            return False
+
+    def deposit_for_buy_order_if_needed(self, order: OffChainOrder):
+        currently_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
+        currently_reserved_by_open_sell_orders = self.total_amount(self.our_buy_offers())
+        if currently_deposited - currently_reserved_by_open_sell_orders < order.amount_give:
+            return self.deposit_for_buy_order()
+        else:
+            return False
+
+    def deposit_for_buy_order(self):
+        sai_balance = self.sai.balance_of(self.our_address)
+        if sai_balance > self.min_sai_deposit:
+            return self.etherdelta.deposit_token(self.sai.address, sai_balance).transact().successful
+        else:
+            return False
 
     def tub_target_price(self) -> Wad:
         ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
