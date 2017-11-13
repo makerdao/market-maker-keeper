@@ -60,7 +60,13 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--config", help="Buy/sell bands configuration file", type=str, required=True)
-        parser.add_argument("--order-age", help="Age of created orders (in blocks)", type=int, required=True)
+
+        parser.add_argument("--order-age", type=int, required=True,
+                            help="Age of created orders (in blocks)")
+
+        parser.add_argument("--order-expiry-threshold", type=int, default=0,
+                            help="Order age at which order is considered already expired (in blocks)")
+
         parser.add_argument("--eth-reserve", help="Minimum amount of ETH to keep in order to cover gas", type=float, required=True)
 
         parser.add_argument('--cancel-on-shutdown', dest='cancel_on_shutdown', action='store_true',
@@ -147,7 +153,8 @@ class SaiMakerEtherDelta(SaiKeeper):
         # self.deposit_for_sell_orders()
 
     def remove_expired_orders(self, block_number: int):
-        self.our_orders = set(filter(lambda order: order.expires > block_number, self.our_orders))
+        self.our_orders = set(filter(lambda order: order.expires - block_number > self.arguments.order_expiry_threshold,
+                                     self.our_orders))
 
     def outside_offers(self, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return offers which do not fall into any buy or sell band."""
