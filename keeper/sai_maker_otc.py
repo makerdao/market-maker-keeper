@@ -74,8 +74,11 @@ class SaiMakerOtc(SaiKeeper):
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
 
     def args(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--config", help="Buy/sell bands configuration file", type=str, required=True)
-        parser.add_argument("--round-places", help="Number of decimal places to round order prices to (default=2)", type=int, default=2)
+        parser.add_argument("--config", type=str, required=True,
+                            help="Buy/sell bands configuration file")
+
+        parser.add_argument("--round-places", type=int, default=2,
+                            help="Number of decimal places to round order prices to (default=2)")
 
         parser.add_argument("--min-eth-balance", type=float, default=0,
                             help="Minimum ETH balance below which keeper with either terminate or not start at all")
