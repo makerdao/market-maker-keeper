@@ -568,3 +568,34 @@ class TestSaiMakerOtc:
         balance = Wad(sai.web3.eth.getBalance(sai.our_address.address))
         sai.web3.eth.sendTransaction({'to': '0x0000011111000001111100000111110000011111',
                                       'value': (balance - amount_of_eth_to_leave).value})
+
+    def test_should_refuse_to_start_if_eth_balance_before_minimum(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.two_adjacent_bands_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"
+                                       f" --min-eth-balance 100.0"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # and
+        self.leave_only_some_eth(sai, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
+                                                              # that's why `--min-eth-balance` is higher than 10.0
+
+        # when
+        keeper.approve()
+        keeper.synchronize_offers()
+
+        # then
+        assert len(sai.otc.active_offers()) == 0
+        assert keeper.terminated_internally
+
+    @staticmethod
+    def leave_only_some_eth(sai: SaiDeployment, amount_of_eth_to_leave: Wad):
+        balance = Wad(sai.web3.eth.getBalance(sai.our_address.address))
+        sai.web3.eth.sendTransaction({'to': '0x0000011111000001111100000111110000011111',
+                                      'value': (balance - amount_of_eth_to_leave).value})
