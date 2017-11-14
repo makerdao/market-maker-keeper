@@ -23,6 +23,8 @@ from typing import List
 
 import sys
 
+import itertools
+
 from keeper import Event
 from keeper.api.approval import directly
 from keeper.api.numeric import Wad
@@ -189,12 +191,34 @@ class SaiMakerOtc(SaiKeeper):
 
     def excessive_offers_in_band(self, band, offers: list, target_price: Wad):
         """Return offers which need to be cancelled to bring the total offer amount in the band below maximum."""
-        # if total amount of orders in this band is greater than the maximum, we cancel them all
-        #
-        # if may not be the best solution as cancelling only some of them could bring us below
-        # the maximum, but let's stick to it for now
         offers_in_band = [offer for offer in offers if band.includes(offer, target_price)]
-        return offers_in_band if self.total_amount(offers_in_band) > band.max_amount else []
+        if self.total_amount(offers_in_band) > band.max_amount:
+            def calculate_all_subsets():
+                for num in range(0, len(offers_in_band)):
+                    for combination in itertools.combinations(offers_in_band, num):
+                        yield set(combination)
+
+            # all possible subsets of orders which can be left uncancelled, including the empty subset
+            all_subsets = list(calculate_all_subsets())
+
+            # we are only choosing from these subsets which bring us to or below `band.max_amount`
+            candidate_subsets = list(filter(lambda subset: self.total_amount(subset) <= band.max_amount, all_subsets))
+
+            # we calculate the size of the largest subset of these, as this will result in the lowest number
+            # of order cancellations i.e. lowest gas consumption for the keeper
+            #
+            # then we only limit interesting subsets to the ones of that size, ignoring smaller ones
+            highest_cnt = max(map(lambda subset: len(subset), candidate_subsets))
+            candidate_subsets = filter(lambda subset: len(subset) == highest_cnt, candidate_subsets)
+
+            # from the interesting subsets we choose the with the highest total amount
+            found_subset = sorted(candidate_subsets, key=lambda subset: self.total_amount(subset), reverse=True)[0]
+
+            # as we are supposed to return the offers which should be cancelled, we return the complement
+            # of the found subset
+            return set(offers_in_band) - set(found_subset)
+        else:
+            return []
 
     def top_up_bands(self, active_offers: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Asynchronously create new buy and sell offers in all send and buy bands if necessary."""

@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import shutil
+from functools import reduce
 
 import py
 
@@ -328,7 +329,7 @@ class TestSaiMakerOtc:
         assert sai.otc.active_offers()[2].buy_how_much == Wad(270833333333333333)
         assert sai.otc.active_offers()[2].buy_which_token == sai.gem.address
 
-    def test_should_cancel_all_buy_offers_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_selected_buy_offers_to_bring_the_band_total_below_max_and_closest_to_it(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
@@ -345,25 +346,53 @@ class TestSaiMakerOtc:
         keeper.synchronize_offers()
         assert len(sai.otc.active_offers()) == 2
 
-        # when [75+20 = 95]
-        sai.otc.make(sai.sai.address, Wad.from_number(20), sai.gem.address, Wad.from_number(0.20833)).transact()
+        # when [75+17 = 92]
+        sai.otc.make(sai.sai.address, Wad.from_number(17), sai.gem.address, Wad.from_number(0.1770805)).transact()
         # and
         keeper.synchronize_offers()
         # then
         assert len(sai.otc.active_offers()) == 3
 
-        # when [95+5 = 100]
-        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(0.052)).transact()
+        # when [92+2 = 94]
+        sai.otc.make(sai.sai.address, Wad.from_number(2), sai.gem.address, Wad.from_number(0.020833)).transact()
         # and
         keeper.synchronize_offers()
         # then
         assert len(sai.otc.active_offers()) == 4
 
-        # when [100+1 = 101] --> above max!
-        sai.otc.make(sai.sai.address, Wad.from_number(1), sai.gem.address, Wad.from_number(0.010416)).transact()
+        # when [94+7 = 101] --> above max!
+        sai.otc.make(sai.sai.address, Wad.from_number(7), sai.gem.address, Wad.from_number(0.072912)).transact()
         # and
         keeper.synchronize_offers()
         # then
+        assert len(sai.otc.active_offers()) == 4
+        assert reduce(Wad.__add__, map(lambda offer: offer.sell_how_much, self.offers_by_token(sai, sai.sai)), Wad(0)) \
+               == Wad.from_number(99)
+
+    def test_should_cancel_the_only_buy_offer_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+
+        # and
+        # [one artificially created offer above the max band threshold]
+        sai.otc.make(sai.sai.address, Wad.from_number(170), sai.gem.address, Wad.from_number(1.770805)).transact()
+
+        # when
+        keeper.synchronize_offers()
+
+        # then
+        # [the artificial offer gets cancelled, a new one gets created instead]
         assert len(sai.otc.active_offers()) == 2
         assert self.offers_by_token(sai, sai.sai)[0].owner == sai.our_address
         assert self.offers_by_token(sai, sai.sai)[0].sell_how_much == Wad.from_number(75)
@@ -371,7 +400,7 @@ class TestSaiMakerOtc:
         assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.78125)
         assert self.offers_by_token(sai, sai.sai)[0].buy_which_token == sai.gem.address
 
-    def test_should_cancel_all_sell_offers_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_selected_sell_offers_to_bring_the_band_total_below_max_and_closest_to_it(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
@@ -407,6 +436,34 @@ class TestSaiMakerOtc:
         # and
         keeper.synchronize_offers()
         # then
+        assert len(sai.otc.active_offers()) == 4
+        assert reduce(Wad.__add__, map(lambda offer: offer.sell_how_much, self.offers_by_token(sai, sai.gem)), Wad(0)) \
+               == Wad.from_number(10.0)
+
+    def test_should_cancel_the_only_sell_offer_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
+        # given
+        config_file = self.sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=sai.web3, config=sai.get_config())
+
+        # and
+        self.mint_tokens(sai)
+        self.set_price(sai, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+
+        # and
+        # [one artificially created offer above the max band threshold]
+        sai.otc.make(sai.gem.address, Wad.from_number(20), sai.sai.address, Wad.from_number(2080)).transact()
+
+        # when
+        keeper.synchronize_offers()
+
+        # then
+        # [the artificial offer gets cancelled, a new one gets created instead]
         assert len(sai.otc.active_offers()) == 2
         assert self.offers_by_token(sai, sai.gem)[0].owner == sai.our_address
         assert self.offers_by_token(sai, sai.gem)[0].sell_how_much == Wad.from_number(7.5)
