@@ -345,21 +345,21 @@ class TestSaiMakerOtc:
         keeper.synchronize_offers()
         assert len(sai.otc.active_offers()) == 2
 
-        # when [50+20 = 70]
+        # when [75+20 = 95]
         sai.otc.make(sai.sai.address, Wad.from_number(20), sai.gem.address, Wad.from_number(0.20833)).transact()
         # and
         keeper.synchronize_offers()
         # then
         assert len(sai.otc.active_offers()) == 3
 
-        # when [50+5 = 75]
+        # when [95+5 = 100]
         sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(0.052)).transact()
         # and
         keeper.synchronize_offers()
         # then
         assert len(sai.otc.active_offers()) == 4
 
-        # when [75+1 = 76] --> above max!
+        # when [100+1 = 101] --> above max!
         sai.otc.make(sai.sai.address, Wad.from_number(1), sai.gem.address, Wad.from_number(0.010416)).transact()
         # and
         keeper.synchronize_offers()
