@@ -71,10 +71,14 @@ class SaiMakerOtc(SaiKeeper):
     def __init__(self, args: list, **kwargs):
         super().__init__(args, **kwargs)
         self.round_places = self.arguments.round_places
+        self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
 
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--config", help="Buy/sell bands configuration file", type=str, required=True)
         parser.add_argument("--round-places", help="Number of decimal places to round order prices to (default=2)", type=int, default=2)
+
+        parser.add_argument("--min-eth-balance", type=float, default=0,
+                            help="Minimum ETH balance below which keeper with either terminate or not start at all")
 
     def startup(self):
         self.approve()
@@ -83,7 +87,7 @@ class SaiMakerOtc(SaiKeeper):
         self.every(20 * 60, self.print_token_balances)
 
     def shutdown(self):
-        self.cancel_offers(self.our_offers(self.otc.active_offers()))
+        self.cancel_all_offers()
 
     def print_token_balances(self):
         active_offers = self.otc.active_offers()
@@ -135,6 +139,11 @@ class SaiMakerOtc(SaiKeeper):
 
     def synchronize_offers(self):
         """Update our positions in the order book to reflect keeper parameters."""
+        if self.eth_balance(self.our_address) < self.min_eth_balance:
+            self.terminate("Keeper balance is below the minimum, terminating.")
+            self.cancel_all_offers()
+            return
+
         buy_bands, sell_bands = self.band_configuration()
         active_offers = self.otc.active_offers()
         target_price = self.tub_target_price()
@@ -154,6 +163,10 @@ class SaiMakerOtc(SaiKeeper):
 
         return chain(outside_any_band_offers(self.our_buy_offers(active_offers), buy_bands, target_price),
                      outside_any_band_offers(self.our_sell_offers(active_offers), sell_bands, target_price))
+
+    def cancel_all_offers(self):
+        """Cancel all offers owned by the keeper."""
+        self.cancel_offers(self.our_offers(self.otc.active_offers()))
 
     def cancel_offers(self, offers):
         """Cancel offers asynchronously."""
