@@ -563,12 +563,6 @@ class TestSaiMakerOtc:
         assert len(sai.otc.active_offers()) == 0
         assert keeper.terminated_internally
 
-    @staticmethod
-    def leave_only_some_eth(sai: SaiDeployment, amount_of_eth_to_leave: Wad):
-        balance = Wad(sai.web3.eth.getBalance(sai.our_address.address))
-        sai.web3.eth.sendTransaction({'to': '0x0000011111000001111100000111110000011111',
-                                      'value': (balance - amount_of_eth_to_leave).value})
-
     def test_should_refuse_to_start_if_eth_balance_before_minimum(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
         config_file = self.two_adjacent_bands_config(tmpdir)
