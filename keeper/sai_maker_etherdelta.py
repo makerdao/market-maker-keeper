@@ -157,7 +157,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.top_up_bands(buy_bands, sell_bands, target_price)
 
     def remove_expired_orders(self, block_number: int):
-        self.our_orders = set(filter(lambda order: order.expires - block_number > self.arguments.order_expiry_threshold,
+        self.our_orders = set(filter(lambda order: order.expires - block_number > self.arguments.order_expiry_threshold-1,
                                      self.our_orders))
 
     def outside_offers(self, buy_bands: list, sell_bands: list, target_price: Wad):
