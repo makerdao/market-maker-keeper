@@ -25,7 +25,7 @@ from keeper.api import Address, synchronize
 from keeper.api.approval import directly
 from keeper.api.etherdelta import EtherDelta, EtherDeltaApi, OffChainOrder
 from keeper.api.numeric import Wad
-from keeper.api.price import TubPriceFeed
+from keeper.api.price import TubPriceFeed, SetzerPriceFeed
 from keeper.band import BuyBand, SellBand
 from keeper.sai import SaiKeeper
 
@@ -44,7 +44,12 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
-        self.price_feed = TubPriceFeed(self.tub)
+
+        # Choose the price feed
+        if self.arguments.price_feed is not None:
+            self.price_feed = SetzerPriceFeed(self.tub, self.arguments.price_feed, self.logger)
+        else:
+            self.price_feed = TubPriceFeed(self.tub)
 
         # We need to have the API server in order for this keeper to run.
         # Unfortunately it means it can be run only on Mainnet as there is no test server.
@@ -63,6 +68,9 @@ class SaiMakerEtherDelta(SaiKeeper):
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
+
+        parser.add_argument("--price-feed", type=str,
+                            help="Source of price feed. Tub price feed will be used if not specified")
 
         parser.add_argument("--order-age", type=int, required=True,
                             help="Age of created orders (in blocks)")

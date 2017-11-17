@@ -29,7 +29,7 @@ from keeper import Event
 from keeper.api.approval import directly
 from keeper.api.numeric import Wad
 from keeper.api.oasis import OfferInfo
-from keeper.api.price import TubPriceFeed
+from keeper.api.price import TubPriceFeed, SetzerPriceFeed
 from keeper.api.util import synchronize
 
 from keeper.band import BuyBand, SellBand
@@ -74,11 +74,19 @@ class SaiMakerOtc(SaiKeeper):
         super().__init__(args, **kwargs)
         self.round_places = self.arguments.round_places
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
-        self.price_feed = TubPriceFeed(self.tub)
+
+        # Choose the price feed
+        if self.arguments.price_feed is not None:
+            self.price_feed = SetzerPriceFeed(self.tub, self.arguments.price_feed, self.logger)
+        else:
+            self.price_feed = TubPriceFeed(self.tub)
 
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
+
+        parser.add_argument("--price-feed", type=str,
+                            help="Source of price feed. Tub price feed will be used if not specified")
 
         parser.add_argument("--round-places", type=int, default=2,
                             help="Number of decimal places to round order prices to (default=2)")
