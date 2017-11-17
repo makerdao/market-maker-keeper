@@ -158,11 +158,15 @@ class SaiMakerEtherDelta(SaiKeeper):
         target_price = self.price_feed.get_price()
         buy_bands, sell_bands = self.band_configuration()
 
-        self.remove_expired_orders(block_number)
-        self.cancel_offers(chain(self.excessive_buy_offers(buy_bands, target_price),
-                                 self.excessive_sell_offers(sell_bands, target_price),
-                                 self.outside_offers(buy_bands, sell_bands, target_price)))
-        self.top_up_bands(buy_bands, sell_bands, target_price)
+        if target_price is not None:
+            self.remove_expired_orders(block_number)
+            self.cancel_offers(chain(self.excessive_buy_offers(buy_bands, target_price),
+                                     self.excessive_sell_offers(sell_bands, target_price),
+                                     self.outside_offers(buy_bands, sell_bands, target_price)))
+            self.top_up_bands(buy_bands, sell_bands, target_price)
+        else:
+            self.logger.warning("Cancelling all offers as no price feed available.")
+            self.cancel_all_offers()
 
     def remove_expired_orders(self, block_number: int):
         self.our_orders = set(filter(lambda order: order.expires - block_number > self.arguments.order_expiry_threshold-1,

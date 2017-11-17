@@ -161,12 +161,17 @@ class SaiMakerOtc(SaiKeeper):
         buy_bands, sell_bands = self.band_configuration()
         active_offers = self.otc.active_offers()
         target_price = self.price_feed.get_price()
-        self.cancel_offers(chain(self.excessive_buy_offers(active_offers, buy_bands, target_price),
-                                 self.excessive_sell_offers(active_offers, sell_bands, target_price),
-                                 self.outside_offers(active_offers, buy_bands, sell_bands, target_price)))
 
-        active_offers = self.otc.active_offers()
-        self.top_up_bands(active_offers, buy_bands, sell_bands, target_price)
+        if target_price is not None:
+            self.cancel_offers(chain(self.excessive_buy_offers(active_offers, buy_bands, target_price),
+                                     self.excessive_sell_offers(active_offers, sell_bands, target_price),
+                                     self.outside_offers(active_offers, buy_bands, sell_bands, target_price)))
+
+            active_offers = self.otc.active_offers()
+            self.top_up_bands(active_offers, buy_bands, sell_bands, target_price)
+        else:
+            self.logger.warning("Cancelling all offers as no price feed available.")
+            self.cancel_all_offers()
 
     def outside_offers(self, active_offers: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return offers which do not fall into any buy or sell band."""
