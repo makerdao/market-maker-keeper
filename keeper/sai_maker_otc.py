@@ -29,9 +29,9 @@ from keeper import Event
 from keeper.api.approval import directly
 from keeper.api.numeric import Wad
 from keeper.api.oasis import OfferInfo
+from keeper.api.price import TubPriceFeed
 from keeper.api.util import synchronize
 
-from keeper.api.feed import DSValue
 from keeper.band import BuyBand, SellBand
 from keeper.sai import SaiKeeper
 
@@ -74,6 +74,7 @@ class SaiMakerOtc(SaiKeeper):
         super().__init__(args, **kwargs)
         self.round_places = self.arguments.round_places
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
+        self.price_feed = TubPriceFeed(self.tub)
 
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--config", type=str, required=True,
@@ -151,7 +152,7 @@ class SaiMakerOtc(SaiKeeper):
 
         buy_bands, sell_bands = self.band_configuration()
         active_offers = self.otc.active_offers()
-        target_price = self.tub_target_price()
+        target_price = self.price_feed.get_price()
         self.cancel_offers(chain(self.excessive_buy_offers(active_offers, buy_bands, target_price),
                                  self.excessive_sell_offers(active_offers, sell_bands, target_price),
                                  self.outside_offers(active_offers, buy_bands, sell_bands, target_price)))
@@ -255,10 +256,6 @@ class SaiMakerOtc(SaiKeeper):
                     if want_amount > Wad(0):
                         yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
                                             want_token=self.gem.address, want_amount=want_amount)
-
-    def tub_target_price(self) -> Wad:
-        ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
-        return ref_per_gem / self.tub.par()
 
     @staticmethod
     def total_amount(offers: List[OfferInfo]):

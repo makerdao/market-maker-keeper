@@ -20,13 +20,12 @@ import operator
 import sys
 from functools import reduce
 from itertools import chain
-from typing import List
 
 from keeper.api import Address, synchronize
 from keeper.api.approval import directly
-from keeper.api.etherdelta import EtherDelta, Order, EtherDeltaApi, OffChainOrder
-from keeper.api.feed import DSValue
+from keeper.api.etherdelta import EtherDelta, EtherDeltaApi, OffChainOrder
 from keeper.api.numeric import Wad
+from keeper.api.price import TubPriceFeed
 from keeper.band import BuyBand, SellBand
 from keeper.sai import SaiKeeper
 
@@ -45,6 +44,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
+        self.price_feed = TubPriceFeed(self.tub)
 
         # We need to have the API server in order for this keeper to run.
         # Unfortunately it means it can be run only on Mainnet as there is no test server.
@@ -147,7 +147,7 @@ class SaiMakerEtherDelta(SaiKeeper):
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
         block_number = self.web3.eth.blockNumber
-        target_price = self.tub_target_price()
+        target_price = self.price_feed.get_price()
         buy_bands, sell_bands = self.band_configuration()
 
         self.remove_expired_orders(block_number)
@@ -284,10 +284,6 @@ class SaiMakerEtherDelta(SaiKeeper):
             return self.etherdelta.deposit_token(self.sai.address, sai_balance).transact().successful
         else:
             return False
-
-    def tub_target_price(self) -> Wad:
-        ref_per_gem = Wad(DSValue(web3=self.web3, address=self.tub.pip()).read_as_int())
-        return ref_per_gem / self.tub.par()
 
     def total_amount(self, orders):
         give_available = lambda order: order.amount_give - (self.etherdelta.amount_filled(order) * order.amount_give / order.amount_get)
