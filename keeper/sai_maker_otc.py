@@ -98,7 +98,7 @@ class SaiMakerOtc(SaiKeeper):
         self.approve()
         self.on_block(self.synchronize_offers)
         self.every(20 * 60, self.print_eth_balance)
-        self.every(20 * 60, self.print_token_balances)
+        # self.every(20 * 60, self.print_token_balances)
 
     def shutdown(self):
         self.cancel_all_offers()
