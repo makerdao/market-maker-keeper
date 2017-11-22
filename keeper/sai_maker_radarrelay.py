@@ -34,7 +34,8 @@ class SaiMakerRadarRelay(SaiKeeper):
         self.radar_relay = RadarRelay(web3=self.web3, address=Address(self.config.get_config()["0x"]["exchange"]))
 
     def args(self, parser: argparse.ArgumentParser):
-        pass
+        parser.add_argument("--config", type=str, required=True,
+                            help="Buy/sell bands configuration file")
 
     def startup(self):
         self.approve()
