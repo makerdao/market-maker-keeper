@@ -33,6 +33,10 @@ class SaiMakerRadarRelay(SaiKeeper):
         self.ether_token = ERC20Token(web3=self.web3, address=Address(self.config.get_config()["0x"]["etherToken"]))
         self.radar_relay = RadarRelay(web3=self.web3, address=Address(self.config.get_config()["0x"]["exchange"]))
 
+        # so the token names are printed nicer
+        ERC20Token.register_token(self.radar_relay.zrx_token(), 'ZRX')
+        ERC20Token.register_token(self.ether_token.address, '0x-WETH')
+
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
