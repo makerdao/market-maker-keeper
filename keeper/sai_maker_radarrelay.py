@@ -21,7 +21,7 @@ import sys
 from keeper import ERC20Token
 from keeper.api import Address
 from keeper.api.approval import directly
-from keeper.api.radarrelay import RadarRelay
+from keeper.api.radarrelay import RadarRelay, RadarRelayApi
 from keeper.sai import SaiKeeper
 
 
@@ -32,6 +32,8 @@ class SaiMakerRadarRelay(SaiKeeper):
 
         self.ether_token = ERC20Token(web3=self.web3, address=Address(self.config.get_config()["0x"]["etherToken"]))
         self.radar_relay = RadarRelay(web3=self.web3, address=Address(self.config.get_config()["0x"]["exchange"]))
+        self.radar_relay_api = RadarRelayApi(contract_address=self.radar_relay.address,
+                                             api_server=self.config.get_config()["radarRelay"]["apiServer"])
 
         # so the token names are printed nicer
         ERC20Token.register_token(self.radar_relay.zrx_token(), 'ZRX')
@@ -45,7 +47,7 @@ class SaiMakerRadarRelay(SaiKeeper):
         self.approve()
 
     def shutdown(self):
-        pass
+        print(self.radar_relay_api.get_orders_by_maker(self.our_address))
 
     def approve(self):
         """Approve 0x to access our 0x-WETH and SAI, so we can sell it on the exchange."""
