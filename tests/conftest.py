@@ -76,6 +76,7 @@ class SaiDeployment:
 
 @pytest.fixture(scope='session')
 def new_sai() -> SaiDeployment:
+    #TODO duplicate of the deploy method in test_radarrelay.py
     def deploy(web3, contract_name, args=None):
         contract_factory = web3.eth.contract(abi=json.loads(pkg_resources.resource_string('keeper.api.feed', f'abi/{contract_name}.abi')),
                                              bytecode=pkg_resources.resource_string('keeper.api.feed', f'abi/{contract_name}.bin'))
