@@ -84,7 +84,7 @@ class SaiMakerRadarRelay(SaiKeeper):
 
     def shutdown(self):
         if self.arguments.cancel_on_shutdown:
-            self.cancel_all_offers()
+            self.cancel_offers(self.our_offers())
 
     def print_balances(self):
         sai_owned = self.sai.balance_of(self.our_address)
@@ -137,7 +137,7 @@ class SaiMakerRadarRelay(SaiKeeper):
         """Update our positions in the order book to reflect keeper parameters."""
         if self.eth_balance(self.our_address) < self.min_eth_balance:
             self.terminate("Keeper balance is below the minimum, terminating.")
-            self.cancel_all_offers()
+            self.cancel_offers(self.our_offers())
             return
 
         buy_bands, sell_bands = self.band_configuration()
@@ -151,7 +151,7 @@ class SaiMakerRadarRelay(SaiKeeper):
             self.top_up_bands(buy_bands, sell_bands, target_price)
         else:
             self.logger.warning("Cancelling all offers as no price feed available.")
-            self.cancel_all_offers(our_orders)
+            self.cancel_offers(our_orders)
 
     def outside_offers(self, active_offers: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return offers which do not fall into any buy or sell band."""
@@ -187,10 +187,6 @@ class SaiMakerRadarRelay(SaiKeeper):
         # the maximum, but let's stick to it for now
         offers_in_band = [offer for offer in offers if band.includes(offer, target_price)]
         return offers_in_band if self.total_amount(offers_in_band) > band.max_amount else []
-
-    def cancel_all_offers(self, active_offers: list):
-        """Cancel all our offers."""
-        self.cancel_offers(active_offers)
 
     def top_up_bands(self, buy_bands: list, sell_bands: list, target_price: Wad):
         """Create new buy and sell offers in all send and buy bands if necessary."""
@@ -240,8 +236,8 @@ class SaiMakerRadarRelay(SaiKeeper):
                         self.place_order(order)
 
     def total_amount(self, orders):
-        give_available = lambda order: order.amount_give - (self.etherdelta.amount_filled(order) * order.amount_give / order.amount_get)
-        return reduce(operator.add, map(give_available, orders), Wad(0))
+        maker_token_amount_available = lambda order: order.maker_token_amount - (self.radar_relay.get_unavailable_taker_token_amount(order) * order.maker_token_amount / order.taker_token_amount)
+        return reduce(operator.add, map(maker_token_amount_available, orders), Wad(0))
 
 
 if __name__ == '__main__':
