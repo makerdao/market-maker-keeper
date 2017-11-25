@@ -147,8 +147,8 @@ class SaiMakerRadarRelay(SaiKeeper):
         if target_price is not None:
             self.cancel_offers(chain(self.excessive_buy_offers(our_orders, buy_bands, target_price),
                                      self.excessive_sell_offers(our_orders, sell_bands, target_price),
-                                     self.outside_offers(buy_bands, sell_bands, target_price)))
-            self.top_up_bands(buy_bands, sell_bands, target_price)
+                                     self.outside_offers(our_orders, buy_bands, sell_bands, target_price)))
+            self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
         else:
             self.logger.warning("Cancelling all offers as no price feed available.")
             self.cancel_offers(our_orders)
@@ -205,12 +205,15 @@ class SaiMakerRadarRelay(SaiKeeper):
                     our_balance = our_balance - have_amount
                     want_amount = have_amount * round(band.avg_price(target_price))
                     if want_amount > Wad(0):
-                        order = self.etherdelta.create_offchain_order(token_get=self.sai.address,
-                                                                      amount_get=want_amount,
-                                                                      token_give=EtherDelta.ETH_TOKEN,
-                                                                      amount_give=have_amount,
-                                                                      expires=self.web3.eth.blockNumber + self.order_age)
-                        self.place_order(order)
+                        order = self.radar_relay.create_order(maker_token_amount=have_amount,
+                                                              taker_token_amount=want_amount,
+                                                              maker_token_address=self.ether_token.address,
+                                                              taker_token_address=self.sai.address,
+                                                              expiration_unix_timestamp_sec=int(time.time())+self.arguments.order_expiry)
+
+                        order_with_fees = self.radar_relay_api.calculate_fees(order)
+                        self.radar_relay_api.submit_order(order_with_fees)
+                        self.logger.info(f"Placed order: {order_with_fees}")
 
     def top_up_buy_bands(self, our_orders: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Place new offers if necessary."""
@@ -224,12 +227,15 @@ class SaiMakerRadarRelay(SaiKeeper):
                     our_balance = our_balance - have_amount
                     want_amount = have_amount / round(band.avg_price(target_price))
                     if want_amount > Wad(0):
-                        order = self.etherdelta.create_offchain_order(token_get=EtherDelta.ETH_TOKEN,
-                                                                      amount_get=want_amount,
-                                                                      token_give=self.sai.address,
-                                                                      amount_give=have_amount,
-                                                                      expires=self.web3.eth.blockNumber + self.order_age)
-                        self.place_order(order)
+                        order = self.radar_relay.create_order(maker_token_amount=have_amount,
+                                                              taker_token_amount=want_amount,
+                                                              maker_token_address=self.sai.address,
+                                                              taker_token_address=self.ether_token.address,
+                                                              expiration_unix_timestamp_sec=int(time.time())+self.arguments.order_expiry)
+
+                        order_with_fees = self.radar_relay_api.calculate_fees(order)
+                        self.radar_relay_api.submit_order(order_with_fees)
+                        self.logger.info(f"Placed order: {order_with_fees}")
 
     def total_amount(self, orders):
         maker_token_amount_available = lambda order: order.maker_token_amount - (self.radar_relay.get_unavailable_taker_token_amount(order) * order.maker_token_amount / order.taker_token_amount)
