@@ -207,7 +207,7 @@ class SaiMakerRadarRelay(SaiKeeper):
                                                               taker_token_amount=want_amount,
                                                               maker_token_address=self.ether_token.address,
                                                               taker_token_address=self.sai.address,
-                                                              expiration_unix_timestamp_sec=int(time.time())+self.arguments.order_expiry)
+                                                              expiration=int(time.time()) + self.arguments.order_expiry)
 
                         order = self.radar_relay_api.calculate_fees(order)
                         order = self.radar_relay.sign_order(order)
@@ -229,7 +229,7 @@ class SaiMakerRadarRelay(SaiKeeper):
                                                               taker_token_amount=want_amount,
                                                               maker_token_address=self.sai.address,
                                                               taker_token_address=self.ether_token.address,
-                                                              expiration_unix_timestamp_sec=int(time.time())+self.arguments.order_expiry)
+                                                              expiration=int(time.time()) + self.arguments.order_expiry)
 
                         order = self.radar_relay_api.calculate_fees(order)
                         order = self.radar_relay.sign_order(order)
