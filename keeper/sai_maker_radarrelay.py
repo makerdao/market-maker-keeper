@@ -211,9 +211,10 @@ class SaiMakerRadarRelay(SaiKeeper):
                                                               taker_token_address=self.sai.address,
                                                               expiration_unix_timestamp_sec=int(time.time())+self.arguments.order_expiry)
 
-                        order_with_fees = self.radar_relay_api.calculate_fees(order)
-                        self.radar_relay_api.submit_order(order_with_fees)
-                        self.logger.info(f"Placed order: {order_with_fees}")
+                        order = self.radar_relay_api.calculate_fees(order)
+                        order = self.radar_relay.sign_order(order)
+                        self.radar_relay_api.submit_order(order)
+                        self.logger.info(f"Placed order: {order}")
 
     def top_up_buy_bands(self, our_orders: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Place new offers if necessary."""
@@ -233,9 +234,10 @@ class SaiMakerRadarRelay(SaiKeeper):
                                                               taker_token_address=self.ether_token.address,
                                                               expiration_unix_timestamp_sec=int(time.time())+self.arguments.order_expiry)
 
-                        order_with_fees = self.radar_relay_api.calculate_fees(order)
-                        self.radar_relay_api.submit_order(order_with_fees)
-                        self.logger.info(f"Placed order: {order_with_fees}")
+                        order = self.radar_relay_api.calculate_fees(order)
+                        order = self.radar_relay.sign_order(order)
+                        self.radar_relay_api.submit_order(order)
+                        self.logger.info(f"Placed order: {order}")
 
     def total_amount(self, orders):
         maker_token_amount_available = lambda order: order.maker_token_amount - (self.radar_relay.get_unavailable_taker_token_amount(order) * order.maker_token_amount / order.taker_token_amount)
