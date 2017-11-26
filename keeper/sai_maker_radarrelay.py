@@ -49,7 +49,8 @@ class SaiMakerRadarRelay(SaiKeeper):
         self.ether_token = ERC20Token(web3=self.web3, address=Address(self.config.get_config()["0x"]["etherToken"]))
         self.radar_relay = RadarRelay(web3=self.web3, address=Address(self.config.get_config()["0x"]["exchange"]))
         self.radar_relay_api = RadarRelayApi(contract_address=self.radar_relay.address,
-                                             api_server=self.config.get_config()["radarRelay"]["apiServer"])
+                                             api_server=self.config.get_config()["radarRelay"]["apiServer"],
+                                             logger=self.logger)
 
         # so the token names are printed nicer
         ERC20Token.register_token(self.radar_relay.zrx_token(), 'ZRX')
@@ -214,7 +215,6 @@ class SaiMakerRadarRelay(SaiKeeper):
                         order = self.radar_relay_api.calculate_fees(order)
                         order = self.radar_relay.sign_order(order)
                         self.radar_relay_api.submit_order(order)
-                        self.logger.info(f"Placed order: {order}")
 
     def top_up_buy_bands(self, our_orders: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Place new offers if necessary."""
@@ -237,7 +237,6 @@ class SaiMakerRadarRelay(SaiKeeper):
                         order = self.radar_relay_api.calculate_fees(order)
                         order = self.radar_relay.sign_order(order)
                         self.radar_relay_api.submit_order(order)
-                        self.logger.info(f"Placed order: {order}")
 
     def total_amount(self, orders):
         maker_token_amount_available = lambda order: order.maker_token_amount - (self.radar_relay.get_unavailable_taker_token_amount(order) * order.maker_token_amount / order.taker_token_amount)
