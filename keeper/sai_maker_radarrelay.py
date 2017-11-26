@@ -63,9 +63,6 @@ class SaiMakerRadarRelay(SaiKeeper):
         parser.add_argument("--price-feed", type=str,
                             help="Source of price feed. Tub price feed will be used if not specified")
 
-        # parser.add_argument("--round-places", type=int, default=2,
-        #                     help="Number of decimal places to round order prices to (default=2)")
-
         parser.add_argument("--order-expiry", type=int, required=True,
                             help="Expiration time of created orders (in seconds)")
 
@@ -80,7 +77,7 @@ class SaiMakerRadarRelay(SaiKeeper):
 
     def startup(self):
         self.approve()
-        self.on_block(self.synchronize_orders)
+        self.every(15, self.synchronize_orders)
         self.every(60*60, self.print_balances)
 
     def shutdown(self):
