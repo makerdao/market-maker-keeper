@@ -23,7 +23,7 @@ from itertools import chain
 
 from keeper.api import Address, synchronize
 from keeper.api.approval import directly
-from keeper.api.etherdelta import EtherDelta, EtherDeltaApi, OffChainOrder
+from keeper.api.etherdelta import EtherDelta, EtherDeltaApi, Order
 from keeper.api.numeric import Wad
 from keeper.api.price import TubPriceFeed, SetzerPriceFeed
 from keeper.band import BuyBand, SellBand
@@ -140,9 +140,9 @@ class SaiMakerEtherDelta(SaiKeeper):
 
         return False
 
-    def place_order(self, order: OffChainOrder):
+    def place_order(self, order: Order):
         self.our_orders.add(order)
-        self.etherdelta_api.publish_offchain_order(order)
+        self.etherdelta_api.publish_order(order)
 
     def our_sell_offers(self):
         return list(filter(lambda order: order.token_get == self.sai.address and
@@ -237,11 +237,11 @@ class SaiMakerEtherDelta(SaiKeeper):
                     our_balance = our_balance - have_amount
                     want_amount = self.fix_amount(have_amount * round(band.avg_price(target_price)))
                     if want_amount > Wad(0):
-                        order = self.etherdelta.create_offchain_order(token_get=self.sai.address,
-                                                                      amount_get=want_amount,
-                                                                      token_give=EtherDelta.ETH_TOKEN,
-                                                                      amount_give=have_amount,
-                                                                      expires=self.web3.eth.blockNumber + self.order_age)
+                        order = self.etherdelta.create_order(token_get=self.sai.address,
+                                                             amount_get=want_amount,
+                                                             token_give=EtherDelta.ETH_TOKEN,
+                                                             amount_give=have_amount,
+                                                             expires=self.web3.eth.blockNumber + self.order_age)
                         if self.deposit_for_sell_order_if_needed(order):
                             return
                         self.place_order(order)
@@ -258,16 +258,16 @@ class SaiMakerEtherDelta(SaiKeeper):
                     our_balance = our_balance - have_amount
                     want_amount = self.fix_amount(have_amount / round(band.avg_price(target_price)))
                     if want_amount > Wad(0):
-                        order = self.etherdelta.create_offchain_order(token_get=EtherDelta.ETH_TOKEN,
-                                                                      amount_get=want_amount,
-                                                                      token_give=self.sai.address,
-                                                                      amount_give=have_amount,
-                                                                      expires=self.web3.eth.blockNumber + self.order_age)
+                        order = self.etherdelta.create_order(token_get=EtherDelta.ETH_TOKEN,
+                                                             amount_get=want_amount,
+                                                             token_give=self.sai.address,
+                                                             amount_give=have_amount,
+                                                             expires=self.web3.eth.blockNumber + self.order_age)
                         if self.deposit_for_buy_order_if_needed(order):
                             return
                         self.place_order(order)
 
-    def deposit_for_sell_order_if_needed(self, order: OffChainOrder):
+    def deposit_for_sell_order_if_needed(self, order: Order):
         currently_deposited = self.etherdelta.balance_of(self.our_address)
         currently_reserved_by_open_buy_orders = self.total_amount(self.our_sell_offers())
         if currently_deposited - currently_reserved_by_open_buy_orders < order.amount_give:
@@ -282,7 +282,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         else:
             return False
 
-    def deposit_for_buy_order_if_needed(self, order: OffChainOrder):
+    def deposit_for_buy_order_if_needed(self, order: Order):
         currently_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
         currently_reserved_by_open_sell_orders = self.total_amount(self.our_buy_offers())
         if currently_deposited - currently_reserved_by_open_sell_orders < order.amount_give:
