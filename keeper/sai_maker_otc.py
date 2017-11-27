@@ -101,12 +101,11 @@ class SaiMakerOtc(SaiKeeper):
         # self.every(20 * 60, self.print_token_balances)
 
     def shutdown(self):
-        self.cancel_all_offers()
+        self.cancel_all_orders()
 
     def print_token_balances(self):
-        active_offers = self.otc.active_offers()
         for token in [self.sai, self.gem]:
-            our_sell_offers = filter(lambda o: o.sell_which_token == token.address, self.our_offers(active_offers))
+            our_sell_offers = filter(lambda o: o.sell_which_token == token.address, self.our_orders())
             balance_in_our_sell_offers = sum(map(lambda o: o.sell_how_much, our_sell_offers), Wad.from_number(0))
             balance_in_account = token.balance_of(self.our_address)
             total_balance = balance_in_our_sell_offers + balance_in_account
@@ -140,80 +139,80 @@ class SaiMakerOtc(SaiKeeper):
 
         return False
 
-    def our_offers(self, active_offers: list):
-        return list(filter(lambda offer: offer.owner == self.our_address, active_offers))
+    def our_orders(self):
+        return list(filter(lambda order: order.owner == self.our_address, self.otc.active_offers()))
 
-    def our_sell_offers(self, active_offers: list):
-        return list(filter(lambda offer: offer.buy_which_token == self.sai.address and
-                                         offer.sell_which_token == self.gem.address, self.our_offers(active_offers)))
+    def our_sell_offers(self, our_orders: list):
+        return list(filter(lambda order: order.buy_which_token == self.sai.address and
+                                         order.sell_which_token == self.gem.address, our_orders))
 
-    def our_buy_offers(self, active_offers: list):
-        return list(filter(lambda offer: offer.buy_which_token == self.gem.address and
-                                         offer.sell_which_token == self.sai.address, self.our_offers(active_offers)))
+    def our_buy_offers(self, our_orders: list):
+        return list(filter(lambda order: order.buy_which_token == self.gem.address and
+                                         order.sell_which_token == self.sai.address, our_orders))
 
     def synchronize_offers(self):
         """Update our positions in the order book to reflect keeper parameters."""
         if self.eth_balance(self.our_address) < self.min_eth_balance:
             self.terminate("Keeper balance is below the minimum, terminating.")
-            self.cancel_all_offers()
+            self.cancel_all_orders()
             return
 
         buy_bands, sell_bands = self.band_configuration()
-        active_offers = self.otc.active_offers()
+        our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 
         if target_price is not None:
-            self.cancel_offers(chain(self.excessive_buy_offers(active_offers, buy_bands, target_price),
-                                     self.excessive_sell_offers(active_offers, sell_bands, target_price),
-                                     self.outside_offers(active_offers, buy_bands, sell_bands, target_price)))
+            self.cancel_offers(chain(self.excessive_buy_offers(our_orders, buy_bands, target_price),
+                                     self.excessive_sell_offers(our_orders, sell_bands, target_price),
+                                     self.outside_offers(our_orders, buy_bands, sell_bands, target_price)))
 
-            active_offers = self.otc.active_offers()
-            self.top_up_bands(active_offers, buy_bands, sell_bands, target_price)
+            our_orders = self.our_orders()
+            self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
         else:
             self.logger.warning("Cancelling all offers as no price feed available.")
-            self.cancel_all_offers()
+            self.cancel_all_orders()
 
-    def outside_offers(self, active_offers: list, buy_bands: list, sell_bands: list, target_price: Wad):
+    def outside_offers(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return offers which do not fall into any buy or sell band."""
         def outside_any_band_offers(offers: list, bands: list, target_price: Wad):
             for offer in offers:
                 if not any(band.includes(offer, target_price) for band in bands):
                     yield offer
 
-        return chain(outside_any_band_offers(self.our_buy_offers(active_offers), buy_bands, target_price),
-                     outside_any_band_offers(self.our_sell_offers(active_offers), sell_bands, target_price))
+        return chain(outside_any_band_offers(self.our_buy_offers(our_orders), buy_bands, target_price),
+                     outside_any_band_offers(self.our_sell_offers(our_orders), sell_bands, target_price))
 
-    def cancel_all_offers(self):
-        """Cancel all offers owned by the keeper."""
-        self.cancel_offers(self.our_offers(self.otc.active_offers()))
+    def cancel_all_orders(self):
+        """Cancel all orders owned by the keeper."""
+        self.cancel_offers(self.our_orders())
 
     def cancel_offers(self, offers):
         """Cancel offers asynchronously."""
         synchronize([self.otc.kill(offer.offer_id).transact_async(gas_price=self.gas_price) for offer in offers])
 
-    def excessive_sell_offers(self, active_offers: list, sell_bands: list, target_price: Wad):
-        """Return sell offers which need to be cancelled to bring total amounts within all sell bands below maximums."""
+    def excessive_sell_offers(self, our_orders: list, sell_bands: list, target_price: Wad):
+        """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
         for band in sell_bands:
-            for offer in band.excessive_orders(self.our_sell_offers(active_offers), target_price):
+            for offer in band.excessive_orders(self.our_sell_offers(our_orders), target_price):
                 yield offer
 
-    def excessive_buy_offers(self, active_offers: list, buy_bands: list, target_price: Wad):
-        """Return buy offers which need to be cancelled to bring total amounts within all buy bands below maximums."""
+    def excessive_buy_offers(self, our_orders: list, buy_bands: list, target_price: Wad):
+        """Return buy orders which need to be cancelled to bring total amounts within all buy bands below maximums."""
         for band in buy_bands:
-            for offer in band.excessive_orders(self.our_buy_offers(active_offers), target_price):
+            for offer in band.excessive_orders(self.our_buy_offers(our_orders), target_price):
                 yield offer
 
-    def top_up_bands(self, active_offers: list, buy_bands: list, sell_bands: list, target_price: Wad):
-        """Asynchronously create new buy and sell offers in all send and buy bands if necessary."""
+    def top_up_bands(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
+        """Asynchronously create new buy and sell orders in all send and buy bands if necessary."""
         synchronize([transact.transact_async(gas_price=self.gas_price)
-                     for transact in chain(self.top_up_buy_bands(active_offers, buy_bands, target_price),
-                                           self.top_up_sell_bands(active_offers, sell_bands, target_price))])
+                     for transact in chain(self.top_up_buy_bands(our_orders, buy_bands, target_price),
+                                           self.top_up_sell_bands(our_orders, sell_bands, target_price))])
 
-    def top_up_sell_bands(self, active_offers: list, sell_bands: list, target_price: Wad):
+    def top_up_sell_bands(self, our_orders: list, sell_bands: list, target_price: Wad):
         """Ensure our WETH engagement is not below minimum in all sell bands. Yield new offers if necessary."""
         our_balance = self.gem.balance_of(self.our_address)
         for band in sell_bands:
-            offers = [offer for offer in self.our_sell_offers(active_offers) if band.includes(offer, target_price)]
+            offers = [offer for offer in self.our_sell_offers(our_orders) if band.includes(offer, target_price)]
             total_amount = self.total_amount(offers)
             if total_amount < band.min_amount:
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
@@ -224,11 +223,11 @@ class SaiMakerOtc(SaiKeeper):
                         yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
                                             want_token=self.sai.address, want_amount=want_amount)
 
-    def top_up_buy_bands(self, active_offers: list, buy_bands: list, target_price: Wad):
+    def top_up_buy_bands(self, our_orders: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Yield new offers if necessary."""
         our_balance = self.sai.balance_of(self.our_address)
         for band in buy_bands:
-            offers = [offer for offer in self.our_buy_offers(active_offers) if band.includes(offer, target_price)]
+            offers = [offer for offer in self.our_buy_offers(our_orders) if band.includes(offer, target_price)]
             total_amount = self.total_amount(offers)
             if total_amount < band.min_amount:
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
