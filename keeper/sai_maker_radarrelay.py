@@ -48,7 +48,7 @@ class SaiMakerRadarRelay(SaiKeeper):
 
         self.ether_token = ERC20Token(web3=self.web3, address=Address(self.config.get_config()["0x"]["etherToken"]))
         self.radar_relay = RadarRelay(web3=self.web3, address=Address(self.config.get_config()["0x"]["exchange"]))
-        self.radar_relay_api = RadarRelayApi(contract_address=self.radar_relay.address,
+        self.radar_relay_api = RadarRelayApi(exchange=self.radar_relay,
                                              api_server=self.config.get_config()["radarRelay"]["apiServer"],
                                              logger=self.logger)
 
@@ -119,7 +119,7 @@ class SaiMakerRadarRelay(SaiKeeper):
         our_orders = self.radar_relay_api.get_orders_by_maker(self.our_address)
         current_timestamp = int(time.time())
 
-        our_orders = list(filter(lambda order: order.expiration_unix_timestamp_sec > current_timestamp - self.arguments.order_expiry_threshold, our_orders))
+        our_orders = list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, our_orders))
         our_orders = list(filter(lambda order: self.radar_relay.get_unavailable_taker_token_amount(order) < order.taker_token_amount, our_orders))
         return our_orders
 

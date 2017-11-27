@@ -16,7 +16,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from keeper import Wad
-from keeper.api.oasis import OfferInfo
 
 
 class BuyBand:
@@ -33,18 +32,19 @@ class BuyBand:
         assert(self.avg_amount <= self.max_amount)
         assert(self.min_margin <= self.avg_margin)
         assert(self.avg_margin <= self.max_margin)
-        assert(self.min_margin < self.max_margin)  # if min_margin == max_margin, we wouldn't be able to tell which order
+        assert(self.min_margin < self.max_margin)
 
-    def includes(self, offer: OfferInfo, target_price: Wad) -> bool:
-        price = offer.sell_how_much / offer.buy_how_much
-        price_min = self.apply_margin(target_price, self.min_margin)
-        price_max = self.apply_margin(target_price, self.max_margin)
+    def includes(self, order, target_price: Wad) -> bool:
+        price = order.sell_to_buy_price
+        price_min = self._apply_margin(target_price, self.min_margin)
+        price_max = self._apply_margin(target_price, self.max_margin)
         return (price > price_max) and (price <= price_min)
 
     def avg_price(self, target_price: Wad) -> Wad:
-        return self.apply_margin(target_price, self.avg_margin)
+        return self._apply_margin(target_price, self.avg_margin)
 
-    def apply_margin(self, price: Wad, margin: float) -> Wad:
+    @staticmethod
+    def _apply_margin(price: Wad, margin: float) -> Wad:
         return price * Wad.from_number(1 - margin)
 
 
@@ -62,16 +62,17 @@ class SellBand:
         assert(self.avg_amount <= self.max_amount)
         assert(self.min_margin <= self.avg_margin)
         assert(self.avg_margin <= self.max_margin)
-        assert(self.min_margin < self.max_margin)  # if min_margin == max_margin, we wouldn't be able to tell which order
+        assert(self.min_margin < self.max_margin)
 
-    def includes(self, offer: OfferInfo, target_price: Wad) -> bool:
-        price = offer.buy_how_much / offer.sell_how_much
-        price_min = self.apply_margin(target_price, self.min_margin)
-        price_max = self.apply_margin(target_price, self.max_margin)
+    def includes(self, order, target_price: Wad) -> bool:
+        price = order.buy_to_sell_price
+        price_min = self._apply_margin(target_price, self.min_margin)
+        price_max = self._apply_margin(target_price, self.max_margin)
         return (price > price_min) and (price <= price_max)
 
     def avg_price(self, target_price: Wad) -> Wad:
-        return self.apply_margin(target_price, self.avg_margin)
+        return self._apply_margin(target_price, self.avg_margin)
 
-    def apply_margin(self, price: Wad, margin: float) -> Wad:
+    @staticmethod
+    def _apply_margin(price: Wad, margin: float) -> Wad:
         return price * Wad.from_number(1 + margin)
