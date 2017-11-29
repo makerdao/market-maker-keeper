@@ -27,6 +27,7 @@ import itertools
 
 from keeper import Event
 from keeper.api.approval import directly
+from keeper.api.config import ReloadableConfig
 from keeper.api.numeric import Wad
 from keeper.api.oasis import OfferInfo
 from keeper.api.price import TubPriceFeed, SetzerPriceFeed
@@ -75,6 +76,8 @@ class SaiMakerOtc(SaiKeeper):
         self.round_places = self.arguments.round_places
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
 
+        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
+
         # Choose the price feed
         if self.arguments.price_feed is not None:
             self.price_feed = SetzerPriceFeed(self.tub, self.arguments.price_feed, self.logger)
@@ -119,7 +122,7 @@ class SaiMakerOtc(SaiKeeper):
         self.otc.approve([self.gem, self.sai], directly())
 
     def band_configuration(self):
-        config = self.get_config(self.arguments.config)
+        config = self.bands_config.get_config()
         buy_bands = list(map(BuyBand, config['buyBands']))
         sell_bands = list(map(SellBand, config['sellBands']))
 

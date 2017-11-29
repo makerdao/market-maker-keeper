@@ -26,6 +26,7 @@ import time
 from keeper import ERC20Token, Wad
 from keeper.api import Address, synchronize
 from keeper.api.approval import directly
+from keeper.api.config import ReloadableConfig
 from keeper.api.price import SetzerPriceFeed, TubPriceFeed
 from keeper.api.radarrelay import RadarRelay, RadarRelayApi, Order
 from keeper.band import BuyBand, SellBand
@@ -36,6 +37,7 @@ class SaiMakerRadarRelay(SaiKeeper):
     """SAI keeper to act as a market maker on RadarRelay, on the WETH/SAI pair."""
     def __init__(self, args: list, **kwargs):
         super().__init__(args, **kwargs)
+        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
         self.order_expiry = self.arguments.order_expiry
         self.order_expiry_threshold = self.arguments.order_expiry_threshold
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
@@ -95,7 +97,7 @@ class SaiMakerRadarRelay(SaiKeeper):
         self.radar_relay.approve([self.ether_token, self.sai], directly())
 
     def band_configuration(self):
-        config = self.get_config(self.arguments.config)
+        config = self.bands_config.get_config()
         buy_bands = list(map(BuyBand, config['buyBands']))
         sell_bands = list(map(SellBand, config['sellBands']))
 

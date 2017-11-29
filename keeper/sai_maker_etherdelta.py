@@ -23,6 +23,7 @@ from itertools import chain
 
 from keeper.api import Address, synchronize
 from keeper.api.approval import directly
+from keeper.api.config import ReloadableConfig
 from keeper.api.etherdelta import EtherDelta, EtherDeltaApi, Order
 from keeper.api.numeric import Wad
 from keeper.api.price import TubPriceFeed, SetzerPriceFeed
@@ -40,6 +41,7 @@ class SaiMakerEtherDelta(SaiKeeper):
     """
     def __init__(self, args: list, **kwargs):
         super().__init__(args, **kwargs)
+        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
         self.order_age = self.arguments.order_age
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
@@ -120,7 +122,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.etherdelta.approve([self.sai], directly())
 
     def band_configuration(self):
-        config = self.get_config(self.arguments.config)
+        config = self.bands_config.get_config()
         buy_bands = list(map(BuyBand, config['buyBands']))
         sell_bands = list(map(SellBand, config['sellBands']))
 
