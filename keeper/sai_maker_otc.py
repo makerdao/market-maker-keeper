@@ -27,7 +27,7 @@ from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
 from pymaker.numeric import Wad
 from pymaker.oasis import OfferInfo
-from pymaker.util import synchronize
+from pymaker.util import synchronize, eth_balance
 from keeper.band import BuyBand, SellBand
 from keeper.price import TubPriceFeed, SetzerPriceFeed
 from keeper.sai import SaiKeeper
@@ -151,7 +151,7 @@ class SaiMakerOtc(SaiKeeper):
 
     def synchronize_offers(self):
         """Update our positions in the order book to reflect keeper parameters."""
-        if self.eth_balance(self.our_address) < self.min_eth_balance:
+        if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
             self.terminate("Keeper balance is below the minimum, terminating.")
             self.cancel_all_orders()
             return

@@ -29,6 +29,7 @@ from pymaker.numeric import Wad
 from keeper.band import BuyBand, SellBand
 from keeper.price import TubPriceFeed, SetzerPriceFeed
 from keeper.sai import SaiKeeper
+from pymaker.util import eth_balance
 
 
 class SaiMakerEtherDelta(SaiKeeper):
@@ -112,7 +113,7 @@ class SaiMakerEtherDelta(SaiKeeper):
     def print_balances(self):
         sai_owned = self.sai.balance_of(self.our_address)
         sai_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
-        eth_owned = self.eth_balance(self.our_address)
+        eth_owned = eth_balance(self.web3, self.our_address)
         eth_deposited = self.etherdelta.balance_of(self.our_address)
 
         self.logger.info(f"Keeper balances are {sai_owned} + {sai_deposited} SAI, {eth_owned} + {eth_deposited} ETH")
@@ -278,7 +279,7 @@ class SaiMakerEtherDelta(SaiKeeper):
             return False
 
     def deposit_for_sell_order(self):
-        depositable_eth = Wad.max(self.eth_balance(self.our_address) - self.eth_reserve, Wad(0))
+        depositable_eth = Wad.max(eth_balance(self.web3, self.our_address) - self.eth_reserve, Wad(0))
         if depositable_eth > self.min_eth_deposit:
             return self.etherdelta.deposit(depositable_eth).transact().successful
         else:

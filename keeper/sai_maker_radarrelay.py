@@ -30,6 +30,7 @@ from pymaker.radarrelay import RadarRelay, RadarRelayApi
 from keeper.band import BuyBand, SellBand
 from keeper.price import SetzerPriceFeed, TubPriceFeed
 from keeper.sai import SaiKeeper
+from pymaker.util import eth_balance
 
 
 class SaiMakerRadarRelay(SaiKeeper):
@@ -134,7 +135,7 @@ class SaiMakerRadarRelay(SaiKeeper):
 
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
-        if self.eth_balance(self.our_address) < self.min_eth_balance:
+        if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
             self.terminate("Keeper balance is below the minimum, terminating.")
             self.cancel_orders(self.our_orders())
             return
