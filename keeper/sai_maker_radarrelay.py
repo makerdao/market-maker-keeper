@@ -153,30 +153,30 @@ class SaiMakerRadarRelay(SaiKeeper):
             self.logger.warning("Cancelling all orders as no price feed available.")
             self.cancel_orders(our_orders)
 
-    def outside_orders(self, active_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
+    def outside_orders(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return orders which do not fall into any buy or sell band."""
         def outside_any_band_orders(orders: list, bands: list, target_price: Wad):
             for order in orders:
                 if not any(band.includes(order, target_price) for band in bands):
                     yield order
 
-        return chain(outside_any_band_orders(self.our_buy_orders(active_orders), buy_bands, target_price),
-                     outside_any_band_orders(self.our_sell_orders(active_orders), sell_bands, target_price))
+        return chain(outside_any_band_orders(self.our_buy_orders(our_orders), buy_bands, target_price),
+                     outside_any_band_orders(self.our_sell_orders(our_orders), sell_bands, target_price))
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
         synchronize([self.radar_relay.cancel_order(order).transact_async(gas_price=self.gas_price) for order in orders])
 
-    def excessive_sell_orders(self, active_orders: list, sell_bands: list, target_price: Wad):
+    def excessive_sell_orders(self, our_orders: list, sell_bands: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
         for band in sell_bands:
-            for order in self.excessive_orders_in_band(band, self.our_sell_orders(active_orders), target_price):
+            for order in self.excessive_orders_in_band(band, self.our_sell_orders(our_orders), target_price):
                 yield order
 
-    def excessive_buy_orders(self, active_orders: list, buy_bands: list, target_price: Wad):
+    def excessive_buy_orders(self, our_orders: list, buy_bands: list, target_price: Wad):
         """Return buy orders which need to be cancelled to bring total amounts within all buy bands below maximums."""
         for band in buy_bands:
-            for order in self.excessive_orders_in_band(band, self.our_buy_orders(active_orders), target_price):
+            for order in self.excessive_orders_in_band(band, self.our_buy_orders(our_orders), target_price):
                 yield order
 
     def excessive_orders_in_band(self, band, orders: list, target_price: Wad):
