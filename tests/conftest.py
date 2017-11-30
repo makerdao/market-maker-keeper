@@ -63,6 +63,7 @@ class SaiDeployment:
         self.top = top
         self.otc = otc
 
+    # TODO this will go away the moment we give up the idea of a config file with contract addresses
     def get_config(self):
         return Config({
             'contracts': {
