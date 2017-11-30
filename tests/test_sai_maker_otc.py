@@ -20,7 +20,7 @@ from functools import reduce
 
 import py
 
-from keeper import Wad
+from keeper import Wad, Web3Lifecycle
 from keeper.api.feed import DSValue
 from keeper.api.token import DSToken, ERC20Token
 from keeper.sai_maker_otc import SaiMakerOtc
@@ -160,6 +160,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -193,6 +194,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -216,6 +218,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -242,6 +245,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -271,6 +275,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -284,7 +289,7 @@ class TestSaiMakerOtc:
         assert len(sai.otc.active_offers()) == 0
 
         # and
-        assert keeper.terminated_internally
+        assert keeper.lifecycle.terminated_internally
 
     def test_should_place_extra_offer_only_if_offer_brought_below_min(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
@@ -293,6 +298,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -336,6 +342,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -376,6 +383,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -407,6 +415,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -447,6 +456,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -478,6 +488,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -506,6 +517,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -539,6 +551,7 @@ class TestSaiMakerOtc:
         # and
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -597,6 +610,7 @@ class TestSaiMakerOtc:
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"
                                        f" --min-eth-balance 100.0"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -618,7 +632,7 @@ class TestSaiMakerOtc:
 
         # then
         assert len(sai.otc.active_offers()) == 0
-        assert keeper.terminated_internally
+        assert keeper.lifecycle.terminated_internally
 
     def test_should_refuse_to_start_if_eth_balance_before_minimum(self, sai: SaiDeployment, tmpdir: py.path.local):
         # given
@@ -628,6 +642,7 @@ class TestSaiMakerOtc:
         keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"
                                        f" --min-eth-balance 100.0"),
                              web3=sai.web3, config=sai.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
         self.mint_tokens(sai)
@@ -643,7 +658,7 @@ class TestSaiMakerOtc:
 
         # then
         assert len(sai.otc.active_offers()) == 0
-        assert keeper.terminated_internally
+        assert keeper.lifecycle.terminated_internally
 
     @staticmethod
     def leave_only_some_eth(sai: SaiDeployment, amount_of_eth_to_leave: Wad):
