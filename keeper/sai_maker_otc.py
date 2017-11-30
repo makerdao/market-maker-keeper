@@ -17,23 +17,19 @@
 
 import argparse
 import operator
+import sys
 from functools import reduce
 from itertools import chain
 from typing import List
-
-import sys
-
-import itertools
 
 from keeper import Event
 from keeper.api.approval import directly
 from keeper.api.config import ReloadableConfig
 from keeper.api.numeric import Wad
 from keeper.api.oasis import OfferInfo
-from keeper.api.price import TubPriceFeed, SetzerPriceFeed
 from keeper.api.util import synchronize
-
 from keeper.band import BuyBand, SellBand
+from keeper.price import TubPriceFeed, SetzerPriceFeed
 from keeper.sai import SaiKeeper
 
 

@@ -26,8 +26,8 @@ from keeper.api.approval import directly
 from keeper.api.config import ReloadableConfig
 from keeper.api.etherdelta import EtherDelta, EtherDeltaApi, Order
 from keeper.api.numeric import Wad
-from keeper.api.price import TubPriceFeed, SetzerPriceFeed
 from keeper.band import BuyBand, SellBand
+from keeper.price import TubPriceFeed, SetzerPriceFeed
 from keeper.sai import SaiKeeper
 
 

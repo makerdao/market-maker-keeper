@@ -18,18 +18,17 @@
 import argparse
 import operator
 import sys
+import time
 from functools import reduce
 from itertools import chain
-
-import time
 
 from keeper import ERC20Token, Wad
 from keeper.api import Address, synchronize
 from keeper.api.approval import directly
 from keeper.api.config import ReloadableConfig
-from keeper.api.price import SetzerPriceFeed, TubPriceFeed
-from keeper.api.radarrelay import RadarRelay, RadarRelayApi, Order
+from keeper.api.radarrelay import RadarRelay, RadarRelayApi
 from keeper.band import BuyBand, SellBand
+from keeper.price import SetzerPriceFeed, TubPriceFeed
 from keeper.sai import SaiKeeper
 
 
