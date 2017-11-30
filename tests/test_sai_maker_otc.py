@@ -24,7 +24,7 @@ from keeper import Wad, Web3Lifecycle
 from pymaker.feed import DSValue
 from pymaker.token import DSToken, ERC20Token
 from keeper.sai_maker_otc import SaiMakerOtc
-from tests.conftest import SaiDeployment
+from pymaker.deployment import Deployment
 from tests.helper import args
 
 
@@ -137,126 +137,126 @@ class TestSaiMakerOtc:
         return file
 
     @staticmethod
-    def mint_tokens(sai: SaiDeployment):
-        DSToken(web3=sai.web3, address=sai.tub.gem()).mint(Wad.from_number(1000)).transact()
-        DSToken(web3=sai.web3, address=sai.tub.sai()).mint(Wad.from_number(1000)).transact()
+    def mint_tokens(deployment: Deployment):
+        DSToken(web3=deployment.web3, address=deployment.tub.gem()).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=deployment.web3, address=deployment.tub.sai()).mint(Wad.from_number(1000)).transact()
 
     @staticmethod
-    def set_price(sai: SaiDeployment, price: Wad):
-        DSValue(web3=sai.web3, address=sai.tub.pip()).poke_with_int(price.value).transact()
+    def set_price(deployment: Deployment, price: Wad):
+        DSValue(web3=deployment.web3, address=deployment.tub.pip()).poke_with_int(price.value).transact()
 
     @staticmethod
-    def offers_by_token(sai: SaiDeployment, token: ERC20Token):
-        return list(filter(lambda offer: offer.sell_which_token == token.address, sai.otc.active_offers()))
+    def offers_by_token(deployment: Deployment, token: ERC20Token):
+        return list(filter(lambda offer: offer.sell_which_token == token.address, deployment.otc.active_offers()))
 
     @staticmethod
     def offers_sorted(offers: list) -> list:
         return sorted(offers, key=lambda offer: (offer.sell_how_much, offer.buy_how_much))
 
-    def test_should_create_offers_on_startup(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_create_offers_on_startup(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # when
         keeper.approve()
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # and
-        assert self.offers_by_token(sai, sai.sai)[0].owner == sai.our_address
-        assert self.offers_by_token(sai, sai.sai)[0].sell_how_much == Wad.from_number(75)
-        assert self.offers_by_token(sai, sai.sai)[0].sell_which_token == sai.sai.address
-        assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.78125)
-        assert self.offers_by_token(sai, sai.sai)[0].buy_which_token == sai.gem.address
+        assert self.offers_by_token(deployment, deployment.sai)[0].owner == deployment.our_address
+        assert self.offers_by_token(deployment, deployment.sai)[0].sell_how_much == Wad.from_number(75)
+        assert self.offers_by_token(deployment, deployment.sai)[0].sell_which_token == deployment.sai.address
+        assert self.offers_by_token(deployment, deployment.sai)[0].buy_how_much == Wad.from_number(0.78125)
+        assert self.offers_by_token(deployment, deployment.sai)[0].buy_which_token == deployment.gem.address
 
         # and
-        assert self.offers_by_token(sai, sai.gem)[0].owner == sai.our_address
-        assert self.offers_by_token(sai, sai.gem)[0].sell_how_much == Wad.from_number(7.5)
-        assert self.offers_by_token(sai, sai.gem)[0].sell_which_token == sai.gem.address
-        assert self.offers_by_token(sai, sai.gem)[0].buy_how_much == Wad.from_number(780)
-        assert self.offers_by_token(sai, sai.gem)[0].buy_which_token == sai.sai.address
+        assert self.offers_by_token(deployment, deployment.gem)[0].owner == deployment.our_address
+        assert self.offers_by_token(deployment, deployment.gem)[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_by_token(deployment, deployment.gem)[0].sell_which_token == deployment.gem.address
+        assert self.offers_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(780)
+        assert self.offers_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
 
-    def test_should_cancel_offers_on_shutdown(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_offers_on_shutdown(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # and
         keeper.approve()
         keeper.synchronize_offers()
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # when
         keeper.shutdown()
 
         # then
-        assert len(sai.otc.active_offers()) == 0
+        assert len(deployment.otc.active_offers()) == 0
 
-    def test_should_support_config_files_with_variables(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_support_config_files_with_variables(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.with_variables_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # when
         keeper.approve()
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 1
+        assert len(deployment.otc.active_offers()) == 1
 
         # and
-        assert self.offers_by_token(sai, sai.gem)[0].owner == sai.our_address
-        assert self.offers_by_token(sai, sai.gem)[0].sell_how_much == Wad.from_number(5.0)
-        assert self.offers_by_token(sai, sai.gem)[0].sell_which_token == sai.gem.address
-        assert self.offers_by_token(sai, sai.gem)[0].buy_how_much == Wad.from_number(520)
-        assert self.offers_by_token(sai, sai.gem)[0].buy_which_token == sai.sai.address
+        assert self.offers_by_token(deployment, deployment.gem)[0].owner == deployment.our_address
+        assert self.offers_by_token(deployment, deployment.gem)[0].sell_how_much == Wad.from_number(5.0)
+        assert self.offers_by_token(deployment, deployment.gem)[0].sell_which_token == deployment.gem.address
+        assert self.offers_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(520)
+        assert self.offers_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
 
-    def test_should_reload_config_file_if_changed(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.with_variables_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # when
         keeper.approve()
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 1
+        assert len(deployment.otc.active_offers()) == 1
 
         # when
         second_config_file = self.sample_config(tmpdir)
@@ -266,402 +266,402 @@ class TestSaiMakerOtc:
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
-    def test_should_fail_to_operate_if_bands_overlap(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_fail_to_operate_if_bands_overlap(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.bands_overlapping_invalid_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # when
         keeper.approve()
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 0
+        assert len(deployment.otc.active_offers()) == 0
 
         # and
         assert keeper.lifecycle.terminated_internally
 
-    def test_should_place_extra_offer_only_if_offer_brought_below_min(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_place_extra_offer_only_if_offer_brought_below_min(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # and
         keeper.approve()
         keeper.synchronize_offers()
-        assert len(sai.otc.active_offers()) == 2
-        sai_offer_id = self.offers_by_token(sai, sai.sai)[0].offer_id
+        assert len(deployment.otc.active_offers()) == 2
+        sai_offer_id = self.offers_by_token(deployment, deployment.sai)[0].offer_id
 
         # when
-        sai.otc.take(sai_offer_id, Wad.from_number(20)).transact()
+        deployment.otc.take(sai_offer_id, Wad.from_number(20)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # when
-        sai.otc.take(sai_offer_id, Wad.from_number(5)).transact()
+        deployment.otc.take(sai_offer_id, Wad.from_number(5)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # when
-        sai.otc.take(sai_offer_id, Wad.from_number(1)).transact()
+        deployment.otc.take(sai_offer_id, Wad.from_number(1)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 3
-        assert sai.otc.active_offers()[2].sell_how_much == Wad.from_number(26)
-        assert sai.otc.active_offers()[2].sell_which_token == sai.sai.address
-        assert sai.otc.active_offers()[2].buy_how_much == Wad(270833333333333333)
-        assert sai.otc.active_offers()[2].buy_which_token == sai.gem.address
+        assert len(deployment.otc.active_offers()) == 3
+        assert deployment.otc.active_offers()[2].sell_how_much == Wad.from_number(26)
+        assert deployment.otc.active_offers()[2].sell_which_token == deployment.sai.address
+        assert deployment.otc.active_offers()[2].buy_how_much == Wad(270833333333333333)
+        assert deployment.otc.active_offers()[2].buy_which_token == deployment.gem.address
 
-    def test_should_cancel_selected_buy_offers_to_bring_the_band_total_below_max_and_closest_to_it(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_selected_buy_offers_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # and
         keeper.approve()
         keeper.synchronize_offers()
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # when [75+17 = 92]
-        sai.otc.make(sai.sai.address, Wad.from_number(17), sai.gem.address, Wad.from_number(0.1770805)).transact()
+        deployment.otc.make(deployment.sai.address, Wad.from_number(17), deployment.gem.address, Wad.from_number(0.1770805)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 3
+        assert len(deployment.otc.active_offers()) == 3
 
         # when [92+2 = 94]
-        sai.otc.make(sai.sai.address, Wad.from_number(2), sai.gem.address, Wad.from_number(0.020833)).transact()
+        deployment.otc.make(deployment.sai.address, Wad.from_number(2), deployment.gem.address, Wad.from_number(0.020833)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 4
+        assert len(deployment.otc.active_offers()) == 4
 
         # when [94+7 = 101] --> above max!
-        sai.otc.make(sai.sai.address, Wad.from_number(7), sai.gem.address, Wad.from_number(0.072912)).transact()
+        deployment.otc.make(deployment.sai.address, Wad.from_number(7), deployment.gem.address, Wad.from_number(0.072912)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 4
-        assert reduce(Wad.__add__, map(lambda offer: offer.sell_how_much, self.offers_by_token(sai, sai.sai)), Wad(0)) \
+        assert len(deployment.otc.active_offers()) == 4
+        assert reduce(Wad.__add__, map(lambda offer: offer.sell_how_much, self.offers_by_token(deployment, deployment.sai)), Wad(0)) \
                == Wad.from_number(99)
 
-    def test_should_cancel_the_only_buy_offer_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_the_only_buy_offer_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # and
         keeper.approve()
 
         # and
         # [one artificially created offer above the max band threshold]
-        sai.otc.make(sai.sai.address, Wad.from_number(170), sai.gem.address, Wad.from_number(1.770805)).transact()
+        deployment.otc.make(deployment.sai.address, Wad.from_number(170), deployment.gem.address, Wad.from_number(1.770805)).transact()
 
         # when
         keeper.synchronize_offers()
 
         # then
         # [the artificial offer gets cancelled, a new one gets created instead]
-        assert len(sai.otc.active_offers()) == 2
-        assert self.offers_by_token(sai, sai.sai)[0].owner == sai.our_address
-        assert self.offers_by_token(sai, sai.sai)[0].sell_how_much == Wad.from_number(75)
-        assert self.offers_by_token(sai, sai.sai)[0].sell_which_token == sai.sai.address
-        assert self.offers_by_token(sai, sai.sai)[0].buy_how_much == Wad.from_number(0.78125)
-        assert self.offers_by_token(sai, sai.sai)[0].buy_which_token == sai.gem.address
+        assert len(deployment.otc.active_offers()) == 2
+        assert self.offers_by_token(deployment, deployment.sai)[0].owner == deployment.our_address
+        assert self.offers_by_token(deployment, deployment.sai)[0].sell_how_much == Wad.from_number(75)
+        assert self.offers_by_token(deployment, deployment.sai)[0].sell_which_token == deployment.sai.address
+        assert self.offers_by_token(deployment, deployment.sai)[0].buy_how_much == Wad.from_number(0.78125)
+        assert self.offers_by_token(deployment, deployment.sai)[0].buy_which_token == deployment.gem.address
 
-    def test_should_cancel_selected_sell_offers_to_bring_the_band_total_below_max_and_closest_to_it(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_selected_sell_offers_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # and
         keeper.approve()
         keeper.synchronize_offers()
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # when [7.5+2.0 = 9.5]
-        sai.otc.make(sai.gem.address, Wad.from_number(2), sai.sai.address, Wad.from_number(208)).transact()
+        deployment.otc.make(deployment.gem.address, Wad.from_number(2), deployment.sai.address, Wad.from_number(208)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 3
+        assert len(deployment.otc.active_offers()) == 3
 
         # when [9.5+0.5 = 10]
-        sai.otc.make(sai.gem.address, Wad.from_number(0.5), sai.sai.address, Wad.from_number(52)).transact()
+        deployment.otc.make(deployment.gem.address, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(52)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 4
+        assert len(deployment.otc.active_offers()) == 4
 
         # when [10+0.1 = 10.1] --> above max!
-        sai.otc.make(sai.gem.address, Wad.from_number(0.1), sai.sai.address, Wad.from_number(10.4)).transact()
+        deployment.otc.make(deployment.gem.address, Wad.from_number(0.1), deployment.sai.address, Wad.from_number(10.4)).transact()
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 4
-        assert reduce(Wad.__add__, map(lambda offer: offer.sell_how_much, self.offers_by_token(sai, sai.gem)), Wad(0)) \
+        assert len(deployment.otc.active_offers()) == 4
+        assert reduce(Wad.__add__, map(lambda offer: offer.sell_how_much, self.offers_by_token(deployment, deployment.gem)), Wad(0)) \
                == Wad.from_number(10.0)
 
-    def test_should_cancel_the_only_sell_offer_and_place_a_new_one_if_above_max(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_the_only_sell_offer_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # and
         keeper.approve()
 
         # and
         # [one artificially created offer above the max band threshold]
-        sai.otc.make(sai.gem.address, Wad.from_number(20), sai.sai.address, Wad.from_number(2080)).transact()
+        deployment.otc.make(deployment.gem.address, Wad.from_number(20), deployment.sai.address, Wad.from_number(2080)).transact()
 
         # when
         keeper.synchronize_offers()
 
         # then
         # [the artificial offer gets cancelled, a new one gets created instead]
-        assert len(sai.otc.active_offers()) == 2
-        assert self.offers_by_token(sai, sai.gem)[0].owner == sai.our_address
-        assert self.offers_by_token(sai, sai.gem)[0].sell_how_much == Wad.from_number(7.5)
-        assert self.offers_by_token(sai, sai.gem)[0].sell_which_token == sai.gem.address
-        assert self.offers_by_token(sai, sai.gem)[0].buy_how_much == Wad.from_number(780)
-        assert self.offers_by_token(sai, sai.gem)[0].buy_which_token == sai.sai.address
+        assert len(deployment.otc.active_offers()) == 2
+        assert self.offers_by_token(deployment, deployment.gem)[0].owner == deployment.our_address
+        assert self.offers_by_token(deployment, deployment.gem)[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_by_token(deployment, deployment.gem)[0].sell_which_token == deployment.gem.address
+        assert self.offers_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(780)
+        assert self.offers_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
 
-    def test_should_cancel_all_offers_outside_bands(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_all_offers_outside_bands(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # and
         keeper.approve()
         keeper.synchronize_offers()
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # when
-        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(0.0538)).transact() #price=92.936802973977695
-        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(0.0505)).transact() #price=99.0
-        sai.otc.make(sai.gem.address, Wad.from_number(0.5), sai.sai.address, Wad.from_number(50.5)).transact() #price=101
-        sai.otc.make(sai.gem.address, Wad.from_number(0.5), sai.sai.address, Wad.from_number(53.5)).transact() #price=107
-        assert len(sai.otc.active_offers()) == 6
+        deployment.otc.make(deployment.sai.address, Wad.from_number(5), deployment.gem.address, Wad.from_number(0.0538)).transact() #price=92.936802973977695
+        deployment.otc.make(deployment.sai.address, Wad.from_number(5), deployment.gem.address, Wad.from_number(0.0505)).transact() #price=99.0
+        deployment.otc.make(deployment.gem.address, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(50.5)).transact() #price=101
+        deployment.otc.make(deployment.gem.address, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(53.5)).transact() #price=107
+        assert len(deployment.otc.active_offers()) == 6
         # and
         keeper.synchronize_offers()
         # then
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
-    def test_should_create_offers_in_multiple_bands(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_create_offers_in_multiple_bands(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # when
         keeper.approve()
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # and
-        assert self.offers_sorted(sai.otc.active_offers())[0].owner == sai.our_address
-        assert self.offers_sorted(sai.otc.active_offers())[0].sell_how_much == Wad.from_number(7.5)
-        assert self.offers_sorted(sai.otc.active_offers())[0].sell_which_token == sai.gem.address
-        assert self.offers_sorted(sai.otc.active_offers())[0].buy_how_much == Wad.from_number(780)
-        assert self.offers_sorted(sai.otc.active_offers())[0].buy_which_token == sai.sai.address
+        assert self.offers_sorted(deployment.otc.active_offers())[0].owner == deployment.our_address
+        assert self.offers_sorted(deployment.otc.active_offers())[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_sorted(deployment.otc.active_offers())[0].sell_which_token == deployment.gem.address
+        assert self.offers_sorted(deployment.otc.active_offers())[0].buy_how_much == Wad.from_number(780)
+        assert self.offers_sorted(deployment.otc.active_offers())[0].buy_which_token == deployment.sai.address
 
         # and
-        assert self.offers_sorted(sai.otc.active_offers())[1].owner == sai.our_address
-        assert self.offers_sorted(sai.otc.active_offers())[1].sell_how_much == Wad.from_number(9.5)
-        assert self.offers_sorted(sai.otc.active_offers())[1].sell_which_token == sai.gem.address
-        assert self.offers_sorted(sai.otc.active_offers())[1].buy_how_much == Wad.from_number(1026)
-        assert self.offers_sorted(sai.otc.active_offers())[1].buy_which_token == sai.sai.address
+        assert self.offers_sorted(deployment.otc.active_offers())[1].owner == deployment.our_address
+        assert self.offers_sorted(deployment.otc.active_offers())[1].sell_how_much == Wad.from_number(9.5)
+        assert self.offers_sorted(deployment.otc.active_offers())[1].sell_which_token == deployment.gem.address
+        assert self.offers_sorted(deployment.otc.active_offers())[1].buy_how_much == Wad.from_number(1026)
+        assert self.offers_sorted(deployment.otc.active_offers())[1].buy_which_token == deployment.sai.address
 
-    def test_should_take_over_offer_from_adjacent_band_when_price_changes(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_take_over_offer_from_adjacent_band_when_price_changes(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"),
-                             web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # when
         keeper.approve()
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # and
-        assert self.offers_sorted(sai.otc.active_offers())[0].owner == sai.our_address
-        assert self.offers_sorted(sai.otc.active_offers())[0].sell_how_much == Wad.from_number(7.5)
-        assert self.offers_sorted(sai.otc.active_offers())[0].sell_which_token == sai.gem.address
-        assert self.offers_sorted(sai.otc.active_offers())[0].buy_how_much == Wad.from_number(780)
-        assert self.offers_sorted(sai.otc.active_offers())[0].buy_which_token == sai.sai.address
+        assert self.offers_sorted(deployment.otc.active_offers())[0].owner == deployment.our_address
+        assert self.offers_sorted(deployment.otc.active_offers())[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_sorted(deployment.otc.active_offers())[0].sell_which_token == deployment.gem.address
+        assert self.offers_sorted(deployment.otc.active_offers())[0].buy_how_much == Wad.from_number(780)
+        assert self.offers_sorted(deployment.otc.active_offers())[0].buy_which_token == deployment.sai.address
 
         # and
-        assert self.offers_sorted(sai.otc.active_offers())[1].owner == sai.our_address
-        assert self.offers_sorted(sai.otc.active_offers())[1].sell_how_much == Wad.from_number(9.5)
-        assert self.offers_sorted(sai.otc.active_offers())[1].sell_which_token == sai.gem.address
-        assert self.offers_sorted(sai.otc.active_offers())[1].buy_how_much == Wad.from_number(1026)
-        assert self.offers_sorted(sai.otc.active_offers())[1].buy_which_token == sai.sai.address
+        assert self.offers_sorted(deployment.otc.active_offers())[1].owner == deployment.our_address
+        assert self.offers_sorted(deployment.otc.active_offers())[1].sell_how_much == Wad.from_number(9.5)
+        assert self.offers_sorted(deployment.otc.active_offers())[1].sell_which_token == deployment.gem.address
+        assert self.offers_sorted(deployment.otc.active_offers())[1].buy_how_much == Wad.from_number(1026)
+        assert self.offers_sorted(deployment.otc.active_offers())[1].buy_which_token == deployment.sai.address
 
         # when
-        self.set_price(sai, Wad.from_number(96))
+        self.set_price(deployment, Wad.from_number(96))
         # and
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # and
         # ...new offer in the <0.02,0.06> band gets created
-        assert self.offers_sorted(sai.otc.active_offers())[0].owner == sai.our_address
-        assert self.offers_sorted(sai.otc.active_offers())[0].sell_how_much == Wad.from_number(7.5)
-        assert self.offers_sorted(sai.otc.active_offers())[0].sell_which_token == sai.gem.address
-        assert self.offers_sorted(sai.otc.active_offers())[0].buy_how_much == Wad.from_number(748.8)
-        assert self.offers_sorted(sai.otc.active_offers())[0].buy_which_token == sai.sai.address
+        assert self.offers_sorted(deployment.otc.active_offers())[0].owner == deployment.our_address
+        assert self.offers_sorted(deployment.otc.active_offers())[0].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_sorted(deployment.otc.active_offers())[0].sell_which_token == deployment.gem.address
+        assert self.offers_sorted(deployment.otc.active_offers())[0].buy_how_much == Wad.from_number(748.8)
+        assert self.offers_sorted(deployment.otc.active_offers())[0].buy_which_token == deployment.sai.address
 
         # and
         # ...the offer from <0.02,0.06> ends up in the <0.06,0.10> band
-        assert self.offers_sorted(sai.otc.active_offers())[1].owner == sai.our_address
-        assert self.offers_sorted(sai.otc.active_offers())[1].sell_how_much == Wad.from_number(7.5)
-        assert self.offers_sorted(sai.otc.active_offers())[1].sell_which_token == sai.gem.address
-        assert self.offers_sorted(sai.otc.active_offers())[1].buy_how_much == Wad.from_number(780)
-        assert self.offers_sorted(sai.otc.active_offers())[1].buy_which_token == sai.sai.address
+        assert self.offers_sorted(deployment.otc.active_offers())[1].owner == deployment.our_address
+        assert self.offers_sorted(deployment.otc.active_offers())[1].sell_how_much == Wad.from_number(7.5)
+        assert self.offers_sorted(deployment.otc.active_offers())[1].sell_which_token == deployment.gem.address
+        assert self.offers_sorted(deployment.otc.active_offers())[1].buy_how_much == Wad.from_number(780)
+        assert self.offers_sorted(deployment.otc.active_offers())[1].buy_which_token == deployment.sai.address
 
-    def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"
                                        f" --min-eth-balance 100.0"),
-                             web3=sai.web3, config=sai.get_config())
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # when
         keeper.approve()
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # when
-        self.leave_only_some_eth(sai, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
-                                                              # that's why `--min-eth-balance` is higher than 10.0
+        self.leave_only_some_eth(deployment, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
+                                                                     # that's why `--min-eth-balance` is higher than 10
 
         # and
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 0
+        assert len(deployment.otc.active_offers()) == 0
         assert keeper.lifecycle.terminated_internally
 
-    def test_should_refuse_to_start_if_eth_balance_before_minimum(self, sai: SaiDeployment, tmpdir: py.path.local):
+    def test_should_refuse_to_start_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = self.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --config {config_file}"
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"
                                        f" --min-eth-balance 100.0"),
-                             web3=sai.web3, config=sai.get_config())
+                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
-        self.mint_tokens(sai)
-        self.set_price(sai, Wad.from_number(100))
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
 
         # and
-        self.leave_only_some_eth(sai, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
-                                                              # that's why `--min-eth-balance` is higher than 10.0
+        self.leave_only_some_eth(deployment, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
+                                                                     # that's why `--min-eth-balance` is higher than 10
 
         # when
         keeper.approve()
         keeper.synchronize_offers()
 
         # then
-        assert len(sai.otc.active_offers()) == 0
+        assert len(deployment.otc.active_offers()) == 0
         assert keeper.lifecycle.terminated_internally
 
     @staticmethod
-    def leave_only_some_eth(sai: SaiDeployment, amount_of_eth_to_leave: Wad):
-        balance = Wad(sai.web3.eth.getBalance(sai.our_address.address))
-        sai.web3.eth.sendTransaction({'to': '0x0000011111000001111100000111110000011111',
-                                      'value': (balance - amount_of_eth_to_leave).value})
+    def leave_only_some_eth(deployment: Deployment, amount_of_eth_to_leave: Wad):
+        balance = Wad(deployment.web3.eth.getBalance(deployment.our_address.address))
+        deployment.web3.eth.sendTransaction({'to': '0x0000011111000001111100000111110000011111',
+                                             'value': (balance - amount_of_eth_to_leave).value})

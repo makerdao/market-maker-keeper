@@ -15,116 +15,17 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import sys
-
-from keeper import Config
-from pymaker.oasis import SimpleMarket, MatchingMarket
-
-sys.path.append(os.path.dirname(__file__) + "/../..")
-
-import json
-
-import pkg_resources
 import pytest
 
-from pymaker import Address
-from pymaker import Wad
-from pymaker.approval import directly
-from pymaker.auth import DSGuard
-from pymaker.feed import DSValue
-from pymaker.sai import Tub, Tap, Top
-from pymaker.token import DSToken
-from pymaker.vault import DSVault
-from web3 import EthereumTesterProvider
-from web3 import Web3
-
-
-class SaiDeployment:
-    def __init__(self,
-                 web3: Web3,
-                 our_address: Address,
-                 gem: DSToken,
-                 sai: DSToken,
-                 sin: DSToken,
-                 skr: DSToken,
-                 tub: Tub,
-                 tap: Tap,
-                 top: Top,
-                 otc: MatchingMarket):
-        self.web3 = web3
-        self.our_address = our_address
-        self.gem = gem
-        self.sai = sai
-        self.sin = sin
-        self.skr = skr
-        self.tub = tub
-        self.tap = tap
-        self.top = top
-        self.otc = otc
-
-    # TODO this will go away the moment we give up the idea of a config file with contract addresses
-    def get_config(self):
-        return Config({
-            'contracts': {
-                "otc": self.otc.address.address,
-                "saiTub": self.tub.address.address,
-                "saiTap": self.tap.address.address,
-                "saiTop": self.top.address.address
-            }
-        })
+from pymaker.deployment import Deployment
 
 
 @pytest.fixture(scope='session')
-def new_sai() -> SaiDeployment:
-    #TODO duplicate of the deploy method in test_radarrelay.py
-    def deploy(web3, contract_name, args=None):
-        contract_factory = web3.eth.contract(abi=json.loads(pkg_resources.resource_string('pymaker.feed', f'abi/{contract_name}.abi')),
-                                             bytecode=pkg_resources.resource_string('pymaker.feed', f'abi/{contract_name}.bin'))
-        tx_hash = contract_factory.deploy(args=args)
-        receipt = web3.eth.getTransactionReceipt(tx_hash)
-        return receipt['contractAddress']
-
-    web3 = Web3(EthereumTesterProvider())
-    web3.eth.defaultAccount = web3.eth.accounts[0]
-    our_address = Address(web3.eth.defaultAccount)
-    sai = DSToken.deploy(web3, 'SAI')
-    sin = DSToken.deploy(web3, 'SIN')
-    gem = DSToken.deploy(web3, 'ETH')
-    pip = DSValue.deploy(web3)
-    skr = DSToken.deploy(web3, 'SKR')
-    pot = DSVault.deploy(web3)
-    pit = DSVault.deploy(web3)
-    tip = deploy(web3, 'Tip')
-    dad = DSGuard.deploy(web3)
-    jug = deploy(web3, 'SaiJug', [sai.address.address, sin.address.address])
-    jar = deploy(web3, 'SaiJar', [skr.address.address, gem.address.address, pip.address.address])
-
-    tub = Tub.deploy(web3, Address(jar), Address(jug), pot.address, pit.address, Address(tip))
-    tap = Tap.deploy(web3, tub.address, pit.address)
-    top = Top.deploy(web3, tub.address, tap.address)
-    otc = MatchingMarket.deploy(web3, 2600000000)
-
-    # set permissions
-    dad.permit(DSGuard.ANY, DSGuard.ANY, DSGuard.ANY).transact()
-    tub.set_authority(dad.address)
-    for auth in [sai, sin, skr, pot, pit, tap, top]:
-        auth.set_authority(dad.address).transact()
-
-    # whitelist pairs
-    otc.add_token_pair_whitelist(sai.address, gem.address).transact()
-
-    # approve, mint some GEMs
-    tub.approve(directly())
-    gem.mint(Wad.from_number(1000000)).transact()
-
-    web3.providers[0].rpc_methods.evm_snapshot()
-    return SaiDeployment(web3, our_address, gem, sai, sin, skr, tub, tap, top, otc)
+def new_deployment() -> Deployment:
+    return Deployment()
 
 
 @pytest.fixture()
-def sai(new_sai: SaiDeployment) -> SaiDeployment:
-    new_sai.web3.providers[0].rpc_methods.evm_revert()
-    new_sai.web3.providers[0].rpc_methods.evm_snapshot()
-    new_sai.otc._none_offers = set()
-    return new_sai
+def deployment(new_deployment: Deployment) -> Deployment:
+    new_deployment.reset()
+    return new_deployment

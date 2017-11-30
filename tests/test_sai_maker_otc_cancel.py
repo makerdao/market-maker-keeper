@@ -19,86 +19,86 @@ from keeper import Wad, Address
 from pymaker.approval import directly
 from pymaker.token import DSToken
 from keeper.sai_maker_otc_cancel import SaiMakerOtcCancel
-from tests.conftest import SaiDeployment
+from pymaker.deployment import Deployment
 from tests.helper import args
 
 
 class TestSaiMakerOtcCancel:
-    def test_should_cancel_offers_owned_by_us(self, sai: SaiDeployment):
+    def test_should_cancel_offers_owned_by_us(self, deployment: Deployment):
         # given
-        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {sai.web3.eth.defaultAccount}"),
-                                   web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount}"),
+                                   web3=deployment.web3, config=deployment.get_config())
 
         # and
-        DSToken(web3=sai.web3, address=sai.gem.address).mint(Wad.from_number(1000)).transact()
-        DSToken(web3=sai.web3, address=sai.sai.address).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=deployment.web3, address=deployment.gem.address).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=deployment.web3, address=deployment.sai.address).mint(Wad.from_number(1000)).transact()
 
         # and
-        sai.otc.approve([sai.gem, sai.sai], directly())
-        sai.otc.make(sai.gem.address, Wad.from_number(10), sai.sai.address, Wad.from_number(5)).transact()
-        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(12)).transact()
-        assert len(sai.otc.active_offers()) == 2
+        deployment.otc.approve([deployment.gem, deployment.sai], directly())
+        deployment.otc.make(deployment.gem.address, Wad.from_number(10), deployment.sai.address, Wad.from_number(5)).transact()
+        deployment.otc.make(deployment.sai.address, Wad.from_number(5), deployment.gem.address, Wad.from_number(12)).transact()
+        assert len(deployment.otc.active_offers()) == 2
 
         # when
         keeper.startup()
         keeper.shutdown()
 
         # then
-        assert len(sai.otc.active_offers()) == 0
+        assert len(deployment.otc.active_offers()) == 0
 
-    def test_should_ignore_offers_owned_by_others(self, sai: SaiDeployment):
+    def test_should_ignore_offers_owned_by_others(self, deployment: Deployment):
         # given
-        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {sai.web3.eth.defaultAccount}"),
-                                   web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount}"),
+                                   web3=deployment.web3, config=deployment.get_config())
 
         # and
-        DSToken(web3=sai.web3, address=sai.gem.address).mint(Wad.from_number(1000)).transact()
-        DSToken(web3=sai.web3, address=sai.sai.address).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=deployment.web3, address=deployment.gem.address).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=deployment.web3, address=deployment.sai.address).mint(Wad.from_number(1000)).transact()
 
         # and
-        sai.gem.transfer(Address(sai.web3.eth.accounts[1]), Wad.from_number(500)).transact()
-        sai.sai.transfer(Address(sai.web3.eth.accounts[1]), Wad.from_number(500)).transact()
+        deployment.gem.transfer(Address(deployment.web3.eth.accounts[1]), Wad.from_number(500)).transact()
+        deployment.sai.transfer(Address(deployment.web3.eth.accounts[1]), Wad.from_number(500)).transact()
 
         # and
-        sai.otc.approve([sai.gem, sai.sai], directly())
-        sai.otc.make(sai.gem.address, Wad.from_number(10), sai.sai.address, Wad.from_number(5)).transact()
+        deployment.otc.approve([deployment.gem, deployment.sai], directly())
+        deployment.otc.make(deployment.gem.address, Wad.from_number(10), deployment.sai.address, Wad.from_number(5)).transact()
 
         # and
-        sai.web3.eth.defaultAccount = sai.web3.eth.accounts[1]
-        sai.otc.approve([sai.gem, sai.sai], directly())
-        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(12)).transact()
-        sai.web3.eth.defaultAccount = sai.web3.eth.accounts[0]
+        deployment.web3.eth.defaultAccount = deployment.web3.eth.accounts[1]
+        deployment.otc.approve([deployment.gem, deployment.sai], directly())
+        deployment.otc.make(deployment.sai.address, Wad.from_number(5), deployment.gem.address, Wad.from_number(12)).transact()
+        deployment.web3.eth.defaultAccount = deployment.web3.eth.accounts[0]
 
         # and
-        assert len(sai.otc.active_offers()) == 2
+        assert len(deployment.otc.active_offers()) == 2
 
         # when
         keeper.startup()
         keeper.shutdown()
 
         # then
-        assert len(sai.otc.active_offers()) == 1
-        assert sai.otc.active_offers()[0].owner == Address(sai.web3.eth.accounts[1])
+        assert len(deployment.otc.active_offers()) == 1
+        assert deployment.otc.active_offers()[0].owner == Address(deployment.web3.eth.accounts[1])
 
-    def test_should_use_gas_price_specified(self, sai: SaiDeployment):
+    def test_should_use_gas_price_specified(self, deployment: Deployment):
         # given
         some_gas_price = 15000000000
-        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {sai.web3.eth.defaultAccount} --gas-price {some_gas_price}"),
-                                   web3=sai.web3, config=sai.get_config())
+        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --gas-price {some_gas_price}"),
+                                   web3=deployment.web3, config=deployment.get_config())
 
         # and
-        DSToken(web3=sai.web3, address=sai.gem.address).mint(Wad.from_number(1000)).transact()
-        DSToken(web3=sai.web3, address=sai.sai.address).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=deployment.web3, address=deployment.gem.address).mint(Wad.from_number(1000)).transact()
+        DSToken(web3=deployment.web3, address=deployment.sai.address).mint(Wad.from_number(1000)).transact()
 
         # and
-        sai.otc.approve([sai.gem, sai.sai], directly())
-        sai.otc.make(sai.sai.address, Wad.from_number(5), sai.gem.address, Wad.from_number(12)).transact()
-        assert len(sai.otc.active_offers()) == 1
+        deployment.otc.approve([deployment.gem, deployment.sai], directly())
+        deployment.otc.make(deployment.sai.address, Wad.from_number(5), deployment.gem.address, Wad.from_number(12)).transact()
+        assert len(deployment.otc.active_offers()) == 1
 
         # when
         keeper.startup()
         keeper.shutdown()
 
         # then
-        assert len(sai.otc.active_offers()) == 0
-        assert sai.web3.eth.getBlock('latest', True)['transactions'][0]['gasPrice'] == some_gas_price
+        assert len(deployment.otc.active_offers()) == 0
+        assert deployment.web3.eth.getBlock('latest', True)['transactions'][0]['gasPrice'] == some_gas_price
