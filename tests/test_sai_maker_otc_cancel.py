@@ -16,8 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from keeper import Wad, Address
-from keeper.api.approval import directly
-from keeper.api.token import DSToken
+from pymaker.approval import directly
+from pymaker.token import DSToken
 from keeper.sai_maker_otc_cancel import SaiMakerOtcCancel
 from tests.conftest import SaiDeployment
 from tests.helper import args

@@ -21,8 +21,8 @@ from functools import reduce
 import py
 
 from keeper import Wad, Web3Lifecycle
-from keeper.api.feed import DSValue
-from keeper.api.token import DSToken, ERC20Token
+from pymaker.feed import DSValue
+from pymaker.token import DSToken, ERC20Token
 from keeper.sai_maker_otc import SaiMakerOtc
 from tests.conftest import SaiDeployment
 from tests.helper import args

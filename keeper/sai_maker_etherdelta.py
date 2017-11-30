@@ -21,11 +21,11 @@ import sys
 from functools import reduce
 from itertools import chain
 
-from keeper.api import Address, synchronize
-from keeper.api.approval import directly
-from keeper.api.config import ReloadableConfig
-from keeper.api.etherdelta import EtherDelta, EtherDeltaApi, Order
-from keeper.api.numeric import Wad
+from pymaker import Address, synchronize
+from pymaker.approval import directly
+from pymaker.config import ReloadableConfig
+from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
+from pymaker.numeric import Wad
 from keeper.band import BuyBand, SellBand
 from keeper.price import TubPriceFeed, SetzerPriceFeed
 from keeper.sai import SaiKeeper

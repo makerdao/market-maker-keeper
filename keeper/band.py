@@ -19,7 +19,7 @@ import itertools
 import operator
 from functools import reduce
 
-from keeper import Wad
+from pymaker.numeric import Wad
 
 
 class Band:

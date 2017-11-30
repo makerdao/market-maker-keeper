@@ -19,7 +19,7 @@ import os
 import sys
 
 from keeper import Config
-from keeper.api.oasis import SimpleMarket, MatchingMarket
+from pymaker.oasis import SimpleMarket, MatchingMarket
 
 sys.path.append(os.path.dirname(__file__) + "/../..")
 
@@ -28,14 +28,14 @@ import json
 import pkg_resources
 import pytest
 
-from keeper.api import Address
-from keeper.api import Wad
-from keeper.api.approval import directly
-from keeper.api.auth import DSGuard
-from keeper.api.feed import DSValue
-from keeper.api.sai import Tub, Tap, Top
-from keeper.api.token import DSToken
-from keeper.api.vault import DSVault
+from pymaker import Address
+from pymaker import Wad
+from pymaker.approval import directly
+from pymaker.auth import DSGuard
+from pymaker.feed import DSValue
+from pymaker.sai import Tub, Tap, Top
+from pymaker.token import DSToken
+from pymaker.vault import DSVault
 from web3 import EthereumTesterProvider
 from web3 import Web3
 
@@ -79,8 +79,8 @@ class SaiDeployment:
 def new_sai() -> SaiDeployment:
     #TODO duplicate of the deploy method in test_radarrelay.py
     def deploy(web3, contract_name, args=None):
-        contract_factory = web3.eth.contract(abi=json.loads(pkg_resources.resource_string('keeper.api.feed', f'abi/{contract_name}.abi')),
-                                             bytecode=pkg_resources.resource_string('keeper.api.feed', f'abi/{contract_name}.bin'))
+        contract_factory = web3.eth.contract(abi=json.loads(pkg_resources.resource_string('pymaker.feed', f'abi/{contract_name}.abi')),
+                                             bytecode=pkg_resources.resource_string('pymaker.feed', f'abi/{contract_name}.bin'))
         tx_hash = contract_factory.deploy(args=args)
         receipt = web3.eth.getTransactionReceipt(tx_hash)
         return receipt['contractAddress']

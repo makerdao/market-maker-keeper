@@ -23,11 +23,11 @@ from itertools import chain
 from typing import List
 
 from keeper import Event
-from keeper.api.approval import directly
-from keeper.api.config import ReloadableConfig
-from keeper.api.numeric import Wad
-from keeper.api.oasis import OfferInfo
-from keeper.api.util import synchronize
+from pymaker.approval import directly
+from pymaker.config import ReloadableConfig
+from pymaker.numeric import Wad
+from pymaker.oasis import OfferInfo
+from pymaker.util import synchronize
 from keeper.band import BuyBand, SellBand
 from keeper.price import TubPriceFeed, SetzerPriceFeed
 from keeper.sai import SaiKeeper

@@ -17,7 +17,7 @@
 
 import sys
 
-from keeper.api.util import synchronize
+from pymaker.util import synchronize
 from keeper.sai import SaiKeeper
 
 
