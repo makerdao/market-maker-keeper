@@ -26,7 +26,7 @@ from keeper import ERC20Token, Wad
 from pymaker import Address, synchronize
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
-from pymaker.radarrelay import RadarRelay, RadarRelayApi
+from pymaker.zrx import ZrxExchange, ZrxRelayerApi
 from keeper.band import BuyBand, SellBand
 from keeper.price import SetzerPriceFeed, TubPriceFeed
 from keeper.sai import SaiKeeper
@@ -49,8 +49,8 @@ class SaiMakerRadarRelay(SaiKeeper):
             self.price_feed = TubPriceFeed(self.tub)
 
         self.ether_token = ERC20Token(web3=self.web3, address=Address(self.config.get_config()["0x"]["etherToken"]))
-        self.radar_relay = RadarRelay(web3=self.web3, address=Address(self.config.get_config()["0x"]["exchange"]))
-        self.radar_relay_api = RadarRelayApi(exchange=self.radar_relay,
+        self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.config.get_config()["0x"]["exchange"]))
+        self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay,
                                              api_server=self.config.get_config()["radarRelay"]["apiServer"],
                                              logger=self.logger)
 
