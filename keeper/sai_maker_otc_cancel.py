@@ -25,15 +25,15 @@ class SaiMakerOtcCancel(SaiKeeper):
     """Tool to cancel all our open orders on OasisDEX."""
 
     def startup(self):
-        self.cancel_offers(self.our_offers(self.otc.active_offers()))
+        self.cancel_orders(self.our_orders(self.otc.get_orders()))
 
-    def our_offers(self, active_offers: list):
-        """Return list of offers owned by us."""
-        return list(filter(lambda offer: offer.owner == self.our_address, active_offers))
+    def our_orders(self, orders: list):
+        """Return list of orders owned by us."""
+        return list(filter(lambda order: order.owner == self.our_address, orders))
 
-    def cancel_offers(self, offers: list):
-        """Cancel offers asynchronously."""
-        synchronize([self.otc.kill(offer.offer_id).transact_async(gas_price=self.gas_price) for offer in offers])
+    def cancel_orders(self, orders: list):
+        """Cancel orders asynchronously."""
+        synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price) for order in orders])
 
 
 if __name__ == '__main__':

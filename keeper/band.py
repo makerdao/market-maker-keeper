@@ -57,7 +57,7 @@ class Band:
         raise NotImplemented()
 
     def excessive_orders(self, orders: list, target_price: Wad):
-        """Return offers which need to be cancelled to bring the total order amount in the band below maximum."""
+        """Return orders which need to be cancelled to bring the total order amount in the band below maximum."""
         orders_in_band = [order for order in orders if self.includes(order, target_price)]
         if self._total_amount(orders_in_band) > self.max_amount:
             def calculate_all_subsets():
@@ -81,7 +81,7 @@ class Band:
             # from the interesting subsets we choose the with the highest total amount
             found_subset = sorted(candidate_subsets, key=lambda subset: self._total_amount(subset), reverse=True)[0]
 
-            # as we are supposed to return the offers which should be cancelled, we return the complement
+            # as we are supposed to return the orders which should be cancelled, we return the complement
             # of the found subset
             return set(orders_in_band) - set(found_subset)
         else:

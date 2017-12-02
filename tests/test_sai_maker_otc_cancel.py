@@ -37,14 +37,14 @@ class TestSaiMakerOtcCancel:
         deployment.otc.approve([deployment.gem, deployment.sai], directly())
         deployment.otc.make(deployment.gem.address, Wad.from_number(10), deployment.sai.address, Wad.from_number(5)).transact()
         deployment.otc.make(deployment.sai.address, Wad.from_number(5), deployment.gem.address, Wad.from_number(12)).transact()
-        assert len(deployment.otc.active_offers()) == 2
+        assert len(deployment.otc.get_orders()) == 2
 
         # when
         keeper.startup()
         keeper.shutdown()
 
         # then
-        assert len(deployment.otc.active_offers()) == 0
+        assert len(deployment.otc.get_orders()) == 0
 
     def test_should_ignore_offers_owned_by_others(self, deployment: Deployment):
         # given
@@ -70,15 +70,15 @@ class TestSaiMakerOtcCancel:
         deployment.web3.eth.defaultAccount = deployment.web3.eth.accounts[0]
 
         # and
-        assert len(deployment.otc.active_offers()) == 2
+        assert len(deployment.otc.get_orders()) == 2
 
         # when
         keeper.startup()
         keeper.shutdown()
 
         # then
-        assert len(deployment.otc.active_offers()) == 1
-        assert deployment.otc.active_offers()[0].owner == Address(deployment.web3.eth.accounts[1])
+        assert len(deployment.otc.get_orders()) == 1
+        assert deployment.otc.get_orders()[0].owner == Address(deployment.web3.eth.accounts[1])
 
     def test_should_use_gas_price_specified(self, deployment: Deployment):
         # given
@@ -93,12 +93,12 @@ class TestSaiMakerOtcCancel:
         # and
         deployment.otc.approve([deployment.gem, deployment.sai], directly())
         deployment.otc.make(deployment.sai.address, Wad.from_number(5), deployment.gem.address, Wad.from_number(12)).transact()
-        assert len(deployment.otc.active_offers()) == 1
+        assert len(deployment.otc.get_orders()) == 1
 
         # when
         keeper.startup()
         keeper.shutdown()
 
         # then
-        assert len(deployment.otc.active_offers()) == 0
+        assert len(deployment.otc.get_orders()) == 0
         assert deployment.web3.eth.getBlock('latest', True)['transactions'][0]['gasPrice'] == some_gas_price

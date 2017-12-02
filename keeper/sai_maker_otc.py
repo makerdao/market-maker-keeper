@@ -26,7 +26,7 @@ from keeper import Event
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
 from pymaker.numeric import Wad
-from pymaker.oasis import OfferInfo
+from pymaker.oasis import Order
 from pymaker.util import synchronize, eth_balance
 from keeper.band import BuyBand, SellBand
 from keeper.price import TubPriceFeed, SetzerPriceFeed
@@ -95,7 +95,7 @@ class SaiMakerOtc(SaiKeeper):
 
     def startup(self):
         self.approve()
-        self.on_block(self.synchronize_offers)
+        self.on_block(self.synchronize_orders)
         # self.every(20 * 60, self.print_eth_balance)
         # self.every(20 * 60, self.print_token_balances)
 
@@ -139,7 +139,7 @@ class SaiMakerOtc(SaiKeeper):
         return False
 
     def our_orders(self):
-        return list(filter(lambda order: order.owner == self.our_address, self.otc.active_offers()))
+        return list(filter(lambda order: order.owner == self.our_address, self.otc.get_orders()))
 
     def our_sell_offers(self, our_orders: list):
         return list(filter(lambda order: order.buy_which_token == self.sai.address and
@@ -149,7 +149,7 @@ class SaiMakerOtc(SaiKeeper):
         return list(filter(lambda order: order.buy_which_token == self.gem.address and
                                          order.sell_which_token == self.sai.address, our_orders))
 
-    def synchronize_offers(self):
+    def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
         if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
             self.terminate("Keeper balance is below the minimum, terminating.")
@@ -172,7 +172,7 @@ class SaiMakerOtc(SaiKeeper):
             self.cancel_all_orders()
 
     def outside_offers(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
-        """Return offers which do not fall into any buy or sell band."""
+        """Return orders which do not fall into any buy or sell band."""
         def outside_any_band_offers(offers: list, bands: list, target_price: Wad):
             for offer in offers:
                 if not any(band.includes(offer, target_price) for band in bands):
@@ -185,9 +185,9 @@ class SaiMakerOtc(SaiKeeper):
         """Cancel all orders owned by the keeper."""
         self.cancel_offers(self.our_orders())
 
-    def cancel_offers(self, offers):
-        """Cancel offers asynchronously."""
-        synchronize([self.otc.kill(offer.offer_id).transact_async(gas_price=self.gas_price) for offer in offers])
+    def cancel_offers(self, orders):
+        """Cancel orders asynchronously."""
+        synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price) for order in orders])
 
     def excessive_sell_offers(self, our_orders: list, sell_bands: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
@@ -208,7 +208,7 @@ class SaiMakerOtc(SaiKeeper):
                                            self.top_up_sell_bands(our_orders, sell_bands, target_price))])
 
     def top_up_sell_bands(self, our_orders: list, sell_bands: list, target_price: Wad):
-        """Ensure our WETH engagement is not below minimum in all sell bands. Yield new offers if necessary."""
+        """Ensure our WETH engagement is not below minimum in all sell bands. Yield new orders if necessary."""
         our_balance = self.gem.balance_of(self.our_address)
         for band in sell_bands:
             offers = [offer for offer in self.our_sell_offers(our_orders) if band.includes(offer, target_price)]
@@ -223,7 +223,7 @@ class SaiMakerOtc(SaiKeeper):
                                             want_token=self.sai.address, want_amount=want_amount)
 
     def top_up_buy_bands(self, our_orders: list, buy_bands: list, target_price: Wad):
-        """Ensure our SAI engagement is not below minimum in all buy bands. Yield new offers if necessary."""
+        """Ensure our SAI engagement is not below minimum in all buy bands. Yield new orders if necessary."""
         our_balance = self.sai.balance_of(self.our_address)
         for band in buy_bands:
             offers = [offer for offer in self.our_buy_offers(our_orders) if band.includes(offer, target_price)]
@@ -238,8 +238,8 @@ class SaiMakerOtc(SaiKeeper):
                                             want_token=self.gem.address, want_amount=want_amount)
 
     @staticmethod
-    def total_amount(offers: List[OfferInfo]):
-        return reduce(operator.add, map(lambda offer: offer.sell_how_much, offers), Wad(0))
+    def total_amount(orders: List[Order]):
+        return reduce(operator.add, map(lambda order: order.sell_how_much, orders), Wad(0))
 
 
 if __name__ == '__main__':
