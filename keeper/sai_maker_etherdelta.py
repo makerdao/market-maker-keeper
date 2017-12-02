@@ -54,21 +54,20 @@ class SaiMakerEtherDelta(SaiKeeper):
         else:
             self.price_feed = TubPriceFeed(self.tub)
 
-        # We need to have the API server in order for this keeper to run.
-        # Unfortunately it means it can be run only on Mainnet as there is no test server.
-        if "apiServer" not in self.config.get_config()["etherDelta"]:
-            raise Exception("Off-chain EtherDelta orders not supported on this chain")
-
-        self.etherdelta = EtherDelta(web3=self.web3,
-                                     address=Address(self.config.get_config()["etherDelta"]["contract"]))
-
+        self.etherdelta = EtherDelta(web3=self.web3, address=Address(self.arguments.etherdelta_address))
         self.etherdelta_api = EtherDeltaApi(contract_address=self.etherdelta.address,
-                                            api_server=self.config.get_config()["etherDelta"]["apiServer"],
+                                            api_server=self.arguments.etherdelta_socket,
                                             logger=self.logger)
 
         self.our_orders = set()
 
     def args(self, parser: argparse.ArgumentParser):
+        parser.add_argument("--etherdelta-address", type=str, required=True,
+                            help="Ethereum address of the EtherDelta contract")
+
+        parser.add_argument("--etherdelta-socket", type=str, required=True,
+                            help="Ethereum address of the EtherDelta API socket")
+
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
 
