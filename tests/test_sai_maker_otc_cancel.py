@@ -16,15 +16,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from keeper import Wad, Address
-from pymaker.approval import directly
-from pymaker.token import DSToken
 from keeper.sai_maker_otc_cancel import SaiMakerOtcCancel
+from pymaker.approval import directly
 from pymaker.deployment import Deployment
+from pymaker.token import DSToken
 from tests.helper import args
 
 
 class TestSaiMakerOtcCancel:
-    def test_should_cancel_offers_owned_by_us(self, deployment: Deployment):
+    def test_should_cancel_orders_owned_by_us(self, deployment: Deployment):
         # given
         keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount}"),
                                    web3=deployment.web3, config=deployment.get_config())
@@ -46,7 +46,7 @@ class TestSaiMakerOtcCancel:
         # then
         assert len(deployment.otc.get_orders()) == 0
 
-    def test_should_ignore_offers_owned_by_others(self, deployment: Deployment):
+    def test_should_ignore_orders_owned_by_others(self, deployment: Deployment):
         # given
         keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount}"),
                                    web3=deployment.web3, config=deployment.get_config())
