@@ -21,123 +21,16 @@ from functools import reduce
 import py
 
 from keeper.sai_maker_etherdelta import SaiMakerEtherDelta
-from keeper.sai_maker_otc import SaiMakerOtc
 from pymaker.deployment import Deployment
 from pymaker.feed import DSValue
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 from pymaker.token import DSToken, ERC20Token
+from tests.band_config import BandConfig
 from tests.helper import args
 
 
 class TestSaiMakerEtherDelta:
-    @staticmethod
-    def sample_config(tmpdir):
-        file = tmpdir.join("sample_config.json")
-        file.write("""{
-            "buyBands": [
-                {
-                    "minMargin": 0.02,
-                    "avgMargin": 0.04,
-                    "maxMargin": 0.06,
-                    "minSaiAmount": 50.0,
-                    "avgSaiAmount": 75.0,
-                    "maxSaiAmount": 100.0,
-                    "dustCutoff": 0.0
-                }
-            ],
-            "sellBands": [
-                {
-                    "minMargin": 0.02,
-                    "avgMargin": 0.04,
-                    "maxMargin": 0.06,
-                    "minWEthAmount": 5.0,
-                    "avgWEthAmount": 7.5,
-                    "maxWEthAmount": 10.0,
-                    "dustCutoff": 0.0
-                }
-            ]
-        }""")
-        return file
-
-    @staticmethod
-    def two_adjacent_bands_config(tmpdir):
-        file = tmpdir.join("two_adjacent_bands_config.json")
-        file.write("""{
-            "buyBands": [],
-            "sellBands": [
-                {
-                    "minMargin": 0.02,
-                    "avgMargin": 0.04,
-                    "maxMargin": 0.06,
-                    "minWEthAmount": 5.0,
-                    "avgWEthAmount": 7.5,
-                    "maxWEthAmount": 8.5,
-                    "dustCutoff": 0.0
-                },
-                {
-                    "minMargin": 0.06,
-                    "avgMargin": 0.08,
-                    "maxMargin": 0.10,
-                    "minWEthAmount": 7.0,
-                    "avgWEthAmount": 9.5,
-                    "maxWEthAmount": 12.0,
-                    "dustCutoff": 0.0
-                }
-            ]
-        }""")
-        return file
-
-    @staticmethod
-    def with_variables_config(tmpdir):
-        file = tmpdir.join("with_variables_config.json")
-        file.write("""{
-            "variables": {
-                "avgEthBook": 10
-            },
-            "buyBands": [],
-            "sellBands": [
-                {
-                    "minMargin": 0.02,
-                    "avgMargin": 0.04,
-                    "maxMargin": 0.06,
-                    "minWEthAmount": $.variables.avgEthBook * 0.25,
-                    "avgWEthAmount": $.variables.avgEthBook * 0.5,
-                    "maxWEthAmount": $.variables.avgEthBook * 1.0,
-                    "dustCutoff": 0.0
-                }
-            ]
-        }""")
-        return file
-
-    @staticmethod
-    def bands_overlapping_invalid_config(tmpdir):
-        file = tmpdir.join("bands_overlapping_invalid_config.json")
-        file.write("""{
-            "buyBands": [],
-            "sellBands": [
-                {
-                    "minMargin": 0.02,
-                    "avgMargin": 0.04,
-                    "maxMargin": 0.06,
-                    "minWEthAmount": 5.0,
-                    "avgWEthAmount": 7.5,
-                    "maxWEthAmount": 10.0,
-                    "dustCutoff": 0.0
-                },
-                {
-                    "minMargin": 0.059,
-                    "avgMargin": 0.07,
-                    "maxMargin": 0.08,
-                    "minWEthAmount": 5.0,
-                    "avgWEthAmount": 7.5,
-                    "maxWEthAmount": 10.0,
-                    "dustCutoff": 0.0
-                }
-            ]
-        }""")
-        return file
-
     @staticmethod
     def mint_tokens(deployment: Deployment):
         DSToken(web3=deployment.web3, address=deployment.tub.gem()).mint(Wad.from_number(1000)).transact()
@@ -157,7 +50,7 @@ class TestSaiMakerEtherDelta:
 
     def test_should_create_orders_on_startup(self, deployment: Deployment, tmpdir: py.path.local):
         # given
-        config_file = self.sample_config(tmpdir)
+        config_file = BandConfig.sample_config(tmpdir)
 
         # and
         keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
