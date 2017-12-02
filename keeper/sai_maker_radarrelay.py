@@ -202,7 +202,7 @@ class SaiMakerRadarRelay(SaiKeeper):
             if total_amount < band.min_amount:
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    our_balance = our_balance - have_amount
+                    our_balance = our_balance - have_amount  #TODO I think this line is unnecessary here
                     want_amount = have_amount * round(band.avg_price(target_price))
                     if want_amount > Wad(0):
                         order = self.radar_relay.create_order(maker_token_amount=have_amount,
@@ -224,7 +224,7 @@ class SaiMakerRadarRelay(SaiKeeper):
             if total_amount < band.min_amount:
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    our_balance = our_balance - have_amount
+                    our_balance = our_balance - have_amount  #TODO I think this line is unnecessary here
                     want_amount = have_amount / round(band.avg_price(target_price))
                     if want_amount > Wad(0):
                         order = self.radar_relay.create_order(maker_token_amount=have_amount,
