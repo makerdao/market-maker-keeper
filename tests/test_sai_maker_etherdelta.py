@@ -19,6 +19,7 @@ import shutil
 from functools import reduce
 
 import py
+from mock import MagicMock
 
 from keeper.sai_maker_etherdelta import SaiMakerEtherDelta
 from pymaker import Address
@@ -63,6 +64,7 @@ class TestSaiMakerEtherDelta:
                                               f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                     web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
 
         # and
         self.mint_tokens(deployment)
@@ -79,6 +81,7 @@ class TestSaiMakerEtherDelta:
 
         # and
         assert len(keeper.our_orders) == 2
+        assert keeper.etherdelta_api.publish_order.call_count == 2
 
         # and
         assert self.orders_by_token(keeper, deployment.sai.address)[0].user == deployment.our_address
