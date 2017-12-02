@@ -21,7 +21,9 @@ from functools import reduce
 import py
 
 from keeper.sai_maker_etherdelta import SaiMakerEtherDelta
+from pymaker import Address
 from pymaker.deployment import Deployment
+from pymaker.etherdelta import EtherDelta
 from pymaker.feed import DSValue
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
@@ -41,8 +43,9 @@ class TestSaiMakerEtherDelta:
         DSValue(web3=deployment.web3, address=deployment.tub.pip()).poke_with_int(price.value).transact()
 
     @staticmethod
-    def orders_by_token(deployment: Deployment, token: ERC20Token):
-        return list(filter(lambda order: order.sell_which_token == token.address, deployment.otc.get_orders()))
+    def orders_by_token(keeper: SaiMakerEtherDelta, token_address: Address):
+        return list(filter(lambda order: order.token_give == token_address and
+                                         order.remaining_sell_amount > Wad(0), keeper.our_orders))
 
     @staticmethod
     def orders_sorted(orders: list) -> list:
@@ -78,20 +81,18 @@ class TestSaiMakerEtherDelta:
         assert len(keeper.our_orders) == 2
 
         # and
-        # TODO implement proper assertions for EtherDelta
-        # assert self.orders_by_token(deployment, deployment.sai)[0].owner == deployment.our_address
-        # assert self.orders_by_token(deployment, deployment.sai)[0].sell_how_much == Wad.from_number(75)
-        # assert self.orders_by_token(deployment, deployment.sai)[0].sell_which_token == deployment.sai.address
-        # assert self.orders_by_token(deployment, deployment.sai)[0].buy_how_much == Wad.from_number(0.78125)
-        # assert self.orders_by_token(deployment, deployment.sai)[0].buy_which_token == deployment.gem.address
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].user == deployment.our_address
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].amount_give == Wad.from_number(75)
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].token_give == deployment.sai.address
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].amount_get == Wad.from_number(0.78125)
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].token_get == EtherDelta.ETH_TOKEN
 
         # and
-        # TODO implement proper assertions for EtherDelta
-        # assert self.orders_by_token(deployment, deployment.gem)[0].owner == deployment.our_address
-        # assert self.orders_by_token(deployment, deployment.gem)[0].sell_how_much == Wad.from_number(7.5)
-        # assert self.orders_by_token(deployment, deployment.gem)[0].sell_which_token == deployment.gem.address
-        # assert self.orders_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(780)
-        # assert self.orders_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].user == deployment.our_address
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_give == Wad.from_number(7.5)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_give == EtherDelta.ETH_TOKEN
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_get == Wad.from_number(780)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_get == deployment.sai.address
 
     # def test_should_cancel_orders_on_shutdown(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
@@ -138,11 +139,11 @@ class TestSaiMakerEtherDelta:
     #     assert len(deployment.otc.get_orders()) == 1
     #
     #     # and
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].owner == deployment.our_address
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].sell_how_much == Wad.from_number(5.0)
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].sell_which_token == deployment.gem.address
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(520)
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].user == deployment.our_address
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].sell_how_much == Wad.from_number(5.0)
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].sell_which_token == deployment.gem.address
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].buy_how_much == Wad.from_number(520)
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].buy_which_token == deployment.sai.address
     #
     # def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
@@ -214,7 +215,7 @@ class TestSaiMakerEtherDelta:
     #     keeper.approve()
     #     keeper.synchronize_orders()
     #     assert len(deployment.otc.get_orders()) == 2
-    #     sai_order_id = self.orders_by_token(deployment, deployment.sai)[0].order_id
+    #     sai_order_id = self.orders_by_token(keeper, deployment.sai)[0].order_id
     #
     #     # when
     #     deployment.otc.take(sai_order_id, Wad.from_number(20)).transact()
@@ -279,7 +280,7 @@ class TestSaiMakerEtherDelta:
     #     keeper.synchronize_orders()
     #     # then
     #     assert len(deployment.otc.get_orders()) == 4
-    #     assert reduce(Wad.__add__, map(lambda order: order.sell_how_much, self.orders_by_token(deployment, deployment.sai)), Wad(0)) \
+    #     assert reduce(Wad.__add__, map(lambda order: order.sell_how_much, self.orders_by_token(keeper, deployment.sai)), Wad(0)) \
     #            == Wad.from_number(99)
     #
     # def test_should_cancel_the_only_buy_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
@@ -308,11 +309,11 @@ class TestSaiMakerEtherDelta:
     #     # then
     #     # [the artificial order gets cancelled, a new one gets created instead]
     #     assert len(deployment.otc.get_orders()) == 2
-    #     assert self.orders_by_token(deployment, deployment.sai)[0].owner == deployment.our_address
-    #     assert self.orders_by_token(deployment, deployment.sai)[0].sell_how_much == Wad.from_number(75)
-    #     assert self.orders_by_token(deployment, deployment.sai)[0].sell_which_token == deployment.sai.address
-    #     assert self.orders_by_token(deployment, deployment.sai)[0].buy_how_much == Wad.from_number(0.78125)
-    #     assert self.orders_by_token(deployment, deployment.sai)[0].buy_which_token == deployment.gem.address
+    #     assert self.orders_by_token(keeper, deployment.sai)[0].user == deployment.our_address
+    #     assert self.orders_by_token(keeper, deployment.sai)[0].sell_how_much == Wad.from_number(75)
+    #     assert self.orders_by_token(keeper, deployment.sai)[0].sell_which_token == deployment.sai.address
+    #     assert self.orders_by_token(keeper, deployment.sai)[0].buy_how_much == Wad.from_number(0.78125)
+    #     assert self.orders_by_token(keeper, deployment.sai)[0].buy_which_token == deployment.gem.address
     #
     # def test_should_cancel_selected_sell_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
@@ -352,7 +353,7 @@ class TestSaiMakerEtherDelta:
     #     keeper.synchronize_orders()
     #     # then
     #     assert len(deployment.otc.get_orders()) == 4
-    #     assert reduce(Wad.__add__, map(lambda order: order.sell_how_much, self.orders_by_token(deployment, deployment.gem)), Wad(0)) \
+    #     assert reduce(Wad.__add__, map(lambda order: order.sell_how_much, self.orders_by_token(keeper, deployment.gem)), Wad(0)) \
     #            == Wad.from_number(10.0)
     #
     # def test_should_cancel_the_only_sell_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
@@ -381,11 +382,11 @@ class TestSaiMakerEtherDelta:
     #     # then
     #     # [the artificial order gets cancelled, a new one gets created instead]
     #     assert len(deployment.otc.get_orders()) == 2
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].owner == deployment.our_address
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].sell_how_much == Wad.from_number(7.5)
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].sell_which_token == deployment.gem.address
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(780)
-    #     assert self.orders_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].user == deployment.our_address
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].sell_how_much == Wad.from_number(7.5)
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].sell_which_token == deployment.gem.address
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].buy_how_much == Wad.from_number(780)
+    #     assert self.orders_by_token(keeper, deployment.gem)[0].buy_which_token == deployment.sai.address
     #
     # def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
@@ -437,14 +438,14 @@ class TestSaiMakerEtherDelta:
     #     assert len(deployment.otc.get_orders()) == 2
     #
     #     # and
-    #     assert self.orders_sorted(deployment.otc.get_orders())[0].owner == deployment.our_address
+    #     assert self.orders_sorted(deployment.otc.get_orders())[0].user == deployment.our_address
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].sell_how_much == Wad.from_number(7.5)
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].sell_which_token == deployment.gem.address
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].buy_how_much == Wad.from_number(780)
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].buy_which_token == deployment.sai.address
     #
     #     # and
-    #     assert self.orders_sorted(deployment.otc.get_orders())[1].owner == deployment.our_address
+    #     assert self.orders_sorted(deployment.otc.get_orders())[1].user == deployment.our_address
     #     assert self.orders_sorted(deployment.otc.get_orders())[1].sell_how_much == Wad.from_number(9.5)
     #     assert self.orders_sorted(deployment.otc.get_orders())[1].sell_which_token == deployment.gem.address
     #     assert self.orders_sorted(deployment.otc.get_orders())[1].buy_how_much == Wad.from_number(1026)
@@ -471,14 +472,14 @@ class TestSaiMakerEtherDelta:
     #     assert len(deployment.otc.get_orders()) == 2
     #
     #     # and
-    #     assert self.orders_sorted(deployment.otc.get_orders())[0].owner == deployment.our_address
+    #     assert self.orders_sorted(deployment.otc.get_orders())[0].user == deployment.our_address
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].sell_how_much == Wad.from_number(7.5)
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].sell_which_token == deployment.gem.address
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].buy_how_much == Wad.from_number(780)
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].buy_which_token == deployment.sai.address
     #
     #     # and
-    #     assert self.orders_sorted(deployment.otc.get_orders())[1].owner == deployment.our_address
+    #     assert self.orders_sorted(deployment.otc.get_orders())[1].user == deployment.our_address
     #     assert self.orders_sorted(deployment.otc.get_orders())[1].sell_how_much == Wad.from_number(9.5)
     #     assert self.orders_sorted(deployment.otc.get_orders())[1].sell_which_token == deployment.gem.address
     #     assert self.orders_sorted(deployment.otc.get_orders())[1].buy_how_much == Wad.from_number(1026)
@@ -494,7 +495,7 @@ class TestSaiMakerEtherDelta:
     #
     #     # and
     #     # ...new order in the <0.02,0.06> band gets created
-    #     assert self.orders_sorted(deployment.otc.get_orders())[0].owner == deployment.our_address
+    #     assert self.orders_sorted(deployment.otc.get_orders())[0].user == deployment.our_address
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].sell_how_much == Wad.from_number(7.5)
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].sell_which_token == deployment.gem.address
     #     assert self.orders_sorted(deployment.otc.get_orders())[0].buy_how_much == Wad.from_number(748.8)
@@ -502,7 +503,7 @@ class TestSaiMakerEtherDelta:
     #
     #     # and
     #     # ...the order from <0.02,0.06> ends up in the <0.06,0.10> band
-    #     assert self.orders_sorted(deployment.otc.get_orders())[1].owner == deployment.our_address
+    #     assert self.orders_sorted(deployment.otc.get_orders())[1].user == deployment.our_address
     #     assert self.orders_sorted(deployment.otc.get_orders())[1].sell_how_much == Wad.from_number(7.5)
     #     assert self.orders_sorted(deployment.otc.get_orders())[1].sell_which_token == deployment.gem.address
     #     assert self.orders_sorted(deployment.otc.get_orders())[1].buy_how_much == Wad.from_number(780)
