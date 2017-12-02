@@ -20,11 +20,12 @@ from functools import reduce
 
 import py
 
-from keeper import Wad, Web3Lifecycle
-from pymaker.feed import DSValue
-from pymaker.token import DSToken, ERC20Token
 from keeper.sai_maker_otc import SaiMakerOtc
 from pymaker.deployment import Deployment
+from pymaker.feed import DSValue
+from pymaker.lifecycle import Web3Lifecycle
+from pymaker.numeric import Wad
+from pymaker.token import DSToken, ERC20Token
 from tests.helper import args
 
 
