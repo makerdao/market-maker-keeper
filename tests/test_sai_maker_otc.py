@@ -159,7 +159,7 @@ class TestSaiMakerOtc:
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -193,7 +193,7 @@ class TestSaiMakerOtc:
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -217,7 +217,7 @@ class TestSaiMakerOtc:
         config_file = self.with_variables_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -244,7 +244,7 @@ class TestSaiMakerOtc:
         config_file = self.with_variables_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -274,7 +274,7 @@ class TestSaiMakerOtc:
         config_file = self.bands_overlapping_invalid_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -297,7 +297,7 @@ class TestSaiMakerOtc:
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -341,7 +341,7 @@ class TestSaiMakerOtc:
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -382,7 +382,7 @@ class TestSaiMakerOtc:
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -414,7 +414,7 @@ class TestSaiMakerOtc:
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -455,7 +455,7 @@ class TestSaiMakerOtc:
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -487,7 +487,7 @@ class TestSaiMakerOtc:
         config_file = self.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -516,7 +516,7 @@ class TestSaiMakerOtc:
         config_file = self.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -550,7 +550,7 @@ class TestSaiMakerOtc:
         config_file = self.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"),
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -608,7 +608,7 @@ class TestSaiMakerOtc:
         config_file = self.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
                                        f" --min-eth-balance 100.0"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
@@ -640,7 +640,7 @@ class TestSaiMakerOtc:
         config_file = self.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --config {config_file}"
+        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
                                        f" --min-eth-balance 100.0"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
