@@ -314,7 +314,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         #
         # what I have noticed is that rounding the amount seems to help,
         # so this is what this particular method does
-        return Wad(int(amount.value / 10**9) * 10**9) - Wad(1000000000)
+        return Wad(int(amount.value / 10**9) * 10**9)
 
 
 if __name__ == '__main__':
