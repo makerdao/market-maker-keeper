@@ -229,14 +229,13 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def top_up_sell_bands(self, sell_bands: list, target_price: Wad):
         """Ensure our WETH engagement is not below minimum in all sell bands. Place new orders if necessary."""
-        our_balance = self.etherdelta.balance_of(self.our_address)
+        our_balance = eth_balance(self.web3, self.our_address) + self.etherdelta.balance_of(self.our_address)
         for band in sell_bands:
             orders = [order for order in self.our_sell_orders() if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
                 have_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance))
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    our_balance = our_balance - have_amount
                     want_amount = self.fix_amount(have_amount * round(band.avg_price(target_price)))
                     if want_amount > Wad(0):
                         order = self.etherdelta.create_order(token_get=self.sai.address,
@@ -250,14 +249,13 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def top_up_buy_bands(self, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Place new orders if necessary."""
-        our_balance = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
+        our_balance = self.sai.balance_of(self.our_address) + self.etherdelta.balance_of_token(self.sai.address, self.our_address)
         for band in buy_bands:
             orders = [order for order in self.our_buy_orders() if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
                 have_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance))
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    our_balance = our_balance - have_amount
                     want_amount = self.fix_amount(have_amount / round(band.avg_price(target_price)))
                     if want_amount > Wad(0):
                         order = self.etherdelta.create_order(token_get=EtherDelta.ETH_TOKEN,
