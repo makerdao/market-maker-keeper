@@ -48,7 +48,7 @@ class TestSaiMakerEtherDelta:
     def orders_sorted(orders: list) -> list:
         return sorted(orders, key=lambda order: (order.sell_how_much, order.buy_how_much))
 
-    def test_should_create_orders_on_startup(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_deposit_and_create_orders_on_startup(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
 
@@ -71,6 +71,10 @@ class TestSaiMakerEtherDelta:
         keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
 
         # then
+        assert deployment.etherdelta.balance_of(deployment.our_address) > Wad(0)
+        assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) > Wad(0)
+
+        # and
         assert len(keeper.our_orders) == 2
 
         # and
