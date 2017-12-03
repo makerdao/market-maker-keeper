@@ -52,7 +52,7 @@ class TestSaiMakerEtherDelta:
 
     @staticmethod
     def orders_sorted(orders: list) -> list:
-        return sorted(orders, key=lambda order: (order.sell_how_much, order.buy_how_much))
+        return sorted(orders, key=lambda order: (order.amount_give, order.amount_get))
 
     def test_should_deposit_and_create_orders_on_startup(self, deployment: Deployment, tmpdir: py.path.local):
         # given
@@ -546,69 +546,82 @@ class TestSaiMakerEtherDelta:
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_get == Wad.from_number(780)
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_get == deployment.sai.address
 
-    # def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = BandConfig.sample_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # and
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #     assert len(deployment.otc.get_orders()) == 2
-    #
-    #     # when
-    #     deployment.otc.make(deployment.sai.address, Wad.from_number(5), EtherDelta.ETH_TOKEN, Wad.from_number(0.0538)).transact() #price=92.936802973977695
-    #     deployment.otc.make(deployment.sai.address, Wad.from_number(5), EtherDelta.ETH_TOKEN, Wad.from_number(0.0505)).transact() #price=99.0
-    #     deployment.otc.make(EtherDelta.ETH_TOKEN, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(50.5)).transact() #price=101
-    #     deployment.otc.make(EtherDelta.ETH_TOKEN, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(53.5)).transact() #price=107
-    #     assert len(deployment.otc.get_orders()) == 6
-    #     # and
-    #     keeper.synchronize_orders()
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 2
-    #
-    # def test_should_create_orders_in_multiple_bands(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = BandConfig.two_adjacent_bands_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # when
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 2
-    #
-    #     # and
-    #     assert self.orders_sorted(deployment.otc.get_orders())[0].user == deployment.our_address
-    #     assert self.orders_sorted(deployment.otc.get_orders())[0].sell_how_much == Wad.from_number(7.5)
-    #     assert self.orders_sorted(deployment.otc.get_orders())[0].sell_which_token == EtherDelta.ETH_TOKEN
-    #     assert self.orders_sorted(deployment.otc.get_orders())[0].buy_how_much == Wad.from_number(780)
-    #     assert self.orders_sorted(deployment.otc.get_orders())[0].buy_which_token == deployment.sai.address
-    #
-    #     # and
-    #     assert self.orders_sorted(deployment.otc.get_orders())[1].user == deployment.our_address
-    #     assert self.orders_sorted(deployment.otc.get_orders())[1].sell_how_much == Wad.from_number(9.5)
-    #     assert self.orders_sorted(deployment.otc.get_orders())[1].sell_which_token == EtherDelta.ETH_TOKEN
-    #     assert self.orders_sorted(deployment.otc.get_orders())[1].buy_how_much == Wad.from_number(1026)
-    #     assert self.orders_sorted(deployment.otc.get_orders())[1].buy_which_token == deployment.sai.address
-    #
+    def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        assert len(self.orders(keeper)) == 2
+
+        # when
+        keeper.our_orders.append(deployment.etherdelta.create_order(deployment.sai.address, Wad.from_number(5), EtherDelta.ETH_TOKEN, Wad.from_number(0.0538), 1000000)) #price=92.936802973977695
+        keeper.our_orders.append(deployment.etherdelta.create_order(deployment.sai.address, Wad.from_number(5), EtherDelta.ETH_TOKEN, Wad.from_number(0.0505), 1000000)) #price=99.0
+        keeper.our_orders.append(deployment.etherdelta.create_order(EtherDelta.ETH_TOKEN, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(50.5), 1000000)) #price=101
+        keeper.our_orders.append(deployment.etherdelta.create_order(EtherDelta.ETH_TOKEN, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(53.5), 1000000)) #price=107
+        assert len(self.orders(keeper)) == 6
+        # and
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        # then
+        assert len(self.orders(keeper)) == 2
+
+    def test_should_create_orders_in_multiple_bands(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.two_adjacent_bands_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        assert len(self.orders(keeper)) == 2
+
+        # and
+        assert self.orders_sorted(self.orders(keeper))[0].user == deployment.our_address
+        assert self.orders_sorted(self.orders(keeper))[0].amount_give == Wad.from_number(7.5)
+        assert self.orders_sorted(self.orders(keeper))[0].token_give == EtherDelta.ETH_TOKEN
+        assert self.orders_sorted(self.orders(keeper))[0].amount_get == Wad.from_number(780)
+        assert self.orders_sorted(self.orders(keeper))[0].token_get == deployment.sai.address
+
+        # and
+        assert self.orders_sorted(self.orders(keeper))[1].user == deployment.our_address
+        assert self.orders_sorted(self.orders(keeper))[1].amount_give == Wad.from_number(9.5)
+        assert self.orders_sorted(self.orders(keeper))[1].token_give == EtherDelta.ETH_TOKEN
+        assert self.orders_sorted(self.orders(keeper))[1].amount_get == Wad.from_number(1026)
+        assert self.orders_sorted(self.orders(keeper))[1].token_get == deployment.sai.address
+
     # def test_should_take_over_order_from_adjacent_band_when_price_changes(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
     #     config_file = BandConfig.two_adjacent_bands_config(tmpdir)
