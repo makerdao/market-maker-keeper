@@ -45,6 +45,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
         self.order_age = self.arguments.order_age
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
+        self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
 
@@ -81,7 +82,10 @@ class SaiMakerEtherDelta(SaiKeeper):
                             help="Order age at which order is considered already expired (in blocks)")
 
         parser.add_argument("--eth-reserve", type=float, required=True,
-                            help="Minimum amount of ETH to keep in order to cover gas")
+                            help="Amount of ETH which will never be deposited so the keeper can cover gas")
+
+        parser.add_argument("--min-eth-balance", type=float, default=0,
+                            help="Minimum ETH balance below which keeper with either terminate or not start at all")
 
         parser.add_argument("--min-eth-deposit", type=float, required=True,
                             help="Minimum amount of ETH that can be deposited in one transaction")
@@ -156,6 +160,11 @@ class SaiMakerEtherDelta(SaiKeeper):
 
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
+        if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
+            self.terminate("Keeper balance is below the minimum, terminating.")
+            self.cancel_all_orders()
+            return
+
         block_number = self.web3.eth.blockNumber
         target_price = self.price_feed.get_price()
         buy_bands, sell_bands = self.band_configuration()

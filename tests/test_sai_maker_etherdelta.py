@@ -687,63 +687,75 @@ class TestSaiMakerEtherDelta:
         assert self.orders_sorted(self.orders(keeper))[1].amount_get == Wad.from_number(780)
         assert self.orders_sorted(self.orders(keeper))[1].token_get == deployment.sai.address
 
-    # def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = BandConfig.two_adjacent_bands_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-    #                                    f" --min-eth-balance 100.0"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # when
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 2
-    #
-    #     # when
-    #     self.leave_only_some_eth(deployment, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
-    #                                                                  # that's why `--min-eth-balance` is higher than 10
-    #
-    #     # and
-    #     keeper.synchronize_orders()
-    #
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 0
-    #     assert keeper.lifecycle.terminated_internally
-    #
-    # def test_should_refuse_to_start_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = BandConfig.two_adjacent_bands_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-    #                                    f" --min-eth-balance 100.0"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # and
-    #     self.leave_only_some_eth(deployment, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
-    #                                                                  # that's why `--min-eth-balance` is higher than 10
-    #
-    #     # when
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 0
-    #     assert keeper.lifecycle.terminated_internally
+    def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.two_adjacent_bands_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 200"
+                                              f" --min-eth-balance 100.0"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        assert len(self.orders(keeper)) == 2
+
+        # when
+        self.leave_only_some_eth(deployment, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
+                                                                     # that's why `--min-eth-balance` is higher than 10
+
+        # and
+        keeper.synchronize_orders()
+
+        # then
+        assert len(self.orders(keeper)) == 0
+        assert keeper.lifecycle.terminated_internally
+
+    def test_should_refuse_to_start_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.two_adjacent_bands_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 200"
+                                              f" --min-eth-balance 100.0"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        self.leave_only_some_eth(deployment, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
+                                                                     # that's why `--min-eth-balance` is higher than 10
+
+        # when
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        assert len(self.orders(keeper)) == 0
+        assert keeper.lifecycle.terminated_internally
 
     @staticmethod
     def leave_only_some_eth(deployment: Deployment, amount_of_eth_to_leave: Wad):
