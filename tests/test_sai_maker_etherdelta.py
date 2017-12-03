@@ -19,6 +19,7 @@ import shutil
 from functools import reduce
 
 import py
+import pytest
 from mock import MagicMock
 
 from keeper.sai_maker_etherdelta import SaiMakerEtherDelta
@@ -43,10 +44,11 @@ class TestSaiMakerEtherDelta:
     def set_price(deployment: Deployment, price: Wad):
         DSValue(web3=deployment.web3, address=deployment.tub.pip()).poke_with_int(price.value).transact()
 
-    @staticmethod
-    def orders_by_token(keeper: SaiMakerEtherDelta, token_address: Address):
-        return list(filter(lambda order: order.token_give == token_address and
-                                         order.remaining_sell_amount > Wad(0), keeper.our_orders))
+    def orders(self, keeper: SaiMakerEtherDelta):
+        return list(filter(lambda order: order.remaining_sell_amount > Wad(0), keeper.our_orders))
+
+    def orders_by_token(self, keeper: SaiMakerEtherDelta, token_address: Address):
+        return list(filter(lambda order: order.token_give == token_address, self.orders(keeper)))
 
     @staticmethod
     def orders_sorted(orders: list) -> list:
@@ -80,7 +82,7 @@ class TestSaiMakerEtherDelta:
         assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) > Wad(0)
 
         # and
-        assert len(keeper.our_orders) == 2
+        assert len(self.orders(keeper)) == 2
         assert keeper.etherdelta_api.publish_order.call_count == 2
 
         # and
@@ -97,30 +99,112 @@ class TestSaiMakerEtherDelta:
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_get == Wad.from_number(780)
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_get == deployment.sai.address
 
-    # def test_should_cancel_orders_on_shutdown(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = self.sample_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # and
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #     assert len(deployment.otc.get_orders()) == 2
-    #
-    #     # when
-    #     keeper.shutdown()
-    #
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 0
-    #
+    def test_should_not_cancel_orders_on_shutdown_if_not_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        assert len(self.orders(keeper)) == 2
+
+        # when
+        keeper.shutdown()
+
+        # then
+        assert len(self.orders(keeper)) == 2
+
+        # and
+        assert deployment.etherdelta.balance_of(deployment.our_address) > Wad(0)
+        assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) > Wad(0)
+
+    @pytest.mark.skip(reason='cancelling orders will not work until we have eth_sign working')
+    def test_should_cancel_orders_on_shutdown_if_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"
+                                              f" --cancel-on-shutdown"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        assert len(self.orders(keeper)) == 2
+
+        # when
+        keeper.shutdown()
+
+        # then
+        assert len(self.orders(keeper)) == 0
+
+        # and
+        assert deployment.etherdelta.balance_of(deployment.our_address) > Wad(0)
+        assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) > Wad(0)
+
+    @pytest.mark.skip(reason='cancelling orders will not work until we have eth_sign working')
+    def test_should_cancel_orders_on_shutdown_and_withdraw_if_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"
+                                              f" --cancel-on-shutdown --withdraw-on-shutdown"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        assert len(self.orders(keeper)) == 2
+
+        # when
+        keeper.shutdown()
+
+        # then
+        assert len(self.orders(keeper)) == 0
+
+        # and
+        assert deployment.etherdelta.balance_of(deployment.our_address) == Wad(0)
+        assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) == Wad(0)
+
     # def test_should_support_config_files_with_variables(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
     #     config_file = self.with_variables_config(tmpdir)
