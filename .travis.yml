@@ -17,7 +17,7 @@ install:
   - pip install -r requirements-dev.txt
 
 script:
-  - py.test --cov=keeper --cov=pymaker --cov-report=term --cov-append tests/
+  - ./test.sh
 
 after_success:
   - codecov
