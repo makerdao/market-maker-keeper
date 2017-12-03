@@ -227,7 +227,7 @@ class SaiMakerEtherDelta(SaiKeeper):
             if total_amount < band.min_amount:
                 have_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance))
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    want_amount = self.fix_amount(have_amount * round(band.avg_price(target_price)))
+                    want_amount = self.fix_amount(have_amount * band.avg_price(target_price))
                     if want_amount > Wad(0):
                         order = self.etherdelta.create_order(token_give=EtherDelta.ETH_TOKEN,
                                                              amount_give=have_amount,
@@ -247,7 +247,7 @@ class SaiMakerEtherDelta(SaiKeeper):
             if total_amount < band.min_amount:
                 have_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance))
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    want_amount = self.fix_amount(have_amount / round(band.avg_price(target_price)))
+                    want_amount = self.fix_amount(have_amount / band.avg_price(target_price))
                     if want_amount > Wad(0):
                         order = self.etherdelta.create_order(token_give=self.sai.address,
                                                              amount_give=have_amount,
