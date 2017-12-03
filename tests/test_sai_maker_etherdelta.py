@@ -354,47 +354,62 @@ class TestSaiMakerEtherDelta:
         assert self.orders(keeper)[2].amount_get == Wad(270833333000000000)
         assert self.orders(keeper)[2].token_get == EtherDelta.ETH_TOKEN
 
-    # def test_should_cancel_selected_buy_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = self.sample_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # and
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #     assert len(deployment.otc.get_orders()) == 2
-    #
-    #     # when [75+17 = 92]
-    #     deployment.otc.make(deployment.sai.address, Wad.from_number(17), deployment.gem.address, Wad.from_number(0.1770805)).transact()
-    #     # and
-    #     keeper.synchronize_orders()
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 3
-    #
-    #     # when [92+2 = 94]
-    #     deployment.otc.make(deployment.sai.address, Wad.from_number(2), deployment.gem.address, Wad.from_number(0.020833)).transact()
-    #     # and
-    #     keeper.synchronize_orders()
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 4
-    #
-    #     # when [94+7 = 101] --> above max!
-    #     deployment.otc.make(deployment.sai.address, Wad.from_number(7), deployment.gem.address, Wad.from_number(0.072912)).transact()
-    #     # and
-    #     keeper.synchronize_orders()
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 4
-    #     assert reduce(Wad.__add__, map(lambda order: order.sell_how_much, self.orders_by_token(keeper, deployment.sai)), Wad(0)) \
-    #            == Wad.from_number(99)
-    #
+    def test_should_cancel_selected_buy_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        assert len(self.orders(keeper)) == 2
+
+        # when [75+17 = 92]
+        keeper.our_orders.append(deployment.etherdelta.create_order(deployment.sai.address, Wad.from_number(17),
+                                                                    EtherDelta.ETH_TOKEN, Wad.from_number(0.1770805),
+                                                                    1000000))
+        # and
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        # then
+        assert len(self.orders(keeper)) == 3
+
+        # when [92+2 = 94]
+        keeper.our_orders.append(deployment.etherdelta.create_order(deployment.sai.address, Wad.from_number(2),
+                                                                    EtherDelta.ETH_TOKEN, Wad.from_number(0.020833),
+                                                                    1000000))
+        # and
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        # then
+        assert len(self.orders(keeper)) == 4
+
+        # when [94+7 = 101] --> above max!
+        keeper.our_orders.append(deployment.etherdelta.create_order(deployment.sai.address, Wad.from_number(7),
+                                                                    EtherDelta.ETH_TOKEN, Wad.from_number(0.072912),
+                                                                    1000000))
+        # and
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        # then
+        assert len(self.orders(keeper)) == 4
+        assert reduce(Wad.__add__, map(lambda order: order.amount_give, self.orders_by_token(keeper, deployment.sai.address)), Wad(0)) \
+               == Wad.from_number(99)
+
     # def test_should_cancel_the_only_buy_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
     #     config_file = self.sample_config(tmpdir)

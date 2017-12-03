@@ -191,23 +191,14 @@ class SaiMakerEtherDelta(SaiKeeper):
     def excessive_sell_orders(self, sell_bands: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
         for band in sell_bands:
-            for order in self.excessive_orders_in_band(band, self.our_sell_orders(), target_price):
+            for order in band.excessive_orders(self.our_sell_orders(), target_price):
                 yield order
 
     def excessive_buy_orders(self, buy_bands: list, target_price: Wad):
         """Return buy orders which need to be cancelled to bring total amounts within all buy bands below maximums."""
         for band in buy_bands:
-            for order in self.excessive_orders_in_band(band, self.our_buy_orders(), target_price):
+            for order in band.excessive_orders(self.our_buy_orders(), target_price):
                 yield order
-
-    def excessive_orders_in_band(self, band, orders: list, target_price: Wad):
-        """Return orders which need to be cancelled to bring the total order amount in the band below maximum."""
-        # if total amount of orders in this band is greater than the maximum, we cancel them all
-        #
-        # if may not be the best solution as cancelling only some of them could bring us below
-        # the maximum, but let's stick to it for now
-        orders_in_band = [order for order in orders if band.includes(order, target_price)]
-        return orders_in_band if self.total_amount(orders_in_band) > band.max_amount else []
 
     def cancel_all_orders(self):
         """Cancel all our orders."""
