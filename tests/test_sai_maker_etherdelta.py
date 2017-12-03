@@ -133,7 +133,6 @@ class TestSaiMakerEtherDelta:
         assert deployment.etherdelta.balance_of(deployment.our_address) > Wad(0)
         assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) > Wad(0)
 
-    @pytest.mark.skip(reason='cancelling orders will not work until we have eth_sign working')
     def test_should_cancel_orders_on_shutdown_if_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -169,7 +168,6 @@ class TestSaiMakerEtherDelta:
         assert deployment.etherdelta.balance_of(deployment.our_address) > Wad(0)
         assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) > Wad(0)
 
-    @pytest.mark.skip(reason='cancelling orders will not work until we have eth_sign working')
     def test_should_cancel_orders_on_shutdown_and_withdraw_if_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
