@@ -59,7 +59,7 @@ class SaiMakerEtherDelta(SaiKeeper):
                                             api_server=self.arguments.etherdelta_socket,
                                             logger=self.logger)
 
-        self.our_orders = set()
+        self.our_orders = list()
 
     def args(self, parser: argparse.ArgumentParser):
         parser.add_argument("--etherdelta-address", type=str, required=True,
@@ -143,7 +143,7 @@ class SaiMakerEtherDelta(SaiKeeper):
         return False
 
     def place_order(self, order: Order):
-        self.our_orders.add(order)
+        self.our_orders.append(order)
         self.etherdelta_api.publish_order(order)
 
     def our_sell_orders(self):
@@ -171,8 +171,8 @@ class SaiMakerEtherDelta(SaiKeeper):
             self.cancel_all_orders()
 
     def remove_expired_orders(self, block_number: int):
-        self.our_orders = set(filter(lambda order: order.expires - block_number > self.arguments.order_expiry_threshold-1,
-                                     self.our_orders))
+        self.our_orders = list(filter(lambda order: order.expires - block_number > self.arguments.order_expiry_threshold-1,
+                                      self.our_orders))
 
     def outside_orders(self, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return orders which do not fall into any buy or sell band."""

@@ -302,50 +302,58 @@ class TestSaiMakerEtherDelta:
         # and
         assert keeper.lifecycle.terminated_internally
 
-    # def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = self.sample_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # and
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #     assert len(deployment.otc.get_orders()) == 2
-    #     sai_order_id = self.orders_by_token(keeper, deployment.sai)[0].order_id
-    #
-    #     # when
-    #     deployment.otc.take(sai_order_id, Wad.from_number(20)).transact()
-    #     # and
-    #     keeper.synchronize_orders()
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 2
-    #
-    #     # when
-    #     deployment.otc.take(sai_order_id, Wad.from_number(5)).transact()
-    #     # and
-    #     keeper.synchronize_orders()
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 2
-    #
-    #     # when
-    #     deployment.otc.take(sai_order_id, Wad.from_number(1)).transact()
-    #     # and
-    #     keeper.synchronize_orders()
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 3
-    #     assert deployment.otc.get_orders()[2].sell_how_much == Wad.from_number(26)
-    #     assert deployment.otc.get_orders()[2].sell_which_token == deployment.sai.address
-    #     assert deployment.otc.get_orders()[2].buy_how_much == Wad(270833333333333333)
-    #     assert deployment.otc.get_orders()[2].buy_which_token == deployment.gem.address
-    #
+    def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        assert len(self.orders(keeper)) == 2
+        sai_order = self.orders_by_token(keeper, deployment.sai.address)[0]
+
+        # when
+        print(sai_order.sell_to_buy_price)
+        print(sai_order.buy_to_sell_price)
+        deployment.etherdelta.trade(sai_order, Wad.from_number(20)/Wad.from_number(96)).transact()
+        # and
+        keeper.synchronize_orders()
+        # then
+        assert len(self.orders(keeper)) == 2
+
+        # when
+        deployment.etherdelta.trade(sai_order, Wad.from_number(5)/Wad.from_number(96)).transact()
+        # and
+        keeper.synchronize_orders()
+        # then
+        assert len(self.orders(keeper)) == 2
+
+        # when
+        deployment.etherdelta.trade(sai_order, Wad.from_number(1)/Wad.from_number(96)).transact()
+        # and
+        keeper.synchronize_orders()
+        # then
+        assert len(self.orders(keeper)) == 3
+        assert self.orders(keeper)[2].amount_give == Wad.from_number(26)
+        assert self.orders(keeper)[2].token_give == deployment.sai.address
+        assert self.orders(keeper)[2].amount_get == Wad(270833333000000000)
+        assert self.orders(keeper)[2].token_get == EtherDelta.ETH_TOKEN
+
     # def test_should_cancel_selected_buy_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
     #     config_file = self.sample_config(tmpdir)
