@@ -19,7 +19,6 @@ import shutil
 from functools import reduce
 
 import py
-import pytest
 from mock import MagicMock
 
 from keeper.sai_maker_etherdelta import SaiMakerEtherDelta
@@ -29,7 +28,7 @@ from pymaker.etherdelta import EtherDelta
 from pymaker.feed import DSValue
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
-from pymaker.token import DSToken, ERC20Token
+from pymaker.token import DSToken
 from tests.band_config import BandConfig
 from tests.helper import args
 
