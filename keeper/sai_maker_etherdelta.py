@@ -49,6 +49,9 @@ class SaiMakerEtherDelta(SaiKeeper):
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
 
+        if self.eth_reserve <= self.min_eth_balance:
+            raise Exception("--eth-reserve must be higher than --min-eth-balance")
+
         # Choose the price feed
         if self.arguments.price_feed is not None:
             self.price_feed = SetzerPriceFeed(self.tub, self.arguments.price_feed, self.logger)

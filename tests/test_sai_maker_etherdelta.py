@@ -19,6 +19,7 @@ import shutil
 from functools import reduce
 
 import py
+import pytest
 from mock import MagicMock
 
 from keeper.sai_maker_etherdelta import SaiMakerEtherDelta
@@ -755,6 +756,20 @@ class TestSaiMakerEtherDelta:
         # then
         assert len(self.orders(keeper)) == 0
         assert keeper.lifecycle.terminated_internally
+
+    def test_should_refuse_to_start_if_eth_reserve_lower_than_min_eth_balance(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.two_adjacent_bands_config(tmpdir)
+
+        # expect
+        with pytest.raises(Exception, match="--eth-reserve must be higher than --min-eth-balance"):
+            SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                         f" --etherdelta-address {deployment.etherdelta.address}"
+                                         f" --etherdelta-socket https://127.0.0.1:99999/"
+                                         f" --order-age 3600 --eth-reserve 99.9"
+                                         f" --min-eth-balance 100.0"
+                                         f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                               web3=deployment.web3, config=deployment.get_config())
 
     @staticmethod
     def leave_only_some_eth(deployment: Deployment, amount_of_eth_to_leave: Wad):
