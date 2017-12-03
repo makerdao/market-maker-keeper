@@ -238,10 +238,10 @@ class SaiMakerEtherDelta(SaiKeeper):
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
                     want_amount = self.fix_amount(have_amount * round(band.avg_price(target_price)))
                     if want_amount > Wad(0):
-                        order = self.etherdelta.create_order(token_get=self.sai.address,
-                                                             amount_get=want_amount,
-                                                             token_give=EtherDelta.ETH_TOKEN,
+                        order = self.etherdelta.create_order(token_give=EtherDelta.ETH_TOKEN,
                                                              amount_give=have_amount,
+                                                             token_get=self.sai.address,
+                                                             amount_get=want_amount,
                                                              expires=self.web3.eth.blockNumber + self.order_age)
                         if self.deposit_for_sell_order_if_needed(order):
                             return
@@ -258,10 +258,10 @@ class SaiMakerEtherDelta(SaiKeeper):
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
                     want_amount = self.fix_amount(have_amount / round(band.avg_price(target_price)))
                     if want_amount > Wad(0):
-                        order = self.etherdelta.create_order(token_get=EtherDelta.ETH_TOKEN,
-                                                             amount_get=want_amount,
-                                                             token_give=self.sai.address,
+                        order = self.etherdelta.create_order(token_give=self.sai.address,
                                                              amount_give=have_amount,
+                                                             token_get=EtherDelta.ETH_TOKEN,
+                                                             amount_get=want_amount,
                                                              expires=self.web3.eth.blockNumber + self.order_age)
                         if self.deposit_for_buy_order_if_needed(order):
                             return
