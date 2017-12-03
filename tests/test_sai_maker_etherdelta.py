@@ -476,11 +476,11 @@ class TestSaiMakerEtherDelta:
     #     # then
     #     # [the artificial order gets cancelled, a new one gets created instead]
     #     assert len(deployment.otc.get_orders()) == 2
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].user == deployment.our_address
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].sell_how_much == Wad.from_number(7.5)
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].sell_which_token == deployment.gem.address
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].buy_how_much == Wad.from_number(780)
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].buy_which_token == deployment.sai.address
+    #     assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].user == deployment.our_address
+    #     assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].sell_how_much == Wad.from_number(7.5)
+    #     assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].sell_which_token == deployment.gem.address
+    #     assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_how_much == Wad.from_number(780)
+    #     assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_which_token == deployment.sai.address
     #
     # def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
