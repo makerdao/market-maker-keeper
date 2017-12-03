@@ -237,59 +237,71 @@ class TestSaiMakerEtherDelta:
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_get == Wad.from_number(520)
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_get == deployment.sai.address
 
-    # def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = self.with_variables_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # when
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 1
-    #
-    #     # when
-    #     second_config_file = self.sample_config(tmpdir)
-    #     shutil.copyfile(second_config_file, config_file)
-    #
-    #     # and
-    #     keeper.synchronize_orders()
-    #
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 2
-    #
-    # def test_should_fail_to_operate_if_bands_overlap(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = self.bands_overlapping_invalid_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # when
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 0
-    #
-    #     # and
-    #     assert keeper.lifecycle.terminated_internally
-    #
+    def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.with_variables_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        assert len(self.orders(keeper)) == 1
+
+        # when
+        second_config_file = BandConfig.sample_config(tmpdir)
+        shutil.copyfile(second_config_file, config_file)
+
+        # and
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        assert len(self.orders(keeper)) == 2
+
+    def test_should_fail_to_operate_if_bands_overlap(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.bands_overlapping_invalid_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_orders()
+
+        # then
+        assert len(self.orders(keeper)) == 0
+
+        # and
+        assert keeper.lifecycle.terminated_internally
+
     # def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
     #     config_file = self.sample_config(tmpdir)
