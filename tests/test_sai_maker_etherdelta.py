@@ -205,33 +205,40 @@ class TestSaiMakerEtherDelta:
         assert deployment.etherdelta.balance_of(deployment.our_address) == Wad(0)
         assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) == Wad(0)
 
-    # def test_should_support_config_files_with_variables(self, deployment: Deployment, tmpdir: py.path.local):
-    #     # given
-    #     config_file = self.with_variables_config(tmpdir)
-    #
-    #     # and
-    #     keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-    #                          web3=deployment.web3, config=deployment.get_config())
-    #     keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
-    #
-    #     # and
-    #     self.mint_tokens(deployment)
-    #     self.set_price(deployment, Wad.from_number(100))
-    #
-    #     # when
-    #     keeper.approve()
-    #     keeper.synchronize_orders()
-    #
-    #     # then
-    #     assert len(deployment.otc.get_orders()) == 1
-    #
-    #     # and
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].user == deployment.our_address
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].sell_how_much == Wad.from_number(5.0)
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].sell_which_token == deployment.gem.address
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].buy_how_much == Wad.from_number(520)
-    #     assert self.orders_by_token(keeper, deployment.gem)[0].buy_which_token == deployment.sai.address
-    #
+    def test_should_support_config_files_with_variables(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.with_variables_config(tmpdir)
+
+        # and
+        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                              f" --etherdelta-address {deployment.etherdelta.address}"
+                                              f" --etherdelta-socket https://127.0.0.1:99999/"
+                                              f" --order-age 3600 --eth-reserve 10"
+                                              f" --min-eth-deposit 1 --min-sai-deposit 400"
+                                              f" --cancel-on-shutdown --withdraw-on-shutdown"),
+                                    web3=deployment.web3, config=deployment.get_config())
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        assert len(self.orders(keeper)) == 1
+
+        # and
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].user == deployment.our_address
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_give == Wad.from_number(5.0)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_give == EtherDelta.ETH_TOKEN
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_get == Wad.from_number(520)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_get == deployment.sai.address
+
     # def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir: py.path.local):
     #     # given
     #     config_file = self.with_variables_config(tmpdir)
