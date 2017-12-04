@@ -26,7 +26,7 @@ from pymaker.oasis import MatchingMarket
 from pymaker.util import synchronize
 
 
-class SaiMakerOtcCancel:
+class OasisMarketMakerCancel:
     """Tool to cancel all our open orders on OasisDEX."""
 
     def __init__(self, args: list, **kwargs):
@@ -63,4 +63,4 @@ class SaiMakerOtcCancel:
 
 
 if __name__ == '__main__':
-    SaiMakerOtcCancel(sys.argv[1:]).lifecycle()
+    OasisMarketMakerCancel(sys.argv[1:]).lifecycle()

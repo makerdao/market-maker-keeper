@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from keeper.sai_maker_otc_cancel import SaiMakerOtcCancel
+from keeper.oasis_market_maker_cancel import OasisMarketMakerCancel
 from pymaker import Address
 from pymaker.approval import directly
 from pymaker.deployment import Deployment
@@ -24,12 +24,12 @@ from pymaker.token import DSToken
 from tests.helper import args
 
 
-class TestSaiMakerOtcCancel:
+class TestOasisMarketMakerCancel:
     def test_should_cancel_orders_owned_by_us(self, deployment: Deployment):
         # given
-        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
+        keeper = OasisMarketMakerCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
                                              f"--oasis-address {deployment.otc.address}"),
-                                   web3=deployment.web3)
+                                        web3=deployment.web3)
 
         # and
         DSToken(web3=deployment.web3, address=deployment.gem.address).mint(Wad.from_number(1000)).transact()
@@ -49,9 +49,9 @@ class TestSaiMakerOtcCancel:
 
     def test_should_ignore_orders_owned_by_others(self, deployment: Deployment):
         # given
-        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
+        keeper = OasisMarketMakerCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
                                              f"--oasis-address {deployment.otc.address}"),
-                                   web3=deployment.web3)
+                                        web3=deployment.web3)
 
         # and
         DSToken(web3=deployment.web3, address=deployment.gem.address).mint(Wad.from_number(1000)).transact()
@@ -84,10 +84,10 @@ class TestSaiMakerOtcCancel:
     def test_should_use_gas_price_specified(self, deployment: Deployment):
         # given
         some_gas_price = 15000000000
-        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
+        keeper = OasisMarketMakerCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
                                              f"--oasis-address {deployment.otc.address} "
                                              f"--gas-price {some_gas_price}"),
-                                   web3=deployment.web3)
+                                        web3=deployment.web3)
 
         # and
         DSToken(web3=deployment.web3, address=deployment.gem.address).mint(Wad.from_number(1000)).transact()
