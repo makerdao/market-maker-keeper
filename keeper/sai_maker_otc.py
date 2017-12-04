@@ -34,7 +34,7 @@ from keeper.sai import SaiKeeper
 
 
 class SaiMakerOtc(SaiKeeper):
-    """SAI keeper to act as a market maker on OasisDEX, on the W-ETH/SAI pair.
+    """Keeper to act as a market maker on OasisDEX, on the W-ETH/SAI pair.
 
     Keeper continuously monitors and adjusts its positions in order to act as a market maker.
     It maintains buy and sell orders in multiple bands at the same time. In each buy band,

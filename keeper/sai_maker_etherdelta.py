@@ -33,7 +33,7 @@ from pymaker.util import eth_balance
 
 
 class SaiMakerEtherDelta(SaiKeeper):
-    """SAI keeper to act as a market maker on EtherDelta, on the ETH/SAI pair.
+    """Keeper to act as a market maker on EtherDelta, on the ETH/SAI pair.
 
     Due to limitations of EtherDelta, the development of this keeper has been
     discontinued. It works most of the time, but due to the fact that EtherDelta

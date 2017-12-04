@@ -34,7 +34,7 @@ from pymaker.util import eth_balance
 
 
 class SaiMakerRadarRelay(SaiKeeper):
-    """SAI keeper to act as a market maker on RadarRelay, on the WETH/SAI pair."""
+    """Keeper to act as a market maker on RadarRelay, on the WETH/SAI pair."""
     def __init__(self, args: list, **kwargs):
         super().__init__(args, **kwargs)
         self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
