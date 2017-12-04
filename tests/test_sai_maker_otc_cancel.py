@@ -15,10 +15,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from keeper import Wad, Address
 from keeper.sai_maker_otc_cancel import SaiMakerOtcCancel
+from pymaker import Address
 from pymaker.approval import directly
 from pymaker.deployment import Deployment
+from pymaker.numeric import Wad
 from pymaker.token import DSToken
 from tests.helper import args
 
@@ -26,8 +27,9 @@ from tests.helper import args
 class TestSaiMakerOtcCancel:
     def test_should_cancel_orders_owned_by_us(self, deployment: Deployment):
         # given
-        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount}"),
-                                   web3=deployment.web3, config=deployment.get_config())
+        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
+                                             f"--oasis-address {deployment.otc.address}"),
+                                   web3=deployment.web3)
 
         # and
         DSToken(web3=deployment.web3, address=deployment.gem.address).mint(Wad.from_number(1000)).transact()
@@ -40,16 +42,16 @@ class TestSaiMakerOtcCancel:
         assert len(deployment.otc.get_orders()) == 2
 
         # when
-        keeper.startup()
-        keeper.shutdown()
+        keeper.lifecycle()
 
         # then
         assert len(deployment.otc.get_orders()) == 0
 
     def test_should_ignore_orders_owned_by_others(self, deployment: Deployment):
         # given
-        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount}"),
-                                   web3=deployment.web3, config=deployment.get_config())
+        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
+                                             f"--oasis-address {deployment.otc.address}"),
+                                   web3=deployment.web3)
 
         # and
         DSToken(web3=deployment.web3, address=deployment.gem.address).mint(Wad.from_number(1000)).transact()
@@ -73,8 +75,7 @@ class TestSaiMakerOtcCancel:
         assert len(deployment.otc.get_orders()) == 2
 
         # when
-        keeper.startup()
-        keeper.shutdown()
+        keeper.lifecycle()
 
         # then
         assert len(deployment.otc.get_orders()) == 1
@@ -83,8 +84,10 @@ class TestSaiMakerOtcCancel:
     def test_should_use_gas_price_specified(self, deployment: Deployment):
         # given
         some_gas_price = 15000000000
-        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} --gas-price {some_gas_price}"),
-                                   web3=deployment.web3, config=deployment.get_config())
+        keeper = SaiMakerOtcCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
+                                             f"--oasis-address {deployment.otc.address} "
+                                             f"--gas-price {some_gas_price}"),
+                                   web3=deployment.web3)
 
         # and
         DSToken(web3=deployment.web3, address=deployment.gem.address).mint(Wad.from_number(1000)).transact()
@@ -96,8 +99,7 @@ class TestSaiMakerOtcCancel:
         assert len(deployment.otc.get_orders()) == 1
 
         # when
-        keeper.startup()
-        keeper.shutdown()
+        keeper.lifecycle()
 
         # then
         assert len(deployment.otc.get_orders()) == 0
