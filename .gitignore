@@ -7,8 +7,6 @@ __pycache__
 
 .DS_Store
 
-data/*.db
-data/*.lock
 logs/*.json.log
 
 docs/_doc
