@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from keeper.oasis_market_maker_cancel import OasisMarketMakerCancel
+from market_maker_keeper.oasis_market_maker_cancel import OasisMarketMakerCancel
 from pymaker import Address
 from pymaker.approval import directly
 from pymaker.deployment import Deployment

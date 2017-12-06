@@ -18,9 +18,7 @@
 import shutil
 from functools import reduce
 
-import py
-
-from keeper.sai_maker_otc import SaiMakerOtc
+from market_maker_keeper.oasis_market_maker_keeper import OasisMarketMakerKeeper
 from pymaker.deployment import Deployment
 from pymaker.feed import DSValue
 from pymaker.lifecycle import Web3Lifecycle
@@ -30,7 +28,7 @@ from tests.band_config import BandConfig
 from tests.helper import args
 
 
-class TestSaiMakerOtc:
+class TestOasisMarketMakerKeeper:
     @staticmethod
     def mint_tokens(deployment: Deployment):
         DSToken(web3=deployment.web3, address=deployment.tub.gem()).mint(Wad.from_number(1000)).transact()
@@ -48,13 +46,13 @@ class TestSaiMakerOtc:
     def orders_sorted(orders: list) -> list:
         return sorted(orders, key=lambda order: (order.sell_how_much, order.buy_how_much))
 
-    def test_should_create_orders_on_startup(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_create_orders_on_startup(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -82,13 +80,13 @@ class TestSaiMakerOtc:
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(780)
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
 
-    def test_should_cancel_orders_on_shutdown(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_cancel_orders_on_shutdown(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -106,13 +104,13 @@ class TestSaiMakerOtc:
         # then
         assert len(deployment.otc.get_orders()) == 0
 
-    def test_should_support_config_files_with_variables(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_support_config_files_with_variables(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.with_variables_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -133,13 +131,13 @@ class TestSaiMakerOtc:
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(520)
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
 
-    def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.with_variables_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -163,13 +161,13 @@ class TestSaiMakerOtc:
         # then
         assert len(deployment.otc.get_orders()) == 2
 
-    def test_should_fail_to_operate_if_bands_overlap(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_fail_to_operate_if_bands_overlap(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.bands_overlapping_invalid_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -186,13 +184,13 @@ class TestSaiMakerOtc:
         # and
         assert keeper.lifecycle.terminated_internally
 
-    def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -230,13 +228,13 @@ class TestSaiMakerOtc:
         assert deployment.otc.get_orders()[2].buy_how_much == Wad(270833333333333333)
         assert deployment.otc.get_orders()[2].buy_which_token == deployment.gem.address
 
-    def test_should_cancel_selected_buy_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_cancel_selected_buy_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -271,12 +269,12 @@ class TestSaiMakerOtc:
         assert reduce(Wad.__add__, map(lambda order: order.sell_how_much, self.orders_by_token(deployment, deployment.sai)), Wad(0)) \
                == Wad.from_number(99)
 
-    def test_should_cancel_the_only_buy_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_cancel_the_only_buy_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -303,13 +301,13 @@ class TestSaiMakerOtc:
         assert self.orders_by_token(deployment, deployment.sai)[0].buy_how_much == Wad.from_number(0.78125)
         assert self.orders_by_token(deployment, deployment.sai)[0].buy_which_token == deployment.gem.address
 
-    def test_should_cancel_selected_sell_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_cancel_selected_sell_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -344,13 +342,13 @@ class TestSaiMakerOtc:
         assert reduce(Wad.__add__, map(lambda order: order.sell_how_much, self.orders_by_token(deployment, deployment.gem)), Wad(0)) \
                == Wad.from_number(10.0)
 
-    def test_should_cancel_the_only_sell_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_cancel_the_only_sell_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -376,13 +374,13 @@ class TestSaiMakerOtc:
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(780)
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
 
-    def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -405,13 +403,13 @@ class TestSaiMakerOtc:
         # then
         assert len(deployment.otc.get_orders()) == 2
 
-    def test_should_create_orders_in_multiple_bands(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_create_orders_in_multiple_bands(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -439,13 +437,13 @@ class TestSaiMakerOtc:
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_how_much == Wad.from_number(1026)
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_which_token == deployment.sai.address
 
-    def test_should_take_over_order_from_adjacent_band_when_price_changes(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_take_over_order_from_adjacent_band_when_price_changes(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -497,14 +495,14 @@ class TestSaiMakerOtc:
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_how_much == Wad.from_number(780)
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_which_token == deployment.sai.address
 
-    def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
                                        f" --min-eth-balance 100.0"),
-                             web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -529,14 +527,14 @@ class TestSaiMakerOtc:
         assert len(deployment.otc.get_orders()) == 0
         assert keeper.lifecycle.terminated_internally
 
-    def test_should_refuse_to_start_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_refuse_to_start_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerOtc(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
                                        f" --min-eth-balance 100.0"),
-                             web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and

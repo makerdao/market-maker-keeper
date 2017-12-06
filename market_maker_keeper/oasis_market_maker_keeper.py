@@ -22,18 +22,18 @@ from functools import reduce
 from itertools import chain
 from typing import List
 
-from keeper import Event
-from pymaker.approval import directly
-from pymaker.config import ReloadableConfig
-from pymaker.numeric import Wad
-from pymaker.oasis import Order
-from pymaker.util import synchronize, eth_balance
 from keeper.band import BuyBand, SellBand
 from keeper.price import TubPriceFeed, SetzerPriceFeed
 from keeper.sai import SaiKeeper
+from pymaker.approval import directly
+from pymaker.config import ReloadableConfig
+from pymaker.logger import Event
+from pymaker.numeric import Wad
+from pymaker.oasis import Order
+from pymaker.util import synchronize, eth_balance
 
 
-class SaiMakerOtc(SaiKeeper):
+class OasisMarketMakerKeeper(SaiKeeper):
     """Keeper to act as a market maker on OasisDEX, on the W-ETH/SAI pair.
 
     Keeper continuously monitors and adjusts its positions in order to act as a market maker.
@@ -243,4 +243,4 @@ class SaiMakerOtc(SaiKeeper):
 
 
 if __name__ == '__main__':
-    SaiMakerOtc(sys.argv[1:]).start()
+    OasisMarketMakerKeeper(sys.argv[1:]).start()
