@@ -172,22 +172,9 @@ class OasisMarketMakerKeeper:
     def startup(self):
         self.approve()
         self.lifecycle.on_block(self.synchronize_orders)
-        # self.lifecycle.every(20 * 60, self.print_eth_balance)
-        # self.lifecycle.every(20 * 60, self.print_token_balances)
 
     def shutdown(self):
         self.cancel_all_orders()
-
-    def print_token_balances(self):
-        for token in [self.sai, self.gem]:
-            our_sell_orders = filter(lambda o: o.sell_which_token == token.address, self.our_orders())
-            balance_in_our_sell_orders = sum(map(lambda o: o.sell_how_much, our_sell_orders), Wad.from_number(0))
-            balance_in_account = token.balance_of(self.our_address)
-            total_balance = balance_in_our_sell_orders + balance_in_account
-            self.logger.info(f"Keeper {token.name()} balance is {total_balance} {token.name()}"
-                             f" ({balance_in_account} {token.name()} in keeper account,"
-                             f" {balance_in_our_sell_orders} {token.name()} in open orders)",
-                             Event.token_balance(self.our_address, token.address, token.name(), total_balance))
 
     def approve(self):
         """Approve OasisDEX to access our balances, so we can place orders."""
