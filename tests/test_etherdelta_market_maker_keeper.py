@@ -60,11 +60,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -105,11 +106,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -139,12 +141,13 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"
                                                        f" --cancel-on-shutdown"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -174,12 +177,13 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"
                                                        f" --cancel-on-shutdown --withdraw-on-shutdown"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -209,12 +213,13 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"
                                                        f" --cancel-on-shutdown --withdraw-on-shutdown"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -243,11 +248,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -280,11 +286,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -308,11 +315,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -360,11 +368,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -416,11 +425,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -456,11 +466,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -512,11 +523,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -552,11 +564,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -588,11 +601,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -628,11 +642,12 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -693,12 +708,13 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 200"
                                                        f" --min-eth-balance 100.0"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -731,12 +747,13 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
                                                        f" --order-age 3600 --eth-reserve 200"
                                                        f" --min-eth-balance 100.0"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                             web3=deployment.web3, config=deployment.get_config())
+                                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -764,12 +781,13 @@ class TestEtherDeltaMarketMakerKeeper:
         # expect
         with pytest.raises(Exception, match="--eth-reserve must be higher than --min-eth-balance"):
             EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                  f" --tub-address {deployment.tub.address}"
                                                   f" --etherdelta-address {deployment.etherdelta.address}"
                                                   f" --etherdelta-socket https://127.0.0.1:99999/"
                                                   f" --order-age 3600 --eth-reserve 99.9"
                                                   f" --min-eth-balance 100.0"
                                                   f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
 
     @staticmethod
     def leave_only_some_eth(deployment: Deployment, amount_of_eth_to_leave: Wad):
