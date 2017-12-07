@@ -55,7 +55,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "  
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -92,7 +92,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -119,7 +119,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -149,7 +149,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -182,7 +182,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -208,7 +208,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -255,7 +255,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -299,7 +299,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                             web3=deployment.web3, config=deployment.get_config())
+                             web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -334,7 +334,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -378,7 +378,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -413,7 +413,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -445,7 +445,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -482,7 +482,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -544,7 +544,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file} "
                                                   f"--min-eth-balance 100.0"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
@@ -579,7 +579,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file} "
                                                   f"--min-eth-balance 100.0"),
-                                        web3=deployment.web3, config=deployment.get_config())
+                                        web3=deployment.web3)
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
         # and
