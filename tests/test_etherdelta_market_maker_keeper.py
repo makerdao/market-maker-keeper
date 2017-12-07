@@ -22,7 +22,7 @@ import py
 import pytest
 from mock import MagicMock
 
-from keeper.sai_maker_etherdelta import SaiMakerEtherDelta
+from market_maker_keeper.etherdelta_market_maker_keeper import EtherDeltaMarketMakerKeeper
 from pymaker import Address
 from pymaker.deployment import Deployment
 from pymaker.etherdelta import EtherDelta
@@ -34,7 +34,7 @@ from tests.band_config import BandConfig
 from tests.helper import args
 
 
-class TestSaiMakerEtherDelta:
+class TestEtherDeltaMarketMakerKeeper:
     @staticmethod
     def mint_tokens(deployment: Deployment):
         DSToken(web3=deployment.web3, address=deployment.tub.gem()).mint(Wad.from_number(1000)).transact()
@@ -44,10 +44,10 @@ class TestSaiMakerEtherDelta:
     def set_price(deployment: Deployment, price: Wad):
         DSValue(web3=deployment.web3, address=deployment.tub.pip()).poke_with_int(price.value).transact()
 
-    def orders(self, keeper: SaiMakerEtherDelta):
+    def orders(self, keeper: EtherDeltaMarketMakerKeeper):
         return list(filter(lambda order: order.remaining_sell_amount > Wad(0), keeper.our_orders))
 
-    def orders_by_token(self, keeper: SaiMakerEtherDelta, token_address: Address):
+    def orders_by_token(self, keeper: EtherDeltaMarketMakerKeeper, token_address: Address):
         return list(filter(lambda order: order.token_give == token_address, self.orders(keeper)))
 
     @staticmethod
@@ -59,12 +59,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -104,12 +104,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -138,13 +138,13 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"
-                                              f" --cancel-on-shutdown"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"
+                                                       f" --cancel-on-shutdown"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -173,13 +173,13 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"
-                                              f" --cancel-on-shutdown --withdraw-on-shutdown"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"
+                                                       f" --cancel-on-shutdown --withdraw-on-shutdown"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -208,13 +208,13 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.with_variables_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"
-                                              f" --cancel-on-shutdown --withdraw-on-shutdown"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"
+                                                       f" --cancel-on-shutdown --withdraw-on-shutdown"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -242,12 +242,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.with_variables_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -279,12 +279,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.bands_overlapping_invalid_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -307,12 +307,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -359,12 +359,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -415,12 +415,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -455,12 +455,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -511,12 +511,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -551,12 +551,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -587,12 +587,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -627,12 +627,12 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 10"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -692,13 +692,13 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 200"
-                                              f" --min-eth-balance 100.0"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 200"
+                                                       f" --min-eth-balance 100.0"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -730,13 +730,13 @@ class TestSaiMakerEtherDelta:
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                              f" --etherdelta-address {deployment.etherdelta.address}"
-                                              f" --etherdelta-socket https://127.0.0.1:99999/"
-                                              f" --order-age 3600 --eth-reserve 200"
-                                              f" --min-eth-balance 100.0"
-                                              f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                                    web3=deployment.web3, config=deployment.get_config())
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 200"
+                                                       f" --min-eth-balance 100.0"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
         keeper.etherdelta_api.publish_order = MagicMock()
 
@@ -763,13 +763,13 @@ class TestSaiMakerEtherDelta:
 
         # expect
         with pytest.raises(Exception, match="--eth-reserve must be higher than --min-eth-balance"):
-            SaiMakerEtherDelta(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                         f" --etherdelta-address {deployment.etherdelta.address}"
-                                         f" --etherdelta-socket https://127.0.0.1:99999/"
-                                         f" --order-age 3600 --eth-reserve 99.9"
-                                         f" --min-eth-balance 100.0"
-                                         f" --min-eth-deposit 1 --min-sai-deposit 400"),
-                               web3=deployment.web3, config=deployment.get_config())
+            EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                  f" --etherdelta-address {deployment.etherdelta.address}"
+                                                  f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                  f" --order-age 3600 --eth-reserve 99.9"
+                                                  f" --min-eth-balance 100.0"
+                                                  f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                        web3=deployment.web3, config=deployment.get_config())
 
     @staticmethod
     def leave_only_some_eth(deployment: Deployment, amount_of_eth_to_leave: Wad):
