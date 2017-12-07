@@ -27,6 +27,7 @@ from keeper.price import TubPriceFeed, SetzerPriceFeed
 from keeper.sai import SaiKeeper
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
+from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice
 from pymaker.logger import Event
 from pymaker.numeric import Wad
 from pymaker.oasis import Order
@@ -92,6 +93,9 @@ class OasisMarketMakerKeeper(SaiKeeper):
 
         parser.add_argument("--min-eth-balance", type=float, default=0,
                             help="Minimum ETH balance below which keeper with either terminate or not start at all")
+
+        parser.add_argument("--cancel-gas-price", type=int, default=0,
+                            help="Gas price (in Wei) for order cancellation")
 
     def startup(self):
         self.approve()
@@ -187,7 +191,8 @@ class OasisMarketMakerKeeper(SaiKeeper):
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
-        synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price) for order in orders])
+        synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price_for_order_cancellation())
+                     for order in orders])
 
     def excessive_sell_orders(self, our_orders: list, sell_bands: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
@@ -203,7 +208,7 @@ class OasisMarketMakerKeeper(SaiKeeper):
 
     def top_up_bands(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Asynchronously create new buy and sell orders in all send and buy bands if necessary."""
-        synchronize([transact.transact_async(gas_price=self.gas_price)
+        synchronize([transact.transact_async(gas_price=self.gas_price_for_order_placement())
                      for transact in chain(self.top_up_buy_bands(our_orders, buy_bands, target_price),
                                            self.top_up_sell_bands(our_orders, sell_bands, target_price))])
 
@@ -240,6 +245,20 @@ class OasisMarketMakerKeeper(SaiKeeper):
     @staticmethod
     def total_amount(orders: List[Order]):
         return reduce(operator.add, map(lambda order: order.sell_how_much, orders), Wad(0))
+
+    def gas_price_for_order_placement(self) -> GasPrice:
+        if self.arguments.gas_price > 0:
+            return FixedGasPrice(self.arguments.gas_price)
+        else:
+            return DefaultGasPrice()
+
+    def gas_price_for_order_cancellation(self) -> GasPrice:
+        if self.arguments.cancel_gas_price > 0:
+            return FixedGasPrice(self.arguments.cancel_gas_price)
+        if self.arguments.gas_price > 0:
+            return FixedGasPrice(self.arguments.gas_price)
+        else:
+            return DefaultGasPrice()
 
 
 if __name__ == '__main__':
