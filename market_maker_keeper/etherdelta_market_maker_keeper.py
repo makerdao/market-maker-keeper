@@ -121,7 +121,7 @@ class EtherDeltaMarketMakerKeeper:
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
-        _json_log = os.path.abspath(pkg_resources.resource_filename(__name__, f"../logs/oasis-market-maker-keeper_{self.chain}_{self.our_address}.json.log".lower()))
+        _json_log = os.path.abspath(pkg_resources.resource_filename(__name__, f"../logs/etherdelta-market-maker-keeper_{self.chain}_{self.our_address}.json.log".lower()))
         self.logger = Logger('etherdelta-market-maker-keeper', self.chain, _json_log, self.arguments.debug, self.arguments.trace)
         Contract.logger = self.logger
 
