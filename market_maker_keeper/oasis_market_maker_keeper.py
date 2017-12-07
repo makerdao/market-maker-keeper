@@ -27,7 +27,7 @@ from keeper.price import TubPriceFeed, SetzerPriceFeed
 from keeper.sai import SaiKeeper
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
-from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice
+from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice, IncreasingGasPrice
 from pymaker.logger import Event
 from pymaker.numeric import Wad
 from pymaker.oasis import Order
@@ -94,8 +94,28 @@ class OasisMarketMakerKeeper(SaiKeeper):
         parser.add_argument("--min-eth-balance", type=float, default=0,
                             help="Minimum ETH balance below which keeper with either terminate or not start at all")
 
+        parser.add_argument("--gas-price-increase", type=int,
+                            help="Gas price increase (in Wei) if no confirmation within"
+                                 " --gas-price-increase-every seconds")
+
+        parser.add_argument("--gas-price-increase-every", type=int, default=120,
+                            help="Gas price increase frequency (in seconds, default: 120)")
+
+        parser.add_argument("--gas-price-max", type=int,
+                            help="Maximum gas price (in Wei)")
+
         parser.add_argument("--cancel-gas-price", type=int, default=0,
                             help="Gas price (in Wei) for order cancellation")
+
+        parser.add_argument("--cancel-gas-price-increase", type=int,
+                            help="Gas price increase (in Wei) for order cancellation if no confirmation within"
+                                 " --cancel-gas-price-increase-every seconds")
+
+        parser.add_argument("--cancel-gas-price-increase-every", type=int, default=120,
+                            help="Gas price increase frequency for order cancellation (in seconds, default: 120)")
+
+        parser.add_argument("--cancel-gas-price-max", type=int,
+                            help="Maximum gas price (in Wei) for order cancellation")
 
     def startup(self):
         self.approve()
@@ -247,18 +267,26 @@ class OasisMarketMakerKeeper(SaiKeeper):
         return reduce(operator.add, map(lambda order: order.sell_how_much, orders), Wad(0))
 
     def gas_price_for_order_placement(self) -> GasPrice:
-        if self.arguments.gas_price > 0:
+        if self.arguments.gas_price > 0 and self.arguments.gas_price_increase > 0:
+            return IncreasingGasPrice(initial_price=self.arguments.gas_price,
+                                      increase_by=self.arguments.gas_price_increase,
+                                      every_secs=self.arguments.gas_price_increase_every,
+                                      max_price=self.arguments.gas_price_max)
+        elif self.arguments.gas_price > 0:
             return FixedGasPrice(self.arguments.gas_price)
         else:
             return DefaultGasPrice()
 
     def gas_price_for_order_cancellation(self) -> GasPrice:
-        if self.arguments.cancel_gas_price > 0:
+        if self.arguments.cancel_gas_price > 0 and self.arguments.cancel_gas_price_increase > 0:
+            return IncreasingGasPrice(initial_price=self.arguments.cancel_gas_price,
+                                      increase_by=self.arguments.cancel_gas_price_increase,
+                                      every_secs=self.arguments.cancel_gas_price_increase_every,
+                                      max_price=self.arguments.cancel_gas_price_max)
+        elif self.arguments.cancel_gas_price > 0:
             return FixedGasPrice(self.arguments.cancel_gas_price)
-        if self.arguments.gas_price > 0:
-            return FixedGasPrice(self.arguments.gas_price)
         else:
-            return DefaultGasPrice()
+            return self.gas_price_for_order_placement()
 
 
 if __name__ == '__main__':
