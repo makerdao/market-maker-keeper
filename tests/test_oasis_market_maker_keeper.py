@@ -51,7 +51,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "  
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -85,7 +88,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -109,7 +115,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.with_variables_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -136,7 +145,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.with_variables_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -166,7 +178,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.bands_overlapping_invalid_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -189,7 +204,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -233,7 +251,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -274,7 +295,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                              web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -306,7 +330,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -347,7 +374,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -379,7 +409,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.sample_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -408,7 +441,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -442,7 +478,10 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -500,8 +539,11 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                       f" --min-eth-balance 100.0"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file} "
+                                                  f"--min-eth-balance 100.0"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
@@ -532,8 +574,11 @@ class TestOasisMarketMakerKeeper:
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
         # and
-        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
-                                       f" --min-eth-balance 100.0"),
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file} "
+                                                  f"--min-eth-balance 100.0"),
                                         web3=deployment.web3, config=deployment.get_config())
         keeper.lifecycle = Web3Lifecycle(web3=keeper.web3, logger=keeper.logger)
 
