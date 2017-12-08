@@ -124,10 +124,6 @@ class RadarRelayMarketMakerKeeper:
                                              api_server=self.arguments.relayer_api_server,
                                              logger=self.logger)
 
-        # so the token names are printed nicer
-        ERC20Token.register_token(self.radar_relay.zrx_token(), 'ZRX')
-        ERC20Token.register_token(self.ether_token.address, '0x-WETH')
-
     def main(self):
         with Web3Lifecycle(self.web3, self.logger) as lifecycle:
             self.lifecycle = lifecycle
