@@ -1,0 +1,12 @@
+.idea
+*.iml
+
+__pycache__
+.cache
+.coverage
+
+.DS_Store
+
+logs/*.json.log
+
+docs/_doc

@@ -1,0 +1,26 @@
+language: python
+
+os:
+  - linux
+
+python:
+  - 3.6
+
+cache: pip
+
+before_cache:
+  - rm -f $HOME/.cache/pip/log/debug.log
+
+install:
+  - pip install virtualenv --upgrade
+  - pip install -r requirements.txt
+  - pip install -r requirements-dev.txt
+
+script:
+  - ./test.sh
+
+after_success:
+  - codecov
+
+notifications:
+  email: false

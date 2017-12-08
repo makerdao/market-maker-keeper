@@ -1,0 +1,8 @@
+codecov == 2.0.9
+pytest == 3.3.0
+pytest-asyncio == 0.8.0
+pytest-cov == 2.5.1
+pytest-mock == 1.6.3
+pytest-timeout == 1.2.1
+asynctest == 0.11.1
+Sphinx == 1.6.2
