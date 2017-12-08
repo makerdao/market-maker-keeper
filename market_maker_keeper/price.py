@@ -19,10 +19,11 @@ import threading
 import time
 from typing import Optional
 
-from keeper import Wad, Logger
+from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
+from pymaker.logger import Logger
+from pymaker.numeric import Wad
 from pymaker.sai import Tub
-from keeper.setzer import Setzer
 
 
 class PriceFeed(object):

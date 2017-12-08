@@ -17,7 +17,7 @@
 
 import subprocess
 
-from keeper import Wad
+from pymaker.numeric import Wad
 
 
 class Setzer():

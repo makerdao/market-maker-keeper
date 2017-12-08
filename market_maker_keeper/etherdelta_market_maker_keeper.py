@@ -33,8 +33,8 @@ from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
 from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
-from keeper.band import BuyBand, SellBand
-from keeper.price import TubPriceFeed, SetzerPriceFeed
+from market_maker_keeper.band import BuyBand, SellBand
+from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance, chain

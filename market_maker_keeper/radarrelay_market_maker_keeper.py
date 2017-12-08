@@ -16,30 +16,29 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import itertools
 import operator
+import os
 import sys
 import time
 from functools import reduce
 
-import os
-
-import itertools
 import pkg_resources
 from web3 import Web3, HTTPProvider
 
+from market_maker_keeper.band import BuyBand, SellBand
+from market_maker_keeper.price import SetzerPriceFeed, TubPriceFeed
 from pymaker import Address, synchronize, Contract
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
-from pymaker.logger import Logger
-from pymaker.numeric import Wad
 from pymaker.gas import GasPrice, FixedGasPrice, DefaultGasPrice
 from pymaker.lifecycle import Web3Lifecycle
+from pymaker.logger import Logger
+from pymaker.numeric import Wad
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
-from pymaker.zrx import ZrxExchange, ZrxRelayerApi
-from keeper.band import BuyBand, SellBand
-from keeper.price import SetzerPriceFeed, TubPriceFeed
 from pymaker.util import eth_balance, chain
+from pymaker.zrx import ZrxExchange, ZrxRelayerApi
 
 
 class RadarRelayMarketMakerKeeper:

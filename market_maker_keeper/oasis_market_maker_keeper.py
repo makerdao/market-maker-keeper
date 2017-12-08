@@ -27,8 +27,8 @@ import itertools
 import pkg_resources
 from web3 import Web3, HTTPProvider
 
-from keeper.band import BuyBand, SellBand
-from keeper.price import TubPriceFeed, SetzerPriceFeed
+from market_maker_keeper.band import BuyBand, SellBand
+from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed
 from pymaker import Address, Contract
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
