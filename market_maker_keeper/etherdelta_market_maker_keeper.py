@@ -41,13 +41,8 @@ from pymaker.util import eth_balance, chain
 
 
 class EtherDeltaMarketMakerKeeper:
-    """Keeper to act as a market maker on EtherDelta, on the ETH/SAI pair.
+    """Keeper to act as a market maker on EtherDelta, on the ETH/SAI pair."""
 
-    Due to limitations of EtherDelta, the development of this keeper has been
-    discontinued. It works most of the time, but due to the fact that EtherDelta
-    was a bit unpredictable in terms of placing orders at the time this keeper
-    was developed, we abandoned it and decided to stick to SaiMakerOtc for now.
-    """
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='etherdelta-market-maker-keeper')
 
