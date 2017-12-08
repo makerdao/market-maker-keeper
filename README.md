@@ -15,9 +15,14 @@ market making of the following exchanges:
 All these three keepers share some logic and operate in a similar way. They create
 a series of orders in so called _bands_, which are configured with a JSON file
 containing parameters like spreads, maximum engagement etc. Please see the
-_"Bands configuration"_ section below fore more details.
+_"Bands configuration"_ section below for more details regarding keeper mechanics.
+
+This repo also contains an auxiliary tool called `oasis-market-maker-cancel`, which
+may be used for emergency cancelling all market maker orders on OasisDEX if the
+keeper gets stuck or dies for some reason, or if the network becomes congested.
 
 <https://chat.makerdao.com/channel/keeper>
+
 
 ## Installation
 
@@ -59,110 +64,6 @@ must be installed and available to the keepers. Please see: <https://github.com/
 
 Without `setzer` installed, the `--price-feed` argument can not be used and only the default price feed
 (provided by `Tub`) will be available.
-
-
-## Running keepers
-
-An individual script in the `bin` directory is present for each keeper. For example, `keeper-sai-bite`
-can be run with:
-```bash
-bin/keeper-sai-bite --eth-from 0x0101010101010101010101010101010101010101
-```
-
-### Restarting dying keepers
-
-As keepers tend to die at times, in any serious environment they should be run by a tool
-which can restart them if they fail. It could be _systemd_, but if you don't want to set it up,
-a simple `bin/run-forever` script has been provided. Its job is to simply restart the
-specified program as long as it's return code is non-zero.
-
-For example you could run the same `keeper-sai-bite` keeper like that:
-```bash
-bin/run-forever bin/keeper-sai-bite --eth-from 0x0101010101010101010101010101010101010101
-```
-so it gets automatically restarted every time it fails.
-
-### Individual keeper accounts
-
-**It is advised to run each keeper on their own Ethereum account**
-
-### Unlocking accounts
-
-Keepers will fail to start if the Ethereum accounts they are configured to operate on are not unlocked.
-This post <https://ethereum.stackexchange.com/questions/15349/parity-unlock-multiple-accounts-at-startup/15351#15351>
-describes how to unlock multiple accounts in Parity on startup.
-
-## Reference keepers
-
-This sections lists and briefly describes a set of reference keepers present in this project.
-
-### `keeper-sai-maker-otc`
-
-Keeper to act as a market maker on OasisDEX, on the W-ETH/SAI pair.
-
-Keeper continuously monitors and adjusts its positions in order to act as a market maker.
-It maintains buy and sell orders in multiple bands at the same time. In each buy band,
-it aims to have open SAI sell orders for at least `minSaiAmount`. In each sell band
-it aims to have open WETH sell orders for at least `minWEthAmount`. In both cases,
-it will ensure the price of open orders stays within the <minMargin,maxMargin> range
-from the current SAI/W-ETH price.
-
-When started, the keeper places orders for the average amounts (`avgSaiAmount`
-and `avgWEthAmount`) in each band and uses `avgMargin` to calculate the order price.
-
-As long as the price of orders stays within the band (i.e. is in the <minMargin,maxMargin>
-range from the current SAI/W-ETH price, which is of course constantly moving), the keeper
-keeps them open. If they leave the band, they either enter another adjacent band
-or fall outside all bands. In case of the latter, they get immediately cancelled. In case of
-the former, the keeper can keep these orders open as long as their amount is within the
-<minSaiAmount,maxSaiAmount> (for buy bands) or <minWEthAmount,maxWEthAmount> (for sell bands)
-ranges for the band they just entered. If it is above the maximum, all open orders will get
-cancelled and a new one will be created (for the `avgSaiAmount` / `avgWEthAmount`). If it is below
-the minimum, a new order gets created for the remaining amount so the total amount of orders
-in this band is equal to `avgSaiAmount` or `avgWEthAmount`.
-
-The same thing will happen if the total amount of open orders in a band falls below either
-`minSaiAmount` or `minWEthAmount` as a result of other market participants taking these orders.
-In this case also a new order gets created for the remaining amount so the total
-amount of orders in this band is equal to `avgSaiAmount` / `avgWEthAmount`.
-
-This keeper will constantly use gas to move orders as the SAI/GEM price changes. Gas usage
-can be limited by setting the margin and amount ranges wide enough and also by making
-sure that bands are always adjacent to each other and that their <min,max> amount ranges
-overlap.
-
-Usage:
-```
-usage: keeper-sai-maker-otc [-h] [--rpc-host RPC_HOST] [--rpc-port RPC_PORT]
-                            --eth-from ETH_FROM [--gas-price GAS_PRICE]
-                            [--initial-gas-price INITIAL_GAS_PRICE]
-                            [--increase-gas-price-by INCREASE_GAS_PRICE_BY]
-                            [--increase-gas-price-every INCREASE_GAS_PRICE_EVERY]
-                            [--debug] [--trace] --config CONFIG
-                            [--round-places ROUND_PLACES]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
-  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
-  --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --gas-price GAS_PRICE
-                        Static gas pricing: Gas price in Wei
-  --initial-gas-price INITIAL_GAS_PRICE
-                        Increasing gas pricing: Initial gas price in Wei
-  --increase-gas-price-by INCREASE_GAS_PRICE_BY
-                        Increasing gas pricing: Gas price increase in Wei
-  --increase-gas-price-every INCREASE_GAS_PRICE_EVERY
-                        Increasing gas pricing: Gas price increase interval in
-                        seconds
-  --debug               Enable debug output
-  --trace               Enable trace output
-  --config CONFIG       Buy/sell bands configuration file
-  --round-places ROUND_PLACES
-                        Number of decimal places to round order prices to
-                        (default=2)
-```
-
 
 
 ## Bands configuration
@@ -271,51 +172,237 @@ Sample bands configuration file:
 The [Jsonnet](https://github.com/google/jsonnet) data templating language can be used
 for the bands config file.
 
-### `keeper-sai-maker-etherdelta`
 
-Keeper to act as a market maker on EtherDelta, on the ETH/SAI pair.
+## `oasis-market-maker-keeper`
 
-Due to limitations of EtherDelta, **the development of this keeper has been
-discontinued**. It works most of the time, but due to the fact that EtherDelta
-was a bit unpredictable in terms of placing orders at the time this keeper
-was developed, we abandoned it and decided to stick to SaiMakerOtc for now.
+This keeper supports market-making on the [OasisDEX](https://oasisdex.com/) exchange.
+
+### Usage
+
+```
+usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
+                                 [--rpc-port RPC_PORT] --eth-from ETH_FROM
+                                 --tub-address TUB_ADDRESS --oasis-address
+                                 OASIS_ADDRESS --config CONFIG
+                                 [--price-feed PRICE_FEED]
+                                 [--round-places ROUND_PLACES]
+                                 [--min-eth-balance MIN_ETH_BALANCE]
+                                 [--gas-price GAS_PRICE]
+                                 [--gas-price-increase GAS_PRICE_INCREASE]
+                                 [--gas-price-increase-every GAS_PRICE_INCREASE_EVERY]
+                                 [--gas-price-max GAS_PRICE_MAX]
+                                 [--cancel-gas-price CANCEL_GAS_PRICE]
+                                 [--cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE]
+                                 [--cancel-gas-price-increase-every CANCEL_GAS_PRICE_INCREASE_EVERY]
+                                 [--cancel-gas-price-max CANCEL_GAS_PRICE_MAX]
+                                 [--debug] [--trace]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
+  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --eth-from ETH_FROM   Ethereum account from which to send transactions
+  --tub-address TUB_ADDRESS
+                        Ethereum address of the Tub contract
+  --oasis-address OASIS_ADDRESS
+                        Ethereum address of the OasisDEX contract
+  --config CONFIG       Buy/sell bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed. Tub price feed will be used if
+                        not specified
+  --round-places ROUND_PLACES
+                        Number of decimal places to round order prices to
+                        (default=2)
+  --min-eth-balance MIN_ETH_BALANCE
+                        Minimum ETH balance below which keeper with either
+                        terminate or not start at all
+  --gas-price GAS_PRICE
+                        Gas price (in Wei)
+  --gas-price-increase GAS_PRICE_INCREASE
+                        Gas price increase (in Wei) if no confirmation within
+                        --gas-price-increase-every seconds
+  --gas-price-increase-every GAS_PRICE_INCREASE_EVERY
+                        Gas price increase frequency (in seconds, default:
+                        120)
+  --gas-price-max GAS_PRICE_MAX
+                        Maximum gas price (in Wei)
+  --cancel-gas-price CANCEL_GAS_PRICE
+                        Gas price (in Wei) for order cancellation
+  --cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE
+                        Gas price increase (in Wei) for order cancellation if
+                        no confirmation within --cancel-gas-price-increase-
+                        every seconds
+  --cancel-gas-price-increase-every CANCEL_GAS_PRICE_INCREASE_EVERY
+                        Gas price increase frequency for order cancellation
+                        (in seconds, default: 120)
+  --cancel-gas-price-max CANCEL_GAS_PRICE_MAX
+                        Maximum gas price (in Wei) for order cancellation
+  --debug               Enable debug output
+  --trace               Enable trace output
+```
 
 
+## `oasis-market-maker-cancel`
+
+This tool immediately cancels all our open orders on [OasisDEX](https://oasisdex.com/). 
+It may be used if the `oasis-market-maker-keeper` gets stuck or dies for some reason,
+or if the network becomes congested.
+
+### Usage
+
+```
+usage: oasis-market-maker-cancel [-h] [--rpc-host RPC_HOST]
+                                 [--rpc-port RPC_PORT] --eth-from ETH_FROM
+                                 --oasis-address OASIS_ADDRESS
+                                 [--gas-price GAS_PRICE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
+  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --eth-from ETH_FROM   Ethereum account from which to send transactions
+  --oasis-address OASIS_ADDRESS
+                        Ethereum address of the OasisDEX contract
+  --gas-price GAS_PRICE
+                        Gas price in Wei (default: node default)
+```
 
 
+## `etherdelta-market-maker-keeper`
+
+This keeper supports market-making on the [EtherDelta](https://etherdelta.com/) exchange.
+
+### Usage
+
+```
+usage: etherdelta-market-maker-keeper [-h] [--rpc-host RPC_HOST]
+                                      [--rpc-port RPC_PORT] --eth-from
+                                      ETH_FROM --tub-address TUB_ADDRESS
+                                      --etherdelta-address ETHERDELTA_ADDRESS
+                                      --etherdelta-socket ETHERDELTA_SOCKET
+                                      --config CONFIG
+                                      [--price-feed PRICE_FEED] --order-age
+                                      ORDER_AGE
+                                      [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
+                                      --eth-reserve ETH_RESERVE
+                                      [--min-eth-balance MIN_ETH_BALANCE]
+                                      --min-eth-deposit MIN_ETH_DEPOSIT
+                                      --min-sai-deposit MIN_SAI_DEPOSIT
+                                      [--cancel-on-shutdown]
+                                      [--withdraw-on-shutdown]
+                                      [--gas-price GAS_PRICE] [--debug]
+                                      [--trace]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
+  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --eth-from ETH_FROM   Ethereum account from which to send transactions
+  --tub-address TUB_ADDRESS
+                        Ethereum address of the Tub contract
+  --etherdelta-address ETHERDELTA_ADDRESS
+                        Ethereum address of the EtherDelta contract
+  --etherdelta-socket ETHERDELTA_SOCKET
+                        Ethereum address of the EtherDelta API socket
+  --config CONFIG       Buy/sell bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed. Tub price feed will be used if
+                        not specified
+  --order-age ORDER_AGE
+                        Age of created orders (in blocks)
+  --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
+                        Order age at which order is considered already expired
+                        (in blocks)
+  --eth-reserve ETH_RESERVE
+                        Amount of ETH which will never be deposited so the
+                        keeper can cover gas
+  --min-eth-balance MIN_ETH_BALANCE
+                        Minimum ETH balance below which keeper with either
+                        terminate or not start at all
+  --min-eth-deposit MIN_ETH_DEPOSIT
+                        Minimum amount of ETH that can be deposited in one
+                        transaction
+  --min-sai-deposit MIN_SAI_DEPOSIT
+                        Minimum amount of SAI that can be deposited in one
+                        transaction
+  --cancel-on-shutdown  Whether should cancel all open orders on EtherDelta on
+                        keeper shutdown
+  --withdraw-on-shutdown
+                        Whether should withdraw all tokens from EtherDelta on
+                        keeper shutdown
+  --gas-price GAS_PRICE
+                        Gas price (in Wei)
+  --debug               Enable debug output
+  --trace               Enable trace output
+```
+
+### Known limitations
+
+TODO
 
 
+## `radarrelay-market-maker-keeper`
+
+This keeper supports market-making on the [RadarRelay](https://app.radarrelay.com/) exchange.
+As _RadarRelay_ is a regular 0x Exchange implementing the _0x Standard Relayer API_, this
+keeper can be easily adapted to market-make on other 0x exchanges as well.
+
+### Usage
+
+```
+usage: radarrelay-market-maker-keeper [-h] [--rpc-host RPC_HOST]
+                                      [--rpc-port RPC_PORT] --eth-from
+                                      ETH_FROM --tub-address TUB_ADDRESS
+                                      --exchange-address EXCHANGE_ADDRESS
+                                      --weth-address WETH_ADDRESS
+                                      --relayer-api-server RELAYER_API_SERVER
+                                      --config CONFIG
+                                      [--price-feed PRICE_FEED] --order-expiry
+                                      ORDER_EXPIRY
+                                      [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
+                                      [--min-eth-balance MIN_ETH_BALANCE]
+                                      [--cancel-on-shutdown]
+                                      [--gas-price GAS_PRICE] [--debug]
+                                      [--trace]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
+  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --eth-from ETH_FROM   Ethereum account from which to send transactions
+  --tub-address TUB_ADDRESS
+                        Ethereum address of the Tub contract
+  --exchange-address EXCHANGE_ADDRESS
+                        Ethereum address of the 0x Exchange contract
+  --weth-address WETH_ADDRESS
+                        Ethereum address of the WETH token
+  --relayer-api-server RELAYER_API_SERVER
+                        Address of the 0x Relayer API
+  --config CONFIG       Buy/sell bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed. Tub price feed will be used if
+                        not specified
+  --order-expiry ORDER_EXPIRY
+                        Expiration time of created orders (in seconds)
+  --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
+                        Order expiration time at which order is considered
+                        already expired (in seconds)
+  --min-eth-balance MIN_ETH_BALANCE
+                        Minimum ETH balance below which keeper with either
+                        terminate or not start at all
+  --cancel-on-shutdown  Whether should cancel all open orders on RadarRelay on
+                        keeper shutdown
+  --gas-price GAS_PRICE
+                        Gas price (in Wei)
+  --debug               Enable debug output
+  --trace               Enable trace output
+```
+
+### Known limitations
+
+TODO
 
 
+## License
 
-
-There is also a _Setzer_ class which provides a simple interface to the `setzer` commandline
-tool (<https://github.com/makerdao/setzer>).
-
-
-
-**Beware!** This is the first version of the APIs and they will definitely change
-and/or evolve in the future.
-
-
-
-
-
-
-
-## Disclaimer
-
-This set of reference keepers is provided for demonstration purposes only. If you,
-by any chance, want to run them on the production network or provide them
-with any real money or tokens, you do it on your own responsibility only.
-
-As stated in the _GNU Affero General Public License_:
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Affero General Public License for more details.
-
-
-
-
+See [COPYING](https://github.com/makerdao/market-maker-keeper/blob/master/COPYING) file.
