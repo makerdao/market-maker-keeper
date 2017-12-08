@@ -343,7 +343,24 @@ optional arguments:
 
 ### Known limitations
 
-TODO
+* Because of some random database errors, creating some orders randomly fails. This issue has been reported
+  to the EtherDelta team (https://github.com/etherdelta/etherdelta.github.io/issues/275), but it
+  hasn't been solved yet.
+
+* There is no way to reliably get the current status of the EtherDelta order book, so the keeper
+  relies on an assumption that if an order has been sent to EtherDelta it has actually made its way
+  to the order book. If it doesn't happen (because of the error mentioned above for example),
+  it will be missing from the exchange until its expiration time passes and it will get placed
+  again (refreshed) by the keeper.
+
+* Due to the same issue with retrieving the current order book status, the keeper starts with the
+  assumption that the order book is empty. If there are already some keeper orders in it, they
+  may get recreated again by the keeper so duplicates will exist until the older ones expire.
+  That's why it is recommended to wait for the existing orders to expire before starting
+  the keeper.
+
+* There is a limit of 10 active orders per side
+  (see: https://github.com/etherdelta/etherdelta.github.io/issues/274).
 
 
 ## `radarrelay-market-maker-keeper`
