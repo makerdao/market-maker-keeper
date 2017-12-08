@@ -198,12 +198,12 @@ class EtherDeltaMarketMakerKeeper:
         self.etherdelta_api.publish_order(order)
 
     def our_sell_orders(self):
-        return list(filter(lambda order: order.token_get == self.sai.address and
-                                         order.token_give == EtherDelta.ETH_TOKEN, self.our_orders))
+        return list(filter(lambda order: order.buy_token == self.sai.address and
+                                         order.pay_token == EtherDelta.ETH_TOKEN, self.our_orders))
 
     def our_buy_orders(self):
-        return list(filter(lambda order: order.token_get == EtherDelta.ETH_TOKEN and
-                                         order.token_give == self.sai.address, self.our_orders))
+        return list(filter(lambda order: order.buy_token == EtherDelta.ETH_TOKEN and
+                                         order.pay_token == self.sai.address, self.our_orders))
 
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
@@ -285,10 +285,10 @@ class EtherDeltaMarketMakerKeeper:
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
                     want_amount = self.fix_amount(have_amount * band.avg_price(target_price))
                     if want_amount > Wad(0):
-                        order = self.etherdelta.create_order(token_give=EtherDelta.ETH_TOKEN,
-                                                             amount_give=have_amount,
-                                                             token_get=self.sai.address,
-                                                             amount_get=want_amount,
+                        order = self.etherdelta.create_order(pay_token=EtherDelta.ETH_TOKEN,
+                                                             pay_amount=have_amount,
+                                                             buy_token=self.sai.address,
+                                                             buy_amount=want_amount,
                                                              expires=self.web3.eth.blockNumber + self.arguments.order_age)
                         if self.deposit_for_sell_order_if_needed(order):
                             return
@@ -305,10 +305,10 @@ class EtherDeltaMarketMakerKeeper:
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
                     want_amount = self.fix_amount(have_amount / band.avg_price(target_price))
                     if want_amount > Wad(0):
-                        order = self.etherdelta.create_order(token_give=self.sai.address,
-                                                             amount_give=have_amount,
-                                                             token_get=EtherDelta.ETH_TOKEN,
-                                                             amount_get=want_amount,
+                        order = self.etherdelta.create_order(pay_token=self.sai.address,
+                                                             pay_amount=have_amount,
+                                                             buy_token=EtherDelta.ETH_TOKEN,
+                                                             buy_amount=want_amount,
                                                              expires=self.web3.eth.blockNumber + self.arguments.order_age)
                         if self.deposit_for_buy_order_if_needed(order):
                             return
@@ -317,7 +317,7 @@ class EtherDeltaMarketMakerKeeper:
     def deposit_for_sell_order_if_needed(self, order: Order):
         currently_deposited = self.etherdelta.balance_of(self.our_address)
         currently_reserved_by_open_buy_orders = self.total_amount(self.our_sell_orders())
-        if currently_deposited - currently_reserved_by_open_buy_orders < order.amount_give:
+        if currently_deposited - currently_reserved_by_open_buy_orders < order.pay_amount:
             return self.deposit_for_sell_order()
         else:
             return False
@@ -332,7 +332,7 @@ class EtherDeltaMarketMakerKeeper:
     def deposit_for_buy_order_if_needed(self, order: Order):
         currently_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
         currently_reserved_by_open_sell_orders = self.total_amount(self.our_buy_orders())
-        if currently_deposited - currently_reserved_by_open_sell_orders < order.amount_give:
+        if currently_deposited - currently_reserved_by_open_sell_orders < order.pay_amount:
             return self.deposit_for_buy_order()
         else:
             return False
@@ -345,8 +345,8 @@ class EtherDeltaMarketMakerKeeper:
             return False
 
     def total_amount(self, orders):
-        give_available = lambda order: order.amount_give - (self.etherdelta.amount_filled(order) * order.amount_give / order.amount_get)
-        return reduce(operator.add, map(give_available, orders), Wad(0))
+        pay_available = lambda order: order.pay_amount - (self.etherdelta.amount_filled(order) * order.pay_amount / order.buy_amount)
+        return reduce(operator.add, map(pay_available, orders), Wad(0))
 
     @staticmethod
     def fix_amount(amount: Wad) -> Wad:

@@ -48,11 +48,11 @@ class TestEtherDeltaMarketMakerKeeper:
         return list(filter(lambda order: order.remaining_sell_amount > Wad(0), keeper.our_orders))
 
     def orders_by_token(self, keeper: EtherDeltaMarketMakerKeeper, token_address: Address):
-        return list(filter(lambda order: order.token_give == token_address, self.orders(keeper)))
+        return list(filter(lambda order: order.pay_token == token_address, self.orders(keeper)))
 
     @staticmethod
     def orders_sorted(orders: list) -> list:
-        return sorted(orders, key=lambda order: (order.amount_give, order.amount_get))
+        return sorted(orders, key=lambda order: (order.pay_amount, order.buy_amount))
 
     def test_should_deposit_and_create_orders_on_startup(self, deployment: Deployment, tmpdir: py.path.local):
         # given
@@ -87,18 +87,18 @@ class TestEtherDeltaMarketMakerKeeper:
         assert keeper.etherdelta_api.publish_order.call_count == 2
 
         # and
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].user == deployment.our_address
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].amount_give == Wad.from_number(75)
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].token_give == deployment.sai.address
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].amount_get == Wad.from_number(0.78125)
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].token_get == EtherDelta.ETH_TOKEN
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].maker == deployment.our_address
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].pay_amount == Wad.from_number(75)
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].pay_token == deployment.sai.address
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].buy_amount == Wad.from_number(0.78125)
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].buy_token == EtherDelta.ETH_TOKEN
 
         # and
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].user == deployment.our_address
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_give == Wad.from_number(7.5)
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_give == EtherDelta.ETH_TOKEN
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_get == Wad.from_number(780)
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_get == deployment.sai.address
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].maker == deployment.our_address
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_amount == Wad.from_number(780)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_token == deployment.sai.address
 
     def test_should_not_cancel_orders_on_shutdown_if_not_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
         # given
@@ -236,11 +236,11 @@ class TestEtherDeltaMarketMakerKeeper:
         assert len(self.orders(keeper)) == 1
 
         # and
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].user == deployment.our_address
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_give == Wad.from_number(5.0)
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_give == EtherDelta.ETH_TOKEN
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_get == Wad.from_number(520)
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_get == deployment.sai.address
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].maker == deployment.our_address
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].pay_amount == Wad.from_number(5.0)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_amount == Wad.from_number(520)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_token == deployment.sai.address
 
     def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir: py.path.local):
         # given
@@ -357,10 +357,10 @@ class TestEtherDeltaMarketMakerKeeper:
         keeper.synchronize_orders()
         # then
         assert len(self.orders(keeper)) == 3
-        assert self.orders(keeper)[2].amount_give == Wad.from_number(26)
-        assert self.orders(keeper)[2].token_give == deployment.sai.address
-        assert self.orders(keeper)[2].amount_get == Wad(270833333000000000)
-        assert self.orders(keeper)[2].token_get == EtherDelta.ETH_TOKEN
+        assert self.orders(keeper)[2].pay_amount == Wad.from_number(26)
+        assert self.orders(keeper)[2].pay_token == deployment.sai.address
+        assert self.orders(keeper)[2].buy_amount == Wad(270833333000000000)
+        assert self.orders(keeper)[2].buy_token == EtherDelta.ETH_TOKEN
 
     def test_should_cancel_selected_buy_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
         # given
@@ -416,7 +416,7 @@ class TestEtherDeltaMarketMakerKeeper:
         keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
         # then
         assert len(self.orders(keeper)) == 4
-        assert reduce(Wad.__add__, map(lambda order: order.amount_give, self.orders_by_token(keeper, deployment.sai.address)), Wad(0)) \
+        assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(keeper, deployment.sai.address)), Wad(0)) \
                == Wad.from_number(99)
 
     def test_should_cancel_the_only_buy_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
@@ -454,11 +454,11 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         # [the artificial order gets cancelled, a new one gets created instead]
         assert len(self.orders(keeper)) == 2
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].user == deployment.our_address
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].amount_give == Wad.from_number(75)
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].token_give == deployment.sai.address
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].amount_get == Wad.from_number(0.78125)
-        assert self.orders_by_token(keeper, deployment.sai.address)[0].token_get == EtherDelta.ETH_TOKEN
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].maker == deployment.our_address
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].pay_amount == Wad.from_number(75)
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].pay_token == deployment.sai.address
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].buy_amount == Wad.from_number(0.78125)
+        assert self.orders_by_token(keeper, deployment.sai.address)[0].buy_token == EtherDelta.ETH_TOKEN
 
     def test_should_cancel_selected_sell_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
         # given
@@ -514,7 +514,7 @@ class TestEtherDeltaMarketMakerKeeper:
         keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
         # then
         assert len(self.orders(keeper)) == 4
-        assert reduce(Wad.__add__, map(lambda order: order.amount_give, self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)), Wad(0)) \
+        assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)), Wad(0)) \
                == Wad.from_number(10.0)
 
     def test_should_cancel_the_only_sell_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
@@ -552,11 +552,11 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         # [the artificial order gets cancelled, a new one gets created instead]
         assert len(self.orders(keeper)) == 2
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].user == deployment.our_address
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_give == Wad.from_number(7.5)
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_give == EtherDelta.ETH_TOKEN
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].amount_get == Wad.from_number(780)
-        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].token_get == deployment.sai.address
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].maker == deployment.our_address
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_amount == Wad.from_number(780)
+        assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_token == deployment.sai.address
 
     def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir: py.path.local):
         # given
@@ -623,18 +623,18 @@ class TestEtherDeltaMarketMakerKeeper:
         assert len(self.orders(keeper)) == 2
 
         # and
-        assert self.orders_sorted(self.orders(keeper))[0].user == deployment.our_address
-        assert self.orders_sorted(self.orders(keeper))[0].amount_give == Wad.from_number(7.5)
-        assert self.orders_sorted(self.orders(keeper))[0].token_give == EtherDelta.ETH_TOKEN
-        assert self.orders_sorted(self.orders(keeper))[0].amount_get == Wad.from_number(780)
-        assert self.orders_sorted(self.orders(keeper))[0].token_get == deployment.sai.address
+        assert self.orders_sorted(self.orders(keeper))[0].maker == deployment.our_address
+        assert self.orders_sorted(self.orders(keeper))[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_sorted(self.orders(keeper))[0].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders_sorted(self.orders(keeper))[0].buy_amount == Wad.from_number(780)
+        assert self.orders_sorted(self.orders(keeper))[0].buy_token == deployment.sai.address
 
         # and
-        assert self.orders_sorted(self.orders(keeper))[1].user == deployment.our_address
-        assert self.orders_sorted(self.orders(keeper))[1].amount_give == Wad.from_number(9.5)
-        assert self.orders_sorted(self.orders(keeper))[1].token_give == EtherDelta.ETH_TOKEN
-        assert self.orders_sorted(self.orders(keeper))[1].amount_get == Wad.from_number(1026)
-        assert self.orders_sorted(self.orders(keeper))[1].token_get == deployment.sai.address
+        assert self.orders_sorted(self.orders(keeper))[1].maker == deployment.our_address
+        assert self.orders_sorted(self.orders(keeper))[1].pay_amount == Wad.from_number(9.5)
+        assert self.orders_sorted(self.orders(keeper))[1].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders_sorted(self.orders(keeper))[1].buy_amount == Wad.from_number(1026)
+        assert self.orders_sorted(self.orders(keeper))[1].buy_token == deployment.sai.address
 
     def test_should_take_over_order_from_adjacent_band_when_price_changes(self, deployment: Deployment, tmpdir: py.path.local):
         # given
@@ -664,18 +664,18 @@ class TestEtherDeltaMarketMakerKeeper:
         assert len(self.orders(keeper)) == 2
 
         # and
-        assert self.orders_sorted(self.orders(keeper))[0].user == deployment.our_address
-        assert self.orders_sorted(self.orders(keeper))[0].amount_give == Wad.from_number(7.5)
-        assert self.orders_sorted(self.orders(keeper))[0].token_give == EtherDelta.ETH_TOKEN
-        assert self.orders_sorted(self.orders(keeper))[0].amount_get == Wad.from_number(780)
-        assert self.orders_sorted(self.orders(keeper))[0].token_get == deployment.sai.address
+        assert self.orders_sorted(self.orders(keeper))[0].maker == deployment.our_address
+        assert self.orders_sorted(self.orders(keeper))[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_sorted(self.orders(keeper))[0].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders_sorted(self.orders(keeper))[0].buy_amount == Wad.from_number(780)
+        assert self.orders_sorted(self.orders(keeper))[0].buy_token == deployment.sai.address
 
         # and
-        assert self.orders_sorted(self.orders(keeper))[1].user == deployment.our_address
-        assert self.orders_sorted(self.orders(keeper))[1].amount_give == Wad.from_number(9.5)
-        assert self.orders_sorted(self.orders(keeper))[1].token_give == EtherDelta.ETH_TOKEN
-        assert self.orders_sorted(self.orders(keeper))[1].amount_get == Wad.from_number(1026)
-        assert self.orders_sorted(self.orders(keeper))[1].token_get == deployment.sai.address
+        assert self.orders_sorted(self.orders(keeper))[1].maker == deployment.our_address
+        assert self.orders_sorted(self.orders(keeper))[1].pay_amount == Wad.from_number(9.5)
+        assert self.orders_sorted(self.orders(keeper))[1].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders_sorted(self.orders(keeper))[1].buy_amount == Wad.from_number(1026)
+        assert self.orders_sorted(self.orders(keeper))[1].buy_token == deployment.sai.address
 
         # when
         self.set_price(deployment, Wad.from_number(96))
@@ -688,19 +688,19 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # and
         # ...new order in the <0.02,0.06> band gets created
-        assert self.orders_sorted(self.orders(keeper))[0].user == deployment.our_address
-        assert self.orders_sorted(self.orders(keeper))[0].amount_give == Wad.from_number(7.5)
-        assert self.orders_sorted(self.orders(keeper))[0].token_give == EtherDelta.ETH_TOKEN
-        assert self.orders_sorted(self.orders(keeper))[0].amount_get == Wad.from_number(748.8)
-        assert self.orders_sorted(self.orders(keeper))[0].token_get == deployment.sai.address
+        assert self.orders_sorted(self.orders(keeper))[0].maker == deployment.our_address
+        assert self.orders_sorted(self.orders(keeper))[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_sorted(self.orders(keeper))[0].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders_sorted(self.orders(keeper))[0].buy_amount == Wad.from_number(748.8)
+        assert self.orders_sorted(self.orders(keeper))[0].buy_token == deployment.sai.address
 
         # and
         # ...the order from <0.02,0.06> ends up in the <0.06,0.10> band
-        assert self.orders_sorted(self.orders(keeper))[1].user == deployment.our_address
-        assert self.orders_sorted(self.orders(keeper))[1].amount_give == Wad.from_number(7.5)
-        assert self.orders_sorted(self.orders(keeper))[1].token_give == EtherDelta.ETH_TOKEN
-        assert self.orders_sorted(self.orders(keeper))[1].amount_get == Wad.from_number(780)
-        assert self.orders_sorted(self.orders(keeper))[1].token_get == deployment.sai.address
+        assert self.orders_sorted(self.orders(keeper))[1].maker == deployment.our_address
+        assert self.orders_sorted(self.orders(keeper))[1].pay_amount == Wad.from_number(7.5)
+        assert self.orders_sorted(self.orders(keeper))[1].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders_sorted(self.orders(keeper))[1].buy_amount == Wad.from_number(780)
+        assert self.orders_sorted(self.orders(keeper))[1].buy_token == deployment.sai.address
 
     def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
         # given
