@@ -20,45 +20,55 @@ import operator
 import sys
 import time
 from functools import reduce
-from itertools import chain
 
-from keeper import ERC20Token, Wad
-from pymaker import Address, synchronize
+import os
+
+import itertools
+import pkg_resources
+from web3 import Web3, HTTPProvider
+
+from pymaker import Address, synchronize, Contract
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
+from pymaker.logger import Logger
+from pymaker.numeric import Wad
+from pymaker.gas import GasPrice, FixedGasPrice, DefaultGasPrice
+from pymaker.lifecycle import Web3Lifecycle
+from pymaker.sai import Tub
+from pymaker.token import ERC20Token
 from pymaker.zrx import ZrxExchange, ZrxRelayerApi
 from keeper.band import BuyBand, SellBand
 from keeper.price import SetzerPriceFeed, TubPriceFeed
-from keeper.sai import SaiKeeper
-from pymaker.util import eth_balance
+from pymaker.util import eth_balance, chain
 
 
-class SaiMakerRadarRelay(SaiKeeper):
+class SaiMakerRadarRelay:
     """Keeper to act as a market maker on RadarRelay, on the WETH/SAI pair."""
+
     def __init__(self, args: list, **kwargs):
-        super().__init__(args, **kwargs)
-        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
-        self.order_expiry = self.arguments.order_expiry
-        self.order_expiry_threshold = self.arguments.order_expiry_threshold
-        self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
+        parser = argparse.ArgumentParser(prog='radarrelay-market-maker-keeper')
 
-        # Choose the price feed
-        if self.arguments.price_feed is not None:
-            self.price_feed = SetzerPriceFeed(self.tub, self.arguments.price_feed, self.logger)
-        else:
-            self.price_feed = TubPriceFeed(self.tub)
+        parser.add_argument("--rpc-host", type=str, default="localhost",
+                            help="JSON-RPC host (default: `localhost')")
 
-        self.ether_token = ERC20Token(web3=self.web3, address=Address(self.config.get_config()["0x"]["etherToken"]))
-        self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.config.get_config()["0x"]["exchange"]))
-        self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay,
-                                             api_server=self.config.get_config()["radarRelay"]["apiServer"],
-                                             logger=self.logger)
+        parser.add_argument("--rpc-port", type=int, default=8545,
+                            help="JSON-RPC port (default: `8545')")
 
-        # so the token names are printed nicer
-        ERC20Token.register_token(self.radar_relay.zrx_token(), 'ZRX')
-        ERC20Token.register_token(self.ether_token.address, '0x-WETH')
+        parser.add_argument("--eth-from", type=str, required=True,
+                            help="Ethereum account from which to send transactions")
 
-    def args(self, parser: argparse.ArgumentParser):
+        parser.add_argument("--tub-address", type=str, required=True,
+                            help="Ethereum address of the Tub contract")
+
+        parser.add_argument("--exchange-address", type=str, required=True,
+                            help="Ethereum address of the 0x Exchange contract")
+
+        parser.add_argument("--weth-address", type=str, required=True,
+                            help="Ethereum address of the WETH token")
+
+        parser.add_argument("--relayer-api-server", type=str, required=True,
+                            help="Address of the 0x Relayer API")
+
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
 
@@ -77,10 +87,58 @@ class SaiMakerRadarRelay(SaiKeeper):
         parser.add_argument('--cancel-on-shutdown', dest='cancel_on_shutdown', action='store_true',
                             help="Whether should cancel all open orders on RadarRelay on keeper shutdown")
 
+        parser.add_argument("--gas-price", type=int, default=0,
+                            help="Gas price (in Wei)")
+
+        parser.add_argument("--debug", dest='debug', action='store_true',
+                            help="Enable debug output")
+
+        parser.add_argument("--trace", dest='trace', action='store_true',
+                            help="Enable trace output")
+
+        self.arguments = parser.parse_args(args)
+
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}"))
+        self.web3.eth.defaultAccount = self.arguments.eth_from
+
+        self.chain = chain(self.web3)
+        self.our_address = Address(self.arguments.eth_from)
+        self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
+        self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
+        self.ether_token = ERC20Token(web3=self.web3, address=Address(self.arguments.weth_address))
+
+        _json_log = os.path.abspath(pkg_resources.resource_filename(__name__, f"../logs/radarrelay-market-maker-keeper_{self.chain}_{self.our_address}.json.log".lower()))
+        self.logger = Logger('radarrelay-market-maker-keeper', self.chain, _json_log, self.arguments.debug, self.arguments.trace)
+        Contract.logger = self.logger
+
+        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
+        self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
+
+        # Choose the price feed
+        if self.arguments.price_feed is not None:
+            self.price_feed = SetzerPriceFeed(self.tub, self.arguments.price_feed, self.logger)
+        else:
+            self.price_feed = TubPriceFeed(self.tub)
+
+        self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
+        self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay,
+                                             api_server=self.arguments.relayer_api_server,
+                                             logger=self.logger)
+
+        # so the token names are printed nicer
+        ERC20Token.register_token(self.radar_relay.zrx_token(), 'ZRX')
+        ERC20Token.register_token(self.ether_token.address, '0x-WETH')
+
+    def main(self):
+        with Web3Lifecycle(self.web3, self.logger) as lifecycle:
+            self.lifecycle = lifecycle
+            lifecycle.on_startup(self.startup)
+            lifecycle.on_shutdown(self.shutdown)
+
     def startup(self):
         self.approve()
-        self.every(15, self.synchronize_orders)
-        self.every(60*60, self.print_balances)
+        self.lifecycle.every(15, self.synchronize_orders)
+        self.lifecycle.every(60*60, self.print_balances)
 
     def shutdown(self):
         if self.arguments.cancel_on_shutdown:
@@ -102,7 +160,7 @@ class SaiMakerRadarRelay(SaiKeeper):
         sell_bands = list(map(SellBand, config['sellBands']))
 
         if self.bands_overlap(buy_bands) or self.bands_overlap(sell_bands):
-            self.terminate(f"Bands in the config file overlap. Terminating the keeper.")
+            self.lifecycle.terminate(f"Bands in the config file overlap. Terminating the keeper.")
             return [], []
         else:
             return buy_bands, sell_bands
@@ -136,7 +194,7 @@ class SaiMakerRadarRelay(SaiKeeper):
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
         if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
-            self.terminate("Keeper balance is below the minimum, terminating.")
+            self.lifecycle.terminate("Keeper balance is below the minimum, terminating.")
             self.cancel_orders(self.our_orders())
             return
 
@@ -145,9 +203,9 @@ class SaiMakerRadarRelay(SaiKeeper):
         target_price = self.price_feed.get_price()
 
         if target_price is not None:
-            self.cancel_orders(chain(self.excessive_buy_orders(our_orders, buy_bands, target_price),
-                                     self.excessive_sell_orders(our_orders, sell_bands, target_price),
-                                     self.outside_orders(our_orders, buy_bands, sell_bands, target_price)))
+            self.cancel_orders(itertools.chain(self.excessive_buy_orders(our_orders, buy_bands, target_price),
+                                               self.excessive_sell_orders(our_orders, sell_bands, target_price),
+                                               self.outside_orders(our_orders, buy_bands, sell_bands, target_price)))
             self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
         else:
             self.logger.warning("Cancelling all orders as no price feed available.")
@@ -160,12 +218,12 @@ class SaiMakerRadarRelay(SaiKeeper):
                 if not any(band.includes(order, target_price) for band in bands):
                     yield order
 
-        return chain(outside_any_band_orders(self.our_buy_orders(our_orders), buy_bands, target_price),
-                     outside_any_band_orders(self.our_sell_orders(our_orders), sell_bands, target_price))
+        return itertools.chain(outside_any_band_orders(self.our_buy_orders(our_orders), buy_bands, target_price),
+                               outside_any_band_orders(self.our_sell_orders(our_orders), sell_bands, target_price))
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
-        synchronize([self.radar_relay.cancel_order(order).transact_async(gas_price=self.gas_price) for order in orders])
+        synchronize([self.radar_relay.cancel_order(order).transact_async(gas_price=self.gas_price()) for order in orders])
 
     def excessive_sell_orders(self, our_orders: list, sell_bands: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
@@ -241,6 +299,12 @@ class SaiMakerRadarRelay(SaiKeeper):
         maker_token_amount_available = lambda order: order.maker_token_amount - (self.radar_relay.get_unavailable_taker_token_amount(order) * order.maker_token_amount / order.taker_token_amount)
         return reduce(operator.add, map(maker_token_amount_available, orders), Wad(0))
 
+    def gas_price(self) -> GasPrice:
+        if self.arguments.gas_price > 0:
+            return FixedGasPrice(self.arguments.gas_price)
+        else:
+            return DefaultGasPrice()
+
 
 if __name__ == '__main__':
-    SaiMakerRadarRelay(sys.argv[1:]).start()
+    SaiMakerRadarRelay(sys.argv[1:]).main()
