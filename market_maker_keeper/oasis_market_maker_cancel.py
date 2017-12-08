@@ -49,7 +49,7 @@ class OasisMarketMakerCancel:
 
     def our_orders(self, orders: list):
         """Return list of orders owned by us."""
-        return list(filter(lambda order: order.owner == self.our_address, orders))
+        return list(filter(lambda order: order.maker == self.our_address, orders))
 
     def cancel_orders(self, orders: list):
         """Cancel orders asynchronously."""

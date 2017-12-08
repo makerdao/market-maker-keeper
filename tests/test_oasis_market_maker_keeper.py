@@ -40,11 +40,11 @@ class TestOasisMarketMakerKeeper:
 
     @staticmethod
     def orders_by_token(deployment: Deployment, token: ERC20Token):
-        return list(filter(lambda order: order.sell_which_token == token.address, deployment.otc.get_orders()))
+        return list(filter(lambda order: order.pay_token == token.address, deployment.otc.get_orders()))
 
     @staticmethod
     def orders_sorted(orders: list) -> list:
-        return sorted(orders, key=lambda order: (order.sell_how_much, order.buy_how_much))
+        return sorted(orders, key=lambda order: (order.pay_amount, order.buy_amount))
 
     def test_should_create_orders_on_startup(self, deployment: Deployment, tmpdir):
         # given
@@ -70,18 +70,18 @@ class TestOasisMarketMakerKeeper:
         assert len(deployment.otc.get_orders()) == 2
 
         # and
-        assert self.orders_by_token(deployment, deployment.sai)[0].owner == deployment.our_address
-        assert self.orders_by_token(deployment, deployment.sai)[0].sell_how_much == Wad.from_number(75)
-        assert self.orders_by_token(deployment, deployment.sai)[0].sell_which_token == deployment.sai.address
-        assert self.orders_by_token(deployment, deployment.sai)[0].buy_how_much == Wad.from_number(0.78125)
-        assert self.orders_by_token(deployment, deployment.sai)[0].buy_which_token == deployment.gem.address
+        assert self.orders_by_token(deployment, deployment.sai)[0].maker == deployment.our_address
+        assert self.orders_by_token(deployment, deployment.sai)[0].pay_amount == Wad.from_number(75)
+        assert self.orders_by_token(deployment, deployment.sai)[0].pay_token == deployment.sai.address
+        assert self.orders_by_token(deployment, deployment.sai)[0].buy_amount == Wad.from_number(0.78125)
+        assert self.orders_by_token(deployment, deployment.sai)[0].buy_token == deployment.gem.address
 
         # and
-        assert self.orders_by_token(deployment, deployment.gem)[0].owner == deployment.our_address
-        assert self.orders_by_token(deployment, deployment.gem)[0].sell_how_much == Wad.from_number(7.5)
-        assert self.orders_by_token(deployment, deployment.gem)[0].sell_which_token == deployment.gem.address
-        assert self.orders_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(780)
-        assert self.orders_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
+        assert self.orders_by_token(deployment, deployment.gem)[0].maker == deployment.our_address
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_token == deployment.gem.address
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_amount == Wad.from_number(780)
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_token == deployment.sai.address
 
     def test_should_cancel_orders_on_shutdown(self, deployment: Deployment, tmpdir):
         # given
@@ -134,11 +134,11 @@ class TestOasisMarketMakerKeeper:
         assert len(deployment.otc.get_orders()) == 1
 
         # and
-        assert self.orders_by_token(deployment, deployment.gem)[0].owner == deployment.our_address
-        assert self.orders_by_token(deployment, deployment.gem)[0].sell_how_much == Wad.from_number(5.0)
-        assert self.orders_by_token(deployment, deployment.gem)[0].sell_which_token == deployment.gem.address
-        assert self.orders_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(520)
-        assert self.orders_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
+        assert self.orders_by_token(deployment, deployment.gem)[0].maker == deployment.our_address
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_amount == Wad.from_number(5.0)
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_token == deployment.gem.address
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_amount == Wad.from_number(520)
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_token == deployment.sai.address
 
     def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir):
         # given
@@ -241,10 +241,10 @@ class TestOasisMarketMakerKeeper:
         keeper.synchronize_orders()
         # then
         assert len(deployment.otc.get_orders()) == 3
-        assert deployment.otc.get_orders()[2].sell_how_much == Wad.from_number(26)
-        assert deployment.otc.get_orders()[2].sell_which_token == deployment.sai.address
-        assert deployment.otc.get_orders()[2].buy_how_much == Wad(270833333333333333)
-        assert deployment.otc.get_orders()[2].buy_which_token == deployment.gem.address
+        assert deployment.otc.get_orders()[2].pay_amount == Wad.from_number(26)
+        assert deployment.otc.get_orders()[2].pay_token == deployment.sai.address
+        assert deployment.otc.get_orders()[2].buy_amount == Wad(270833333333333333)
+        assert deployment.otc.get_orders()[2].buy_token == deployment.gem.address
 
     def test_should_cancel_selected_buy_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir):
         # given
@@ -287,7 +287,7 @@ class TestOasisMarketMakerKeeper:
         keeper.synchronize_orders()
         # then
         assert len(deployment.otc.get_orders()) == 4
-        assert reduce(Wad.__add__, map(lambda order: order.sell_how_much, self.orders_by_token(deployment, deployment.sai)), Wad(0)) \
+        assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(deployment, deployment.sai)), Wad(0)) \
                == Wad.from_number(99)
 
     def test_should_cancel_the_only_buy_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir):
@@ -319,11 +319,11 @@ class TestOasisMarketMakerKeeper:
         # then
         # [the artificial order gets cancelled, a new one gets created instead]
         assert len(deployment.otc.get_orders()) == 2
-        assert self.orders_by_token(deployment, deployment.sai)[0].owner == deployment.our_address
-        assert self.orders_by_token(deployment, deployment.sai)[0].sell_how_much == Wad.from_number(75)
-        assert self.orders_by_token(deployment, deployment.sai)[0].sell_which_token == deployment.sai.address
-        assert self.orders_by_token(deployment, deployment.sai)[0].buy_how_much == Wad.from_number(0.78125)
-        assert self.orders_by_token(deployment, deployment.sai)[0].buy_which_token == deployment.gem.address
+        assert self.orders_by_token(deployment, deployment.sai)[0].maker == deployment.our_address
+        assert self.orders_by_token(deployment, deployment.sai)[0].pay_amount == Wad.from_number(75)
+        assert self.orders_by_token(deployment, deployment.sai)[0].pay_token == deployment.sai.address
+        assert self.orders_by_token(deployment, deployment.sai)[0].buy_amount == Wad.from_number(0.78125)
+        assert self.orders_by_token(deployment, deployment.sai)[0].buy_token == deployment.gem.address
 
     def test_should_cancel_selected_sell_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir):
         # given
@@ -366,7 +366,7 @@ class TestOasisMarketMakerKeeper:
         keeper.synchronize_orders()
         # then
         assert len(deployment.otc.get_orders()) == 4
-        assert reduce(Wad.__add__, map(lambda order: order.sell_how_much, self.orders_by_token(deployment, deployment.gem)), Wad(0)) \
+        assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(deployment, deployment.gem)), Wad(0)) \
                == Wad.from_number(10.0)
 
     def test_should_cancel_the_only_sell_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir):
@@ -398,11 +398,11 @@ class TestOasisMarketMakerKeeper:
         # then
         # [the artificial order gets cancelled, a new one gets created instead]
         assert len(deployment.otc.get_orders()) == 2
-        assert self.orders_by_token(deployment, deployment.gem)[0].owner == deployment.our_address
-        assert self.orders_by_token(deployment, deployment.gem)[0].sell_how_much == Wad.from_number(7.5)
-        assert self.orders_by_token(deployment, deployment.gem)[0].sell_which_token == deployment.gem.address
-        assert self.orders_by_token(deployment, deployment.gem)[0].buy_how_much == Wad.from_number(780)
-        assert self.orders_by_token(deployment, deployment.gem)[0].buy_which_token == deployment.sai.address
+        assert self.orders_by_token(deployment, deployment.gem)[0].maker == deployment.our_address
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_token == deployment.gem.address
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_amount == Wad.from_number(780)
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_token == deployment.sai.address
 
     def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir):
         # given
@@ -460,18 +460,18 @@ class TestOasisMarketMakerKeeper:
         assert len(deployment.otc.get_orders()) == 2
 
         # and
-        assert self.orders_sorted(deployment.otc.get_orders())[0].owner == deployment.our_address
-        assert self.orders_sorted(deployment.otc.get_orders())[0].sell_how_much == Wad.from_number(7.5)
-        assert self.orders_sorted(deployment.otc.get_orders())[0].sell_which_token == deployment.gem.address
-        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_how_much == Wad.from_number(780)
-        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_which_token == deployment.sai.address
+        assert self.orders_sorted(deployment.otc.get_orders())[0].maker == deployment.our_address
+        assert self.orders_sorted(deployment.otc.get_orders())[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_sorted(deployment.otc.get_orders())[0].pay_token == deployment.gem.address
+        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_amount == Wad.from_number(780)
+        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_token == deployment.sai.address
 
         # and
-        assert self.orders_sorted(deployment.otc.get_orders())[1].owner == deployment.our_address
-        assert self.orders_sorted(deployment.otc.get_orders())[1].sell_how_much == Wad.from_number(9.5)
-        assert self.orders_sorted(deployment.otc.get_orders())[1].sell_which_token == deployment.gem.address
-        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_how_much == Wad.from_number(1026)
-        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_which_token == deployment.sai.address
+        assert self.orders_sorted(deployment.otc.get_orders())[1].maker == deployment.our_address
+        assert self.orders_sorted(deployment.otc.get_orders())[1].pay_amount == Wad.from_number(9.5)
+        assert self.orders_sorted(deployment.otc.get_orders())[1].pay_token == deployment.gem.address
+        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_amount == Wad.from_number(1026)
+        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_token == deployment.sai.address
 
     def test_should_take_over_order_from_adjacent_band_when_price_changes(self, deployment: Deployment, tmpdir):
         # given
@@ -497,18 +497,18 @@ class TestOasisMarketMakerKeeper:
         assert len(deployment.otc.get_orders()) == 2
 
         # and
-        assert self.orders_sorted(deployment.otc.get_orders())[0].owner == deployment.our_address
-        assert self.orders_sorted(deployment.otc.get_orders())[0].sell_how_much == Wad.from_number(7.5)
-        assert self.orders_sorted(deployment.otc.get_orders())[0].sell_which_token == deployment.gem.address
-        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_how_much == Wad.from_number(780)
-        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_which_token == deployment.sai.address
+        assert self.orders_sorted(deployment.otc.get_orders())[0].maker == deployment.our_address
+        assert self.orders_sorted(deployment.otc.get_orders())[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_sorted(deployment.otc.get_orders())[0].pay_token == deployment.gem.address
+        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_amount == Wad.from_number(780)
+        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_token == deployment.sai.address
 
         # and
-        assert self.orders_sorted(deployment.otc.get_orders())[1].owner == deployment.our_address
-        assert self.orders_sorted(deployment.otc.get_orders())[1].sell_how_much == Wad.from_number(9.5)
-        assert self.orders_sorted(deployment.otc.get_orders())[1].sell_which_token == deployment.gem.address
-        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_how_much == Wad.from_number(1026)
-        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_which_token == deployment.sai.address
+        assert self.orders_sorted(deployment.otc.get_orders())[1].maker == deployment.our_address
+        assert self.orders_sorted(deployment.otc.get_orders())[1].pay_amount == Wad.from_number(9.5)
+        assert self.orders_sorted(deployment.otc.get_orders())[1].pay_token == deployment.gem.address
+        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_amount == Wad.from_number(1026)
+        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_token == deployment.sai.address
 
         # when
         self.set_price(deployment, Wad.from_number(96))
@@ -520,19 +520,19 @@ class TestOasisMarketMakerKeeper:
 
         # and
         # ...new order in the <0.02,0.06> band gets created
-        assert self.orders_sorted(deployment.otc.get_orders())[0].owner == deployment.our_address
-        assert self.orders_sorted(deployment.otc.get_orders())[0].sell_how_much == Wad.from_number(7.5)
-        assert self.orders_sorted(deployment.otc.get_orders())[0].sell_which_token == deployment.gem.address
-        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_how_much == Wad.from_number(748.8)
-        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_which_token == deployment.sai.address
+        assert self.orders_sorted(deployment.otc.get_orders())[0].maker == deployment.our_address
+        assert self.orders_sorted(deployment.otc.get_orders())[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_sorted(deployment.otc.get_orders())[0].pay_token == deployment.gem.address
+        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_amount == Wad.from_number(748.8)
+        assert self.orders_sorted(deployment.otc.get_orders())[0].buy_token == deployment.sai.address
 
         # and
         # ...the order from <0.02,0.06> ends up in the <0.06,0.10> band
-        assert self.orders_sorted(deployment.otc.get_orders())[1].owner == deployment.our_address
-        assert self.orders_sorted(deployment.otc.get_orders())[1].sell_how_much == Wad.from_number(7.5)
-        assert self.orders_sorted(deployment.otc.get_orders())[1].sell_which_token == deployment.gem.address
-        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_how_much == Wad.from_number(780)
-        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_which_token == deployment.sai.address
+        assert self.orders_sorted(deployment.otc.get_orders())[1].maker == deployment.our_address
+        assert self.orders_sorted(deployment.otc.get_orders())[1].pay_amount == Wad.from_number(7.5)
+        assert self.orders_sorted(deployment.otc.get_orders())[1].pay_token == deployment.gem.address
+        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_amount == Wad.from_number(780)
+        assert self.orders_sorted(deployment.otc.get_orders())[1].buy_token == deployment.sai.address
 
     def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir):
         # given

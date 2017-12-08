@@ -202,15 +202,15 @@ class OasisMarketMakerKeeper:
         return False
 
     def our_orders(self):
-        return list(filter(lambda order: order.owner == self.our_address, self.otc.get_orders()))
+        return list(filter(lambda order: order.maker == self.our_address, self.otc.get_orders()))
 
     def our_sell_orders(self, our_orders: list):
-        return list(filter(lambda order: order.buy_which_token == self.sai.address and
-                                         order.sell_which_token == self.gem.address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.sai.address and
+                                         order.pay_token == self.gem.address, our_orders))
 
     def our_buy_orders(self, our_orders: list):
-        return list(filter(lambda order: order.buy_which_token == self.gem.address and
-                                         order.sell_which_token == self.sai.address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.gem.address and
+                                         order.pay_token == self.sai.address, our_orders))
 
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
@@ -283,8 +283,8 @@ class OasisMarketMakerKeeper:
                     our_balance = our_balance - have_amount
                     want_amount = have_amount * round(band.avg_price(target_price), self.arguments.round_places)
                     if want_amount > Wad(0):
-                        yield self.otc.make(have_token=self.gem.address, have_amount=have_amount,
-                                            want_token=self.sai.address, want_amount=want_amount)
+                        yield self.otc.make(pay_token=self.gem.address, pay_amount=have_amount,
+                                            buy_token=self.sai.address, buy_amount=want_amount)
 
     def top_up_buy_bands(self, our_orders: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Yield new orders if necessary."""
@@ -298,12 +298,12 @@ class OasisMarketMakerKeeper:
                     our_balance = our_balance - have_amount
                     want_amount = have_amount / round(band.avg_price(target_price), self.arguments.round_places)
                     if want_amount > Wad(0):
-                        yield self.otc.make(have_token=self.sai.address, have_amount=have_amount,
-                                            want_token=self.gem.address, want_amount=want_amount)
+                        yield self.otc.make(pay_token=self.sai.address, pay_amount=have_amount,
+                                            buy_token=self.gem.address, buy_amount=want_amount)
 
     @staticmethod
     def total_amount(orders: List[Order]):
-        return reduce(operator.add, map(lambda order: order.sell_how_much, orders), Wad(0))
+        return reduce(operator.add, map(lambda order: order.pay_amount, orders), Wad(0))
 
     def gas_price_for_order_placement(self) -> GasPrice:
         if self.arguments.gas_price > 0:

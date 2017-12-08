@@ -79,7 +79,7 @@ class TestOasisMarketMakerCancel:
 
         # then
         assert len(deployment.otc.get_orders()) == 1
-        assert deployment.otc.get_orders()[0].owner == Address(deployment.web3.eth.accounts[1])
+        assert deployment.otc.get_orders()[0].maker == Address(deployment.web3.eth.accounts[1])
 
     def test_should_use_gas_price_specified(self, deployment: Deployment):
         # given
