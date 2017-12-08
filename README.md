@@ -422,7 +422,11 @@ optional arguments:
 
 ### Known limitations
 
-TODO
+* Expired and/or taken orders to not disappear from the RadarRelay UI immediately. Apparently they run a
+  backend process called _chain watching service_, which for tokens with little liquidity kicks in only
+  every 10 minutes and does order pruning. Because of that, if we configure the keeper to refresh
+  the orders too frequently (i.e. if the `--order-expiry` will be too low), the exchange users will
+  see two or even more duplicates of market maker orders.
 
 
 ## License
