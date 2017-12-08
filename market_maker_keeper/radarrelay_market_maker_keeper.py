@@ -42,7 +42,7 @@ from keeper.price import SetzerPriceFeed, TubPriceFeed
 from pymaker.util import eth_balance, chain
 
 
-class SaiMakerRadarRelay:
+class RadarRelayMarketMakerKeeper:
     """Keeper to act as a market maker on RadarRelay, on the WETH/SAI pair."""
 
     def __init__(self, args: list, **kwargs):
@@ -307,4 +307,4 @@ class SaiMakerRadarRelay:
 
 
 if __name__ == '__main__':
-    SaiMakerRadarRelay(sys.argv[1:]).main()
+    RadarRelayMarketMakerKeeper(sys.argv[1:]).main()
