@@ -1,22 +1,64 @@
+# market-maker-keeper
+
+[![Build Status](https://travis-ci.org/makerdao/market-maker-keeper.svg?branch=master)](https://travis-ci.org/makerdao/market-maker-keeper)
+[![codecov](https://codecov.io/gh/makerdao/market-maker-keeper/branch/master/graph/badge.svg)](https://codecov.io/gh/makerdao/market-maker-keeper)
+
+The _DAI Stablecoin System_ incentivizes external agents, called _keepers_,
+to automate certain operations around the Ethereum blockchain.
+
+`market-maker-keeper` is actually a set of keepers that facilitate SAI/W-ETH and SAI/ETH
+market making of the following exchanges:
+* OasisDEX (`oasis-market-maker-keeper`),
+* EtherDelta (`etherdelta-market-maker-keeper`),
+* RadarRelay (`radarrelay-market-maker-keeper`).
+
+All these three keepers share some logic and operate in a similar way. They create
+a series of orders in so called _bands_, which are configured with a JSON file
+containing parameters like spreads, maximum engagement etc. Please see the
+_"Bands configuration"_ section below fore more details.
+
+<https://chat.makerdao.com/channel/keeper>
+
+## Installation
+
+This project uses *Python 3.6.2*.
+
+In order to clone the project and install required third-party packages please execute:
+```
+git clone https://github.com/makerdao/market-maker-keeper.git
+git submodule update --init --recursive
+pip3 install -r requirements.txt
+```
+
+### Known macOS issues
+
+In order for the Python requirements to install correctly on _macOS_, please install
+`openssl`, `libtool` and `pkg-config` using [Homebrew](https://brew.sh/):
+```
+brew install openssl libtool pkg-config
+```
+
+and set the `LDFLAGS` environment variable before you run `pip3 install -r requirements.txt`:
+```
+export LDFLAGS="-L$(brew --prefix openssl)/lib" CFLAGS="-I$(brew --prefix openssl)/include" 
+```
+
 ### Installation of `etherdelta-socket`
 
-The EtherDelta keeper utilizes `etherdelta-socket` (in the `utils` directory) to place orders using _socket.io_.
-In order to use it, a node installation must be present and `npm install` needs to be run in the
-`utils/etherdelta-socket` folder.
+The `etherdelta-market-maker-keeper` keeper utilizes `etherdelta-socket` (present in the `utils` directory)
+to place orders on EtherDelta using _socket.io_. In order to use it, a `node` installation must be present
+and `npm install` needs to be run in the `utils/etherdelta-socket` folder.
+
+This step is not necessary if you only want to use the other keepers from this project.
 
 ### Installation of `setzer`
 
-The market maker keepers use `setzer` in order to access price feeds like GDAX, Kraken etc. In order
-for it to work correctly, `setzer` and its dependencies must be installed and available to the keepers.
-Please see https://github.com/makerdao/setzer.
+All market maker keepers use `setzer` in order to access price feeds like GDAX, Kraken etc. This interface
+is built on top of `setzer` so in order for it to work correctly, `setzer` and its dependencies
+must be installed and available to the keepers. Please see: <https://github.com/makerdao/setzer>.
 
-Without `setzer` installed, only the default price feed (provided by `Tub`) will be available.
-
-
-
-
-
-
+Without `setzer` installed, the `--price-feed` argument can not be used and only the default price feed
+(provided by `Tub`) will be available.
 
 
 ## Running keepers
