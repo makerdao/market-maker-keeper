@@ -17,6 +17,11 @@ a series of orders in so called _bands_, which are configured with a JSON file
 containing parameters like spreads, maximum engagement etc. Please see the
 _"Bands configuration"_ section below for more details regarding keeper mechanics.
 
+All these keepers are currently only capable of market-making on the SAI/W-ETH
+(for OasisDEX and RadarRelay) and SAI/ETH (for EtherDelta) pairs. Changing it
+would require making some changes to their source code. Having said that,
+that change seems to be pretty trivial.
+
 This repo also contains an auxiliary tool called `oasis-market-maker-cancel`, which
 may be used for emergency cancelling all market maker orders on OasisDEX if the
 keeper gets stuck or dies for some reason, or if the network becomes congested.
