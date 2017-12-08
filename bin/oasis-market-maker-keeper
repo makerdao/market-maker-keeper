@@ -1,3 +1,4 @@
 #!/bin/sh
-. "$(dirname "$0")"/_prelude
+dir="$(dirname "$0")"/..
+export PYTHONPATH=$PYTHONPATH:$dir:$dir/lib/pymaker
 exec python3 -m market_maker_keeper.oasis_market_maker_keeper $@
