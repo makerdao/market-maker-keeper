@@ -175,16 +175,16 @@ class RadarRelayMarketMakerKeeper:
         current_timestamp = int(time.time())
 
         our_orders = list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, our_orders))
-        our_orders = list(filter(lambda order: self.radar_relay.get_unavailable_taker_token_amount(order) < order.taker_token_amount, our_orders))
+        our_orders = list(filter(lambda order: self.radar_relay.get_unavailable_buy_amount(order) < order.buy_amount, our_orders))
         return our_orders
 
     def our_sell_orders(self, our_orders: list) -> list:
-        return list(filter(lambda order: order.taker_token_address == self.sai.address and
-                                         order.maker_token_address == self.ether_token.address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.sai.address and
+                                         order.pay_token == self.ether_token.address, our_orders))
 
     def our_buy_orders(self, our_orders: list) -> list:
-        return list(filter(lambda order: order.taker_token_address == self.ether_token.address and
-                                         order.maker_token_address == self.sai.address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.ether_token.address and
+                                         order.pay_token == self.sai.address, our_orders))
 
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
@@ -258,10 +258,9 @@ class RadarRelayMarketMakerKeeper:
                     our_balance = our_balance - have_amount  #TODO I think this line is unnecessary here
                     want_amount = have_amount * round(band.avg_price(target_price))
                     if want_amount > Wad(0):
-                        order = self.radar_relay.create_order(maker_token_amount=have_amount,
-                                                              taker_token_amount=want_amount,
-                                                              maker_token_address=self.ether_token.address,
-                                                              taker_token_address=self.sai.address,
+                        order = self.radar_relay.create_order(pay_token=self.ether_token.address,
+                                                              pay_amount=have_amount, buy_token=self.sai.address,
+                                                              buy_amount=want_amount,
                                                               expiration=int(time.time()) + self.arguments.order_expiry)
 
                         order = self.radar_relay_api.calculate_fees(order)
@@ -280,10 +279,9 @@ class RadarRelayMarketMakerKeeper:
                     our_balance = our_balance - have_amount  #TODO I think this line is unnecessary here
                     want_amount = have_amount / round(band.avg_price(target_price))
                     if want_amount > Wad(0):
-                        order = self.radar_relay.create_order(maker_token_amount=have_amount,
-                                                              taker_token_amount=want_amount,
-                                                              maker_token_address=self.sai.address,
-                                                              taker_token_address=self.ether_token.address,
+                        order = self.radar_relay.create_order(pay_token=self.sai.address, pay_amount=have_amount,
+                                                              buy_token=self.ether_token.address,
+                                                              buy_amount=want_amount,
                                                               expiration=int(time.time()) + self.arguments.order_expiry)
 
                         order = self.radar_relay_api.calculate_fees(order)
@@ -291,8 +289,8 @@ class RadarRelayMarketMakerKeeper:
                         self.radar_relay_api.submit_order(order)
 
     def total_amount(self, orders):
-        maker_token_amount_available = lambda order: order.maker_token_amount - (self.radar_relay.get_unavailable_taker_token_amount(order) * order.maker_token_amount / order.taker_token_amount)
-        return reduce(operator.add, map(maker_token_amount_available, orders), Wad(0))
+        pay_amount_available = lambda order: order.pay_amount - (self.radar_relay.get_unavailable_buy_amount(order) * order.pay_amount / order.buy_amount)
+        return reduce(operator.add, map(pay_amount_available, orders), Wad(0))
 
     def gas_price(self) -> GasPrice:
         if self.arguments.gas_price > 0:
