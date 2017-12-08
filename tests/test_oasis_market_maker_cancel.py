@@ -42,7 +42,7 @@ class TestOasisMarketMakerCancel:
         assert len(deployment.otc.get_orders()) == 2
 
         # when
-        keeper.lifecycle()
+        keeper.main()
 
         # then
         assert len(deployment.otc.get_orders()) == 0
@@ -75,7 +75,7 @@ class TestOasisMarketMakerCancel:
         assert len(deployment.otc.get_orders()) == 2
 
         # when
-        keeper.lifecycle()
+        keeper.main()
 
         # then
         assert len(deployment.otc.get_orders()) == 1
@@ -99,7 +99,7 @@ class TestOasisMarketMakerCancel:
         assert len(deployment.otc.get_orders()) == 1
 
         # when
-        keeper.lifecycle()
+        keeper.main()
 
         # then
         assert len(deployment.otc.get_orders()) == 0
