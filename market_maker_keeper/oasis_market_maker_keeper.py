@@ -306,24 +306,26 @@ class OasisMarketMakerKeeper:
         return reduce(operator.add, map(lambda order: order.sell_how_much, orders), Wad(0))
 
     def gas_price_for_order_placement(self) -> GasPrice:
-        if self.arguments.gas_price > 0 and self.arguments.gas_price_increase > 0:
-            return IncreasingGasPrice(initial_price=self.arguments.gas_price,
-                                      increase_by=self.arguments.gas_price_increase,
-                                      every_secs=self.arguments.gas_price_increase_every,
-                                      max_price=self.arguments.gas_price_max)
-        elif self.arguments.gas_price > 0:
-            return FixedGasPrice(self.arguments.gas_price)
+        if self.arguments.gas_price > 0:
+            if self.arguments.gas_price_increase is not None:
+                return IncreasingGasPrice(initial_price=self.arguments.gas_price,
+                                          increase_by=self.arguments.gas_price_increase,
+                                          every_secs=self.arguments.gas_price_increase_every,
+                                          max_price=self.arguments.gas_price_max)
+            else:
+                return FixedGasPrice(self.arguments.gas_price)
         else:
             return DefaultGasPrice()
 
     def gas_price_for_order_cancellation(self) -> GasPrice:
-        if self.arguments.cancel_gas_price > 0 and self.arguments.cancel_gas_price_increase > 0:
-            return IncreasingGasPrice(initial_price=self.arguments.cancel_gas_price,
-                                      increase_by=self.arguments.cancel_gas_price_increase,
-                                      every_secs=self.arguments.cancel_gas_price_increase_every,
-                                      max_price=self.arguments.cancel_gas_price_max)
-        elif self.arguments.cancel_gas_price > 0:
-            return FixedGasPrice(self.arguments.cancel_gas_price)
+        if self.arguments.cancel_gas_price > 0:
+            if self.arguments.cancel_gas_price_increase is not None:
+                return IncreasingGasPrice(initial_price=self.arguments.cancel_gas_price,
+                                          increase_by=self.arguments.cancel_gas_price_increase,
+                                          every_secs=self.arguments.cancel_gas_price_increase_every,
+                                          max_price=self.arguments.cancel_gas_price_max)
+            else:
+                return FixedGasPrice(self.arguments.cancel_gas_price)
         else:
             return self.gas_price_for_order_placement()
 
