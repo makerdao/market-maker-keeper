@@ -44,7 +44,7 @@ class OasisMarketMakerCancel:
         self.our_address = Address(self.arguments.eth_from)
         self.otc = MatchingMarket(web3=self.web3, address=Address(self.arguments.oasis_address))
 
-    def lifecycle(self):
+    def main(self):
         self.cancel_orders(self.our_orders(self.otc.get_orders()))
 
     def our_orders(self, orders: list):
@@ -63,4 +63,4 @@ class OasisMarketMakerCancel:
 
 
 if __name__ == '__main__':
-    OasisMarketMakerCancel(sys.argv[1:]).lifecycle()
+    OasisMarketMakerCancel(sys.argv[1:]).main()

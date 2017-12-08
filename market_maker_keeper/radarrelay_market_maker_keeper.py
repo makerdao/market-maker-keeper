@@ -132,12 +132,12 @@ class RadarRelayMarketMakerKeeper:
         with Web3Lifecycle(self.web3, self.logger) as lifecycle:
             self.lifecycle = lifecycle
             lifecycle.on_startup(self.startup)
+            lifecycle.every(15, self.synchronize_orders)
+            lifecycle.every(60*60, self.print_balances)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
         self.approve()
-        self.lifecycle.every(15, self.synchronize_orders)
-        self.lifecycle.every(60*60, self.print_balances)
 
     def shutdown(self):
         if self.arguments.cancel_on_shutdown:

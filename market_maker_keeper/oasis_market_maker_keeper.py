@@ -167,11 +167,11 @@ class OasisMarketMakerKeeper:
         with Web3Lifecycle(self.web3, self.logger) as lifecycle:
             self.lifecycle = lifecycle
             lifecycle.on_startup(self.startup)
+            lifecycle.on_block(self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
         self.approve()
-        self.lifecycle.on_block(self.synchronize_orders)
 
     def shutdown(self):
         self.cancel_all_orders()
