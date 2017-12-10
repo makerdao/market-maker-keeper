@@ -63,6 +63,7 @@ class SetzerPriceFeed(PriceFeed):
             if self.setzer_retries > 10:
                 self.setzer_price = None
             self.logger.warning(f"Failed to fetch price from {self.setzer_source}, tried {self.setzer_retries} times")
+            self.logger.warning(f"If this error persists, please check if 'setzer' is installed and working correctly")
             if self.setzer_price is None:
                 self.logger.warning(f"There is no valid price as maximum number of tries has been reached!")
 
