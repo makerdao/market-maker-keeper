@@ -30,7 +30,7 @@ from pymaker import Address, synchronize, Logger, Contract
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
 from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
-from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice
+from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice, IncreasingGasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 from market_maker_keeper.band import BuyBand, SellBand
@@ -96,6 +96,29 @@ class EtherDeltaMarketMakerKeeper:
 
         parser.add_argument("--gas-price", type=int, default=0,
                             help="Gas price (in Wei)")
+
+        parser.add_argument("--gas-price-increase", type=int,
+                            help="Gas price increase (in Wei) if no confirmation within"
+                                 " --gas-price-increase-every seconds")
+
+        parser.add_argument("--gas-price-increase-every", type=int, default=120,
+                            help="Gas price increase frequency (in seconds, default: 120)")
+
+        parser.add_argument("--gas-price-max", type=int,
+                            help="Maximum gas price (in Wei)")
+
+        parser.add_argument("--cancel-gas-price", type=int, default=0,
+                            help="Gas price (in Wei) for order cancellation")
+
+        parser.add_argument("--cancel-gas-price-increase", type=int,
+                            help="Gas price increase (in Wei) for order cancellation if no confirmation within"
+                                 " --cancel-gas-price-increase-every seconds")
+
+        parser.add_argument("--cancel-gas-price-increase-every", type=int, default=120,
+                            help="Gas price increase frequency for order cancellation (in seconds, default: 120)")
+
+        parser.add_argument("--cancel-gas-price-max", type=int,
+                            help="Maximum gas price (in Wei) for order cancellation")
 
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
@@ -242,7 +265,7 @@ class EtherDeltaMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
-        synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price()) for order in orders])
+        synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price_for_order_cancellation()) for order in orders])
 
     def excessive_sell_orders(self, sell_bands: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
@@ -325,7 +348,7 @@ class EtherDeltaMarketMakerKeeper:
     def deposit_for_sell_order(self):
         depositable_eth = Wad.max(eth_balance(self.web3, self.our_address) - self.eth_reserve, Wad(0))
         if depositable_eth > self.min_eth_deposit:
-            return self.etherdelta.deposit(depositable_eth).transact().successful
+            return self.etherdelta.deposit(depositable_eth).transact(gas_price=self.gas_price_for_deposits()).successful
         else:
             return False
 
@@ -340,7 +363,7 @@ class EtherDeltaMarketMakerKeeper:
     def deposit_for_buy_order(self):
         sai_balance = self.sai.balance_of(self.our_address)
         if sai_balance > self.min_sai_deposit:
-            return self.etherdelta.deposit_token(self.sai.address, sai_balance).transact().successful
+            return self.etherdelta.deposit_token(self.sai.address, sai_balance).transact(gas_price=self.gas_price_for_deposits()).successful
         else:
             return False
 
@@ -363,11 +386,29 @@ class EtherDeltaMarketMakerKeeper:
         # so this is what this particular method does
         return Wad(int(amount.value / 10**9) * 10**9)
 
-    def gas_price(self) -> GasPrice:
+    def gas_price_for_deposits(self) -> GasPrice:
         if self.arguments.gas_price > 0:
-            return FixedGasPrice(self.arguments.gas_price)
+            if self.arguments.gas_price_increase is not None:
+                return IncreasingGasPrice(initial_price=self.arguments.gas_price,
+                                          increase_by=self.arguments.gas_price_increase,
+                                          every_secs=self.arguments.gas_price_increase_every,
+                                          max_price=self.arguments.gas_price_max)
+            else:
+                return FixedGasPrice(self.arguments.gas_price)
         else:
             return DefaultGasPrice()
+
+    def gas_price_for_order_cancellation(self) -> GasPrice:
+        if self.arguments.cancel_gas_price > 0:
+            if self.arguments.cancel_gas_price_increase is not None:
+                return IncreasingGasPrice(initial_price=self.arguments.cancel_gas_price,
+                                          increase_by=self.arguments.cancel_gas_price_increase,
+                                          every_secs=self.arguments.cancel_gas_price_increase_every,
+                                          max_price=self.arguments.cancel_gas_price_max)
+            else:
+                return FixedGasPrice(self.arguments.cancel_gas_price)
+        else:
+            return self.gas_price_for_deposits()
 
 
 if __name__ == '__main__':
