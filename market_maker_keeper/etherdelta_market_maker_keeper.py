@@ -266,6 +266,7 @@ class EtherDeltaMarketMakerKeeper:
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
         synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price_for_order_cancellation()) for order in orders])
+        self.our_orders = list(set(self.our_orders) - set(orders))
 
     def excessive_sell_orders(self, sell_bands: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
