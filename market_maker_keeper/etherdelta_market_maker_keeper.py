@@ -241,9 +241,9 @@ class EtherDeltaMarketMakerKeeper:
 
         if target_price is not None:
             self.remove_expired_orders(block_number)
-            self.cancel_orders(itertools.chain(self.excessive_buy_orders(buy_bands, target_price),
-                                               self.excessive_sell_orders(sell_bands, target_price),
-                                               self.outside_orders(buy_bands, sell_bands, target_price)))
+            self.cancel_orders(list(itertools.chain(self.excessive_buy_orders(buy_bands, target_price),
+                                                    self.excessive_sell_orders(sell_bands, target_price),
+                                                    self.outside_orders(buy_bands, sell_bands, target_price))))
             self.top_up_bands(buy_bands, sell_bands, target_price)
         else:
             self.logger.warning("Cancelling all orders as no price feed available.")
@@ -263,8 +263,10 @@ class EtherDeltaMarketMakerKeeper:
         return itertools.chain(outside_any_band_orders(self.our_buy_orders(), buy_bands, target_price),
                                outside_any_band_orders(self.our_sell_orders(), sell_bands, target_price))
 
-    def cancel_orders(self, orders):
+    def cancel_orders(self, orders: list):
         """Cancel orders asynchronously."""
+        assert(isinstance(orders, list))  # so we can read the list twice - once to cancel,
+                                          # second time to remove from 'self.our_orders'
         synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price_for_order_cancellation()) for order in orders])
         self.our_orders = list(set(self.our_orders) - set(orders))
 
