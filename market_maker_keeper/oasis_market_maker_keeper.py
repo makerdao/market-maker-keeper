@@ -25,6 +25,7 @@ import os
 
 import itertools
 import pkg_resources
+import time
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import BuyBand, SellBand
@@ -212,6 +213,15 @@ class OasisMarketMakerKeeper:
             self.cancel_orders(orders_to_cancel)
         else:
             self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
+
+            # We do wait some time after the orders have been created. The reason for that is sometimes
+            # orders that have been just placed were not picked up by the next `our_orders()` call
+            # (one can presume the block hasn't been fully imported into the node yet), which made
+            # the keeper try to place same order(s) again. Of course the second transaction did fail, but it
+            # resulted in wasted gas and significant delay in keeper operation.
+            #
+            # There is no specific reason behind choosing to wait exactly 7s.
+            time.sleep(7)
 
     def outside_orders(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return orders which do not fall into any buy or sell band."""
