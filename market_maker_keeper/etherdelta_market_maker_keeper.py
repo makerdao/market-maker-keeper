@@ -316,17 +316,16 @@ class EtherDeltaMarketMakerKeeper:
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
                 have_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance))
-                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    want_amount = self.fix_amount(have_amount * band.avg_price(target_price))
-                    if want_amount > Wad(0):
-                        order = self.etherdelta.create_order(pay_token=EtherDelta.ETH_TOKEN,
-                                                             pay_amount=have_amount,
-                                                             buy_token=self.sai.address,
-                                                             buy_amount=want_amount,
-                                                             expires=self.web3.eth.blockNumber + self.arguments.order_age)
-                        if self.deposit_for_sell_order_if_needed(order):
-                            return
-                        self.place_order(order)
+                want_amount = self.fix_amount(have_amount * band.avg_price(target_price))
+                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)) and (want_amount > Wad(0)):
+                    order = self.etherdelta.create_order(pay_token=EtherDelta.ETH_TOKEN,
+                                                         pay_amount=have_amount,
+                                                         buy_token=self.sai.address,
+                                                         buy_amount=want_amount,
+                                                         expires=self.web3.eth.blockNumber + self.arguments.order_age)
+                    if self.deposit_for_sell_order_if_needed(order):
+                        return
+                    self.place_order(order)
 
     def top_up_buy_bands(self, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Place new orders if necessary."""
@@ -336,17 +335,16 @@ class EtherDeltaMarketMakerKeeper:
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
                 have_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance))
-                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    want_amount = self.fix_amount(have_amount / band.avg_price(target_price))
-                    if want_amount > Wad(0):
-                        order = self.etherdelta.create_order(pay_token=self.sai.address,
-                                                             pay_amount=have_amount,
-                                                             buy_token=EtherDelta.ETH_TOKEN,
-                                                             buy_amount=want_amount,
-                                                             expires=self.web3.eth.blockNumber + self.arguments.order_age)
-                        if self.deposit_for_buy_order_if_needed(order):
-                            return
-                        self.place_order(order)
+                want_amount = self.fix_amount(have_amount / band.avg_price(target_price))
+                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)) and (want_amount > Wad(0)):
+                    order = self.etherdelta.create_order(pay_token=self.sai.address,
+                                                         pay_amount=have_amount,
+                                                         buy_token=EtherDelta.ETH_TOKEN,
+                                                         buy_amount=want_amount,
+                                                         expires=self.web3.eth.blockNumber + self.arguments.order_age)
+                    if self.deposit_for_buy_order_if_needed(order):
+                        return
+                    self.place_order(order)
 
     def deposit_for_sell_order_if_needed(self, order: Order):
         currently_deposited = self.etherdelta.balance_of(self.our_address)
