@@ -194,16 +194,19 @@ class OasisMarketMakerKeeper:
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 
-        if target_price is not None:
-            self.cancel_orders(itertools.chain(self.excessive_buy_orders(our_orders, buy_bands, target_price),
-                                               self.excessive_sell_orders(our_orders, sell_bands, target_price),
-                                               self.outside_orders(our_orders, buy_bands, sell_bands, target_price)))
-
-            our_orders = self.our_orders()
-            self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
-        else:
-            self.logger.warning("Cancelling all orders as no price feed available.")
+        # If the is no target price feed, cancel all orders but do not terminate the keeper.
+        # The moment the price feed comes back, the keeper will resume placing orders.
+        if target_price is None:
+            self.logger.warning("No price feed available. Cancelling all orders.")
             self.cancel_all_orders()
+            return
+
+        self.cancel_orders(itertools.chain(self.excessive_buy_orders(our_orders, buy_bands, target_price),
+                                           self.excessive_sell_orders(our_orders, sell_bands, target_price),
+                                           self.outside_orders(our_orders, buy_bands, sell_bands, target_price)))
+
+        our_orders = self.our_orders()
+        self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
 
     def outside_orders(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return orders which do not fall into any buy or sell band."""
