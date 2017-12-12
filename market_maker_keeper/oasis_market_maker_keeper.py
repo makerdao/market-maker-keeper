@@ -186,6 +186,7 @@ class OasisMarketMakerKeeper:
         # the keeper, keep processing blocks as the moment the keeper gets a top-up it should
         # resume activity straight away, without the need to restart it.
         if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
+            self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
             self.cancel_all_orders()
             return
 
