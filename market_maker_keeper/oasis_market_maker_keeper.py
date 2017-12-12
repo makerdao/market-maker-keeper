@@ -201,12 +201,17 @@ class OasisMarketMakerKeeper:
             self.cancel_all_orders()
             return
 
-        self.cancel_orders(itertools.chain(self.excessive_buy_orders(our_orders, buy_bands, target_price),
-                                           self.excessive_sell_orders(our_orders, sell_bands, target_price),
-                                           self.outside_orders(our_orders, buy_bands, sell_bands, target_price)))
-
-        our_orders = self.our_orders()
-        self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
+        # If there are any orders to be cancelled, cancel them. It is deliberate that we wait with topping-up
+        # bands until the next block. This way we would create new orders based on the most recent price and
+        # order book state. We could theoretically retrieve both (`target_price` and `our_orders`) again here,
+        # but it just seems cleaner to do it in one place instead of in two.
+        orders_to_cancel = list(itertools.chain(self.excessive_buy_orders(our_orders, buy_bands, target_price),
+                                                self.excessive_sell_orders(our_orders, sell_bands, target_price),
+                                                self.outside_orders(our_orders, buy_bands, sell_bands, target_price)))
+        if len(orders_to_cancel) > 0:
+            self.cancel_orders(orders_to_cancel)
+        else:
+            self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
 
     def outside_orders(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return orders which do not fall into any buy or sell band."""

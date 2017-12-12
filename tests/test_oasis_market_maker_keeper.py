@@ -46,6 +46,11 @@ class TestOasisMarketMakerKeeper:
     def orders_sorted(orders: list) -> list:
         return sorted(orders, key=lambda order: (order.pay_amount, order.buy_amount))
 
+    @staticmethod
+    def synchronize_orders_twice(keeper: OasisMarketMakerKeeper):
+        keeper.synchronize_orders()
+        keeper.synchronize_orders()
+
     def test_should_create_orders_on_startup(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -64,7 +69,7 @@ class TestOasisMarketMakerKeeper:
 
         # when
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 2
@@ -101,7 +106,7 @@ class TestOasisMarketMakerKeeper:
 
         # and
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         assert len(deployment.otc.get_orders()) == 2
 
         # when
@@ -128,7 +133,7 @@ class TestOasisMarketMakerKeeper:
 
         # when
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 1
@@ -158,7 +163,7 @@ class TestOasisMarketMakerKeeper:
 
         # when
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 1
@@ -168,7 +173,7 @@ class TestOasisMarketMakerKeeper:
         shutil.copyfile(second_config_file, config_file)
 
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 2
@@ -191,7 +196,7 @@ class TestOasisMarketMakerKeeper:
 
         # when
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 0
@@ -217,28 +222,28 @@ class TestOasisMarketMakerKeeper:
 
         # and
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         assert len(deployment.otc.get_orders()) == 2
         sai_order_id = self.orders_by_token(deployment, deployment.sai)[0].order_id
 
         # when
         deployment.otc.take(sai_order_id, Wad.from_number(20)).transact()
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 2
 
         # when
         deployment.otc.take(sai_order_id, Wad.from_number(5)).transact()
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 2
 
         # when
         deployment.otc.take(sai_order_id, Wad.from_number(1)).transact()
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 3
         assert deployment.otc.get_orders()[2].pay_amount == Wad.from_number(26)
@@ -264,27 +269,27 @@ class TestOasisMarketMakerKeeper:
 
         # and
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         assert len(deployment.otc.get_orders()) == 2
 
         # when [75+17 = 92]
         deployment.otc.make(deployment.sai.address, Wad.from_number(17), deployment.gem.address, Wad.from_number(0.1770805)).transact()
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 3
 
         # when [92+2 = 94]
         deployment.otc.make(deployment.sai.address, Wad.from_number(2), deployment.gem.address, Wad.from_number(0.020833)).transact()
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 4
 
         # when [94+7 = 101] --> above max!
         deployment.otc.make(deployment.sai.address, Wad.from_number(7), deployment.gem.address, Wad.from_number(0.072912)).transact()
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 4
         assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(deployment, deployment.sai)), Wad(0)) \
@@ -314,7 +319,7 @@ class TestOasisMarketMakerKeeper:
         deployment.otc.make(deployment.sai.address, Wad.from_number(170), deployment.gem.address, Wad.from_number(1.770805)).transact()
 
         # when
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         # [the artificial order gets cancelled, a new one gets created instead]
@@ -343,27 +348,27 @@ class TestOasisMarketMakerKeeper:
 
         # and
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         assert len(deployment.otc.get_orders()) == 2
 
         # when [7.5+2.0 = 9.5]
         deployment.otc.make(deployment.gem.address, Wad.from_number(2), deployment.sai.address, Wad.from_number(208)).transact()
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 3
 
         # when [9.5+0.5 = 10]
         deployment.otc.make(deployment.gem.address, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(52)).transact()
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 4
 
         # when [10+0.1 = 10.1] --> above max!
         deployment.otc.make(deployment.gem.address, Wad.from_number(0.1), deployment.sai.address, Wad.from_number(10.4)).transact()
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 4
         assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(deployment, deployment.gem)), Wad(0)) \
@@ -393,7 +398,7 @@ class TestOasisMarketMakerKeeper:
         deployment.otc.make(deployment.gem.address, Wad.from_number(20), deployment.sai.address, Wad.from_number(2080)).transact()
 
         # when
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         # [the artificial order gets cancelled, a new one gets created instead]
@@ -422,7 +427,7 @@ class TestOasisMarketMakerKeeper:
 
         # and
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         assert len(deployment.otc.get_orders()) == 2
 
         # when
@@ -432,7 +437,7 @@ class TestOasisMarketMakerKeeper:
         deployment.otc.make(deployment.gem.address, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(53.5)).transact() #price=107
         assert len(deployment.otc.get_orders()) == 6
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 2
 
@@ -454,7 +459,7 @@ class TestOasisMarketMakerKeeper:
 
         # when
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 2
@@ -491,7 +496,7 @@ class TestOasisMarketMakerKeeper:
 
         # when
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 2
@@ -513,7 +518,7 @@ class TestOasisMarketMakerKeeper:
         # when
         self.set_price(deployment, Wad.from_number(96))
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 2
@@ -553,7 +558,7 @@ class TestOasisMarketMakerKeeper:
 
         # when
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 2
@@ -563,7 +568,7 @@ class TestOasisMarketMakerKeeper:
                                                                      # that's why `--min-eth-balance` is higher than 10
 
         # and
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 0
@@ -592,7 +597,7 @@ class TestOasisMarketMakerKeeper:
 
         # when
         keeper.approve()
-        keeper.synchronize_orders()
+        self.synchronize_orders_twice(keeper)
 
         # then
         assert len(deployment.otc.get_orders()) == 0
