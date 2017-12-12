@@ -534,7 +534,7 @@ class TestOasisMarketMakerKeeper:
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_amount == Wad.from_number(780)
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_token == deployment.sai.address
 
-    def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir):
+    def test_should_cancel_all_orders_but_not_terminate_if_eth_balance_below_minimum(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
@@ -567,9 +567,9 @@ class TestOasisMarketMakerKeeper:
 
         # then
         assert len(deployment.otc.get_orders()) == 0
-        assert keeper.lifecycle.terminated_internally
+        assert not keeper.lifecycle.terminated_internally
 
-    def test_should_refuse_to_start_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir):
+    def test_should_not_create_any_orders_but_not_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
@@ -596,7 +596,7 @@ class TestOasisMarketMakerKeeper:
 
         # then
         assert len(deployment.otc.get_orders()) == 0
-        assert keeper.lifecycle.terminated_internally
+        assert not keeper.lifecycle.terminated_internally
 
     @staticmethod
     def leave_only_some_eth(deployment: Deployment, amount_of_eth_to_leave: Wad):
