@@ -33,7 +33,7 @@ from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed
 from pymaker import Address, Contract
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
-from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice, IncreasingGasPrice
+from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice, IncreasingGasPrice, GasPriceFile
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.logger import Event, Logger
 from pymaker.numeric import Wad
@@ -89,6 +89,9 @@ class OasisMarketMakerKeeper:
         parser.add_argument("--gas-price-max", type=int,
                             help="Maximum gas price (in Wei)")
 
+        parser.add_argument("--gas-price-file", type=str,
+                            help="Gas price configuration file")
+
         parser.add_argument("--cancel-gas-price", type=int, default=0,
                             help="Gas price (in Wei) for order cancellation")
 
@@ -101,6 +104,9 @@ class OasisMarketMakerKeeper:
 
         parser.add_argument("--cancel-gas-price-max", type=int,
                             help="Maximum gas price (in Wei) for order cancellation")
+
+        parser.add_argument("--cancel-gas-price-file", type=str,
+                            help="Gas price configuration file for order cancellation")
 
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
@@ -126,6 +132,8 @@ class OasisMarketMakerKeeper:
 
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
+        self.gas_price_for_order_placement = self.get_gas_price_for_order_placement()
+        self.gas_price_for_order_cancellation = self.get_gas_price_for_order_cancellation()
 
         # Choose the price feed
         if self.arguments.price_feed is not None:
@@ -239,7 +247,7 @@ class OasisMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
-        synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price_for_order_cancellation())
+        synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price_for_order_cancellation)
                      for order in orders])
 
     def excessive_sell_orders(self, our_orders: list, sell_bands: list, target_price: Wad):
@@ -256,7 +264,7 @@ class OasisMarketMakerKeeper:
 
     def top_up_bands(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Asynchronously create new buy and sell orders in all send and buy bands if necessary."""
-        synchronize([transact.transact_async(gas_price=self.gas_price_for_order_placement())
+        synchronize([transact.transact_async(gas_price=self.gas_price_for_order_placement)
                      for transact in itertools.chain(self.top_up_buy_bands(our_orders, buy_bands, target_price),
                                                      self.top_up_sell_bands(our_orders, sell_bands, target_price))])
 
@@ -294,8 +302,10 @@ class OasisMarketMakerKeeper:
     def total_amount(orders: List[Order]):
         return reduce(operator.add, map(lambda order: order.pay_amount, orders), Wad(0))
 
-    def gas_price_for_order_placement(self) -> GasPrice:
-        if self.arguments.gas_price > 0:
+    def get_gas_price_for_order_placement(self) -> GasPrice:
+        if self.arguments.gas_price_file:
+            return GasPriceFile(self.arguments.gas_price_file, self.logger)
+        elif self.arguments.gas_price > 0:
             if self.arguments.gas_price_increase is not None:
                 return IncreasingGasPrice(initial_price=self.arguments.gas_price,
                                           increase_by=self.arguments.gas_price_increase,
@@ -306,8 +316,10 @@ class OasisMarketMakerKeeper:
         else:
             return DefaultGasPrice()
 
-    def gas_price_for_order_cancellation(self) -> GasPrice:
-        if self.arguments.cancel_gas_price > 0:
+    def get_gas_price_for_order_cancellation(self) -> GasPrice:
+        if self.arguments.cancel_gas_price_file:
+            return GasPriceFile(self.arguments.cancel_gas_price_file, self.logger)
+        elif self.arguments.cancel_gas_price > 0:
             if self.arguments.cancel_gas_price_increase is not None:
                 return IncreasingGasPrice(initial_price=self.arguments.cancel_gas_price,
                                           increase_by=self.arguments.cancel_gas_price_increase,
@@ -316,7 +328,7 @@ class OasisMarketMakerKeeper:
             else:
                 return FixedGasPrice(self.arguments.cancel_gas_price)
         else:
-            return self.gas_price_for_order_placement()
+            return self.get_gas_price_for_order_placement()
 
 
 if __name__ == '__main__':

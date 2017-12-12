@@ -30,7 +30,7 @@ from pymaker import Address, synchronize, Logger, Contract
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
 from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
-from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice, IncreasingGasPrice
+from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice, IncreasingGasPrice, GasPriceFile
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 from market_maker_keeper.band import BuyBand, SellBand
@@ -107,6 +107,9 @@ class EtherDeltaMarketMakerKeeper:
         parser.add_argument("--gas-price-max", type=int,
                             help="Maximum gas price (in Wei)")
 
+        parser.add_argument("--gas-price-file", type=str,
+                            help="Gas price configuration file")
+
         parser.add_argument("--cancel-gas-price", type=int, default=0,
                             help="Gas price (in Wei) for order cancellation")
 
@@ -119,6 +122,9 @@ class EtherDeltaMarketMakerKeeper:
 
         parser.add_argument("--cancel-gas-price-max", type=int,
                             help="Maximum gas price (in Wei) for order cancellation")
+
+        parser.add_argument("--cancel-gas-price-file", type=str,
+                            help="Gas price configuration file for order cancellation")
 
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
@@ -148,6 +154,8 @@ class EtherDeltaMarketMakerKeeper:
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
+        self.gas_price_for_deposits = self.get_gas_price_for_deposits()
+        self.gas_price_for_order_cancellation = self.get_gas_price_for_order_cancellation()
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")
@@ -267,7 +275,7 @@ class EtherDeltaMarketMakerKeeper:
         """Cancel orders asynchronously."""
         assert(isinstance(orders, list))  # so we can read the list twice - once to cancel,
                                           # second time to remove from 'self.our_orders'
-        synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price_for_order_cancellation()) for order in orders])
+        synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price_for_order_cancellation) for order in orders])
         self.our_orders = list(set(self.our_orders) - set(orders))
 
     def excessive_sell_orders(self, sell_bands: list, target_price: Wad):
@@ -351,7 +359,7 @@ class EtherDeltaMarketMakerKeeper:
     def deposit_for_sell_order(self):
         depositable_eth = Wad.max(eth_balance(self.web3, self.our_address) - self.eth_reserve, Wad(0))
         if depositable_eth > self.min_eth_deposit:
-            return self.etherdelta.deposit(depositable_eth).transact(gas_price=self.gas_price_for_deposits()).successful
+            return self.etherdelta.deposit(depositable_eth).transact(gas_price=self.gas_price_for_deposits).successful
         else:
             return False
 
@@ -366,7 +374,7 @@ class EtherDeltaMarketMakerKeeper:
     def deposit_for_buy_order(self):
         sai_balance = self.sai.balance_of(self.our_address)
         if sai_balance > self.min_sai_deposit:
-            return self.etherdelta.deposit_token(self.sai.address, sai_balance).transact(gas_price=self.gas_price_for_deposits()).successful
+            return self.etherdelta.deposit_token(self.sai.address, sai_balance).transact(gas_price=self.gas_price_for_deposits).successful
         else:
             return False
 
@@ -389,8 +397,10 @@ class EtherDeltaMarketMakerKeeper:
         # so this is what this particular method does
         return Wad(int(amount.value / 10**9) * 10**9)
 
-    def gas_price_for_deposits(self) -> GasPrice:
-        if self.arguments.gas_price > 0:
+    def get_gas_price_for_deposits(self) -> GasPrice:
+        if self.arguments.gas_price_file:
+            return GasPriceFile(self.arguments.gas_price_file, self.logger)
+        elif self.arguments.gas_price > 0:
             if self.arguments.gas_price_increase is not None:
                 return IncreasingGasPrice(initial_price=self.arguments.gas_price,
                                           increase_by=self.arguments.gas_price_increase,
@@ -401,8 +411,10 @@ class EtherDeltaMarketMakerKeeper:
         else:
             return DefaultGasPrice()
 
-    def gas_price_for_order_cancellation(self) -> GasPrice:
-        if self.arguments.cancel_gas_price > 0:
+    def get_gas_price_for_order_cancellation(self) -> GasPrice:
+        if self.arguments.cancel_gas_price_file:
+            return GasPriceFile(self.arguments.cancel_gas_price_file, self.logger)
+        elif self.arguments.cancel_gas_price > 0:
             if self.arguments.cancel_gas_price_increase is not None:
                 return IncreasingGasPrice(initial_price=self.arguments.cancel_gas_price,
                                           increase_by=self.arguments.cancel_gas_price_increase,
@@ -411,7 +423,7 @@ class EtherDeltaMarketMakerKeeper:
             else:
                 return FixedGasPrice(self.arguments.cancel_gas_price)
         else:
-            return self.gas_price_for_deposits()
+            return self.get_gas_price_for_deposits()
 
 
 if __name__ == '__main__':
