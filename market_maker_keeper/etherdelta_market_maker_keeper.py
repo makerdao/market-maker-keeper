@@ -320,13 +320,13 @@ class EtherDeltaMarketMakerKeeper:
                 if self.deposit_for_sell_order_if_needed(band.avg_amount - total_amount):
                     return
 
-                have_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance))
-                want_amount = self.fix_amount(have_amount * band.avg_price(target_price))
-                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)) and (want_amount > Wad(0)):
+                pay_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_sell_orders())))
+                buy_amount = self.fix_amount(pay_amount * band.avg_price(target_price))
+                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     order = self.etherdelta.create_order(pay_token=EtherDelta.ETH_TOKEN,
-                                                         pay_amount=have_amount,
+                                                         pay_amount=pay_amount,
                                                          buy_token=self.sai.address,
-                                                         buy_amount=want_amount,
+                                                         buy_amount=buy_amount,
                                                          expires=self.web3.eth.blockNumber + self.arguments.order_age)
                     self.place_order(order)
 
@@ -340,13 +340,13 @@ class EtherDeltaMarketMakerKeeper:
                 if self.deposit_for_buy_order_if_needed(band.avg_amount - total_amount):
                     return
 
-                have_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance))
-                want_amount = self.fix_amount(have_amount / band.avg_price(target_price))
-                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)) and (want_amount > Wad(0)):
+                pay_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_buy_orders())))
+                buy_amount = self.fix_amount(pay_amount / band.avg_price(target_price))
+                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     order = self.etherdelta.create_order(pay_token=self.sai.address,
-                                                         pay_amount=have_amount,
+                                                         pay_amount=pay_amount,
                                                          buy_token=EtherDelta.ETH_TOKEN,
-                                                         buy_amount=want_amount,
+                                                         buy_amount=buy_amount,
                                                          expires=self.web3.eth.blockNumber + self.arguments.order_age)
                     self.place_order(order)
 
