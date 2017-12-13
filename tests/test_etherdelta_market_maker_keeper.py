@@ -702,7 +702,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_sorted(self.orders(keeper))[1].buy_amount == Wad.from_number(780)
         assert self.orders_sorted(self.orders(keeper))[1].buy_token == deployment.sai.address
 
-    def test_should_cancel_all_orders_and_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_cancel_all_orders_but_not_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
@@ -739,9 +739,9 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # then
         assert len(self.orders(keeper)) == 0
-        assert keeper.lifecycle.terminated_internally
+        assert not keeper.lifecycle.terminated_internally
 
-    def test_should_refuse_to_start_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_not_create_any_orders_but_not_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
@@ -772,7 +772,7 @@ class TestEtherDeltaMarketMakerKeeper:
 
         # then
         assert len(self.orders(keeper)) == 0
-        assert keeper.lifecycle.terminated_internally
+        assert not keeper.lifecycle.terminated_internally
 
     def test_should_refuse_to_start_if_eth_reserve_lower_than_min_eth_balance(self, deployment: Deployment, tmpdir: py.path.local):
         # given

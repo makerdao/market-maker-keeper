@@ -237,9 +237,11 @@ class EtherDeltaMarketMakerKeeper:
                                          order.pay_token == self.sai.address, self.our_orders))
 
     def synchronize_orders(self):
-        """Update our positions in the order book to reflect keeper parameters."""
+        # If keeper balance is below `--min-eth-balance`, cancel all orders but do not terminate
+        # the keeper, keep processing blocks as the moment the keeper gets a top-up it should
+        # resume activity straight away, without the need to restart it.
         if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
-            self.lifecycle.terminate("Keeper balance is below the minimum, terminating.")
+            self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
             self.cancel_all_orders()
             return
 
