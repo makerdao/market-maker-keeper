@@ -64,6 +64,12 @@ class EtherDeltaMarketMakerKeeper:
         parser.add_argument("--etherdelta-socket", type=str, required=True,
                             help="Ethereum address of the EtherDelta API socket")
 
+        parser.add_argument("--etherdelta-retry-interval", type=int, default=10,
+                            help="Retry interval for sending orders over the EtherDelta API socket")
+
+        parser.add_argument("--etherdelta-timeout", type=int, default=120,
+                            help="Timeout for sending orders over the EtherDelta API socket")
+
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
 
@@ -167,8 +173,11 @@ class EtherDeltaMarketMakerKeeper:
             self.price_feed = TubPriceFeed(self.tub)
 
         self.etherdelta = EtherDelta(web3=self.web3, address=Address(self.arguments.etherdelta_address))
-        self.etherdelta_api = EtherDeltaApi(contract_address=self.etherdelta.address,
+        self.etherdelta_api = EtherDeltaApi(client_tool_directory="lib/pymaker/utils/etherdelta-client",
+                                            client_tool_command="node main.js",
                                             api_server=self.arguments.etherdelta_socket,
+                                            retry_interval=self.arguments.etherdelta_retry_interval,
+                                            timeout=self.arguments.etherdelta_timeout,
                                             logger=self.logger)
 
         self.our_orders = list()
