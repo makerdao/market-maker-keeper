@@ -64,6 +64,9 @@ class EtherDeltaMarketMakerKeeper:
         parser.add_argument("--etherdelta-socket", type=str, required=True,
                             help="Ethereum address of the EtherDelta API socket")
 
+        parser.add_argument("--etherdelta-number-of-attempts", type=int, default=3,
+                            help="Number of attempts of running the tool to talk to the EtherDelta API socket")
+
         parser.add_argument("--etherdelta-retry-interval", type=int, default=10,
                             help="Retry interval for sending orders over the EtherDelta API socket")
 
@@ -176,6 +179,7 @@ class EtherDeltaMarketMakerKeeper:
         self.etherdelta_api = EtherDeltaApi(client_tool_directory="lib/pymaker/utils/etherdelta-client",
                                             client_tool_command="node main.js",
                                             api_server=self.arguments.etherdelta_socket,
+                                            number_of_attempts=self.arguments.etherdelta_number_of_attempts,
                                             retry_interval=self.arguments.etherdelta_retry_interval,
                                             timeout=self.arguments.etherdelta_timeout,
                                             logger=self.logger)
