@@ -53,11 +53,11 @@ and set the `LDFLAGS` environment variable before you run `pip3 install -r requi
 export LDFLAGS="-L$(brew --prefix openssl)/lib" CFLAGS="-I$(brew --prefix openssl)/include" 
 ```
 
-### Installation of `etherdelta-socket`
+### Installation of `etherdelta-client`
 
-The `etherdelta-market-maker-keeper` keeper utilizes `etherdelta-socket` (present in the `utils` directory)
-to place orders on EtherDelta using _socket.io_. In order to use it, a `node` installation must be present
-and `npm install` needs to be run in the `utils/etherdelta-socket` folder.
+The `etherdelta-market-maker-keeper` keeper utilizes `etherdelta-client` (present in the `lib/pymaker/utils`
+directory) to place orders on EtherDelta using _socket.io_. In order to use it, a `node` installation must
+be present and `npm install` needs to be run in the `lib/pymaker/utils/etherdelta-client` folder.
 
 This step is not necessary if you only want to use the other keepers from this project.
 
