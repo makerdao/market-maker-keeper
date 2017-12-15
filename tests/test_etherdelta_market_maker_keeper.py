@@ -299,15 +299,12 @@ class TestEtherDeltaMarketMakerKeeper:
         self.mint_tokens(deployment)
         self.set_price(deployment, Wad.from_number(100))
 
-        # when
-        keeper.approve()
-        keeper.synchronize_orders()
-
-        # then
-        assert len(self.orders(keeper)) == 0
-
         # and
-        assert keeper.lifecycle.terminated_internally
+        keeper.approve()
+
+        # expect
+        with pytest.raises(Exception):
+            keeper.synchronize_orders()
 
     def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir: py.path.local):
         # given

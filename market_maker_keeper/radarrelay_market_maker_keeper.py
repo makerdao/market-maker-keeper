@@ -26,7 +26,7 @@ from functools import reduce
 import pkg_resources
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.band import BuyBand, SellBand
+from market_maker_keeper.band import BuyBand, SellBand, Bands
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.price import SetzerPriceFeed, TubPriceFeed, PriceFeedFactory
 from pymaker import Address, synchronize, Contract
@@ -110,7 +110,7 @@ class RadarRelayMarketMakerKeeper:
         self.logger = Logger('radarrelay-market-maker-keeper', self.chain, _json_log, self.arguments.debug, self.arguments.trace)
         Contract.logger = self.logger
 
-        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
+        self.bands_config = Bands(ReloadableConfig(self.arguments.config, self.logger))
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.logger)
 
@@ -145,27 +145,6 @@ class RadarRelayMarketMakerKeeper:
         """Approve 0x to access our 0x-WETH and SAI, so we can sell it on the exchange."""
         self.radar_relay.approve([self.ether_token, self.sai], directly())
 
-    def band_configuration(self):
-        config = self.bands_config.get_config()
-        buy_bands = list(map(BuyBand, config['buyBands']))
-        sell_bands = list(map(SellBand, config['sellBands']))
-
-        if self.bands_overlap(buy_bands) or self.bands_overlap(sell_bands):
-            self.lifecycle.terminate(f"Bands in the config file overlap. Terminating the keeper.")
-            return [], []
-        else:
-            return buy_bands, sell_bands
-
-    def bands_overlap(self, bands: list):
-        def two_bands_overlap(band1, band2):
-            return band1.min_margin < band2.max_margin and band2.min_margin < band1.max_margin
-
-        for band1 in bands:
-            if len(list(filter(lambda band2: two_bands_overlap(band1, band2), bands))) > 1:
-                return True
-
-        return False
-
     def our_orders(self) -> list:
         our_orders = self.radar_relay_api.get_orders_by_maker(self.our_address)
         current_timestamp = int(time.time())
@@ -189,18 +168,19 @@ class RadarRelayMarketMakerKeeper:
             self.cancel_orders(self.our_orders())
             return
 
-        buy_bands, sell_bands = self.band_configuration()
+        buy_bands, sell_bands = self.bands_config.get_bands()
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 
-        if target_price is not None:
-            self.cancel_orders(itertools.chain(self.excessive_buy_orders(our_orders, buy_bands, target_price),
-                                               self.excessive_sell_orders(our_orders, sell_bands, target_price),
-                                               self.outside_orders(our_orders, buy_bands, sell_bands, target_price)))
-            self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
-        else:
+        if target_price is None:
             self.logger.warning("Cancelling all orders as no price feed available.")
             self.cancel_orders(our_orders)
+            return
+
+        self.cancel_orders(itertools.chain(self.excessive_buy_orders(our_orders, buy_bands, target_price),
+                                           self.excessive_sell_orders(our_orders, sell_bands, target_price),
+                                           self.outside_orders(our_orders, buy_bands, sell_bands, target_price)))
+        self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
 
     def outside_orders(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return orders which do not fall into any buy or sell band."""

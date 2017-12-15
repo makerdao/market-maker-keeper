@@ -19,6 +19,7 @@ import itertools
 import operator
 from functools import reduce
 
+from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker.numeric import Wad
 
 
@@ -138,3 +139,30 @@ class SellBand(Band):
     @staticmethod
     def _apply_margin(price: Wad, margin: float) -> Wad:
         return price * Wad.from_number(1 + margin)
+
+
+class Bands:
+    def __init__(self, reloadable_config: ReloadableConfig):
+        assert(isinstance(reloadable_config, ReloadableConfig))
+        self.reloadable_config = reloadable_config
+
+    def get_bands(self):
+        config = self.reloadable_config.get_config()
+        buy_bands = list(map(BuyBand, config['buyBands']))
+        sell_bands = list(map(SellBand, config['sellBands']))
+
+        if self.bands_overlap(buy_bands) or self.bands_overlap(sell_bands):
+            raise Exception(f"Bands in the config file overlap")
+        else:
+            return buy_bands, sell_bands
+
+    @staticmethod
+    def bands_overlap(bands: list):
+        def two_bands_overlap(band1, band2):
+            return band1.min_margin < band2.max_margin and band2.min_margin < band1.max_margin
+
+        for band1 in bands:
+            if len(list(filter(lambda band2: two_bands_overlap(band1, band2), bands))) > 1:
+                return True
+
+        return False

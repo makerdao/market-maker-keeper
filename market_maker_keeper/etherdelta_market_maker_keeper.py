@@ -36,7 +36,7 @@ from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
 from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice, IncreasingGasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
-from market_maker_keeper.band import BuyBand, SellBand
+from market_maker_keeper.band import BuyBand, SellBand, Bands
 from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed, PriceFeedFactory
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
@@ -169,7 +169,7 @@ class EtherDeltaMarketMakerKeeper:
         self.logger = Logger('etherdelta-market-maker-keeper', self.chain, _json_log, self.arguments.debug, self.arguments.trace)
         Contract.logger = self.logger
 
-        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
+        self.bands_config = Bands(ReloadableConfig(self.arguments.config, self.logger))
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
@@ -226,27 +226,6 @@ class EtherDeltaMarketMakerKeeper:
         """Approve EtherDelta to access our SAI, so we can deposit it with the exchange"""
         self.etherdelta.approve([self.sai], directly())
 
-    def band_configuration(self):
-        config = self.bands_config.get_config()
-        buy_bands = list(map(BuyBand, config['buyBands']))
-        sell_bands = list(map(SellBand, config['sellBands']))
-
-        if self.bands_overlap(buy_bands) or self.bands_overlap(sell_bands):
-            self.lifecycle.terminate(f"Bands in the config file overlap. Terminating the keeper.")
-            return [], []
-        else:
-            return buy_bands, sell_bands
-
-    def bands_overlap(self, bands: list):
-        def two_bands_overlap(band1, band2):
-            return band1.min_margin < band2.max_margin and band2.min_margin < band1.max_margin
-
-        for band1 in bands:
-            if len(list(filter(lambda band2: two_bands_overlap(band1, band2), bands))) > 1:
-                return True
-
-        return False
-
     def place_order(self, order: Order):
         self.our_orders.append(order)
         self.etherdelta_api.publish_order(order)
@@ -270,7 +249,7 @@ class EtherDeltaMarketMakerKeeper:
 
         block_number = self.web3.eth.blockNumber
         target_price = self.price_feed.get_price()
-        buy_bands, sell_bands = self.band_configuration()
+        buy_bands, sell_bands = self.bands_config.get_bands()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
         # The moment the price feed comes back, the keeper will resume placing orders.

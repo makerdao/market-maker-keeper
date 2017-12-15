@@ -18,6 +18,8 @@
 import shutil
 from functools import reduce
 
+import pytest
+
 from market_maker_keeper.oasis_market_maker_keeper import OasisMarketMakerKeeper
 from pymaker.deployment import Deployment
 from pymaker.feed import DSValue
@@ -194,15 +196,12 @@ class TestOasisMarketMakerKeeper:
         self.mint_tokens(deployment)
         self.set_price(deployment, Wad.from_number(100))
 
-        # when
-        keeper.approve()
-        self.synchronize_orders_twice(keeper)
-
-        # then
-        assert len(deployment.otc.get_orders()) == 0
-
         # and
-        assert keeper.lifecycle.terminated_internally
+        keeper.approve()
+
+        # expect
+        with pytest.raises(Exception):
+            self.synchronize_orders_twice(keeper)
 
     def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir):
         # given

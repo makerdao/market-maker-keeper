@@ -28,7 +28,7 @@ import pkg_resources
 import time
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.band import BuyBand, SellBand
+from market_maker_keeper.band import BuyBand, SellBand, Bands
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed, PriceFeedFactory
 from market_maker_keeper.gas import SmartGasPrice, GasPriceFile
@@ -135,7 +135,7 @@ class OasisMarketMakerKeeper:
         Contract.logger = self.logger
 
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
-        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
+        self.bands_config = Bands(ReloadableConfig(self.arguments.config, self.logger))
         self.gas_price_for_order_placement = self.get_gas_price_for_order_placement()
         self.gas_price_for_order_cancellation = self.get_gas_price_for_order_cancellation()
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.logger)
@@ -158,27 +158,6 @@ class OasisMarketMakerKeeper:
         """Approve OasisDEX to access our balances, so we can place orders."""
         self.otc.approve([self.gem, self.sai], directly())
 
-    def band_configuration(self):
-        config = self.bands_config.get_config()
-        buy_bands = list(map(BuyBand, config['buyBands']))
-        sell_bands = list(map(SellBand, config['sellBands']))
-
-        if self.bands_overlap(buy_bands) or self.bands_overlap(sell_bands):
-            self.lifecycle.terminate(f"Bands in the config file overlap. Terminating the keeper.")
-            return [], []
-        else:
-            return buy_bands, sell_bands
-
-    def bands_overlap(self, bands: list):
-        def two_bands_overlap(band1, band2):
-            return band1.min_margin < band2.max_margin and band2.min_margin < band1.max_margin
-
-        for band1 in bands:
-            if len(list(filter(lambda band2: two_bands_overlap(band1, band2), bands))) > 1:
-                return True
-
-        return False
-
     def our_orders(self):
         return list(filter(lambda order: order.maker == self.our_address, self.otc.get_orders()))
 
@@ -199,7 +178,7 @@ class OasisMarketMakerKeeper:
             self.cancel_all_orders()
             return
 
-        buy_bands, sell_bands = self.band_configuration()
+        buy_bands, sell_bands = self.bands_config.get_bands()
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 
