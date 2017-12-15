@@ -196,11 +196,13 @@ usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                  [--gas-price-increase GAS_PRICE_INCREASE]
                                  [--gas-price-increase-every GAS_PRICE_INCREASE_EVERY]
                                  [--gas-price-max GAS_PRICE_MAX]
+                                 [--gas-price-file GAS_PRICE_FILE]
                                  [--cancel-gas-price CANCEL_GAS_PRICE]
                                  [--cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE]
                                  [--cancel-gas-price-increase-every CANCEL_GAS_PRICE_INCREASE_EVERY]
                                  [--cancel-gas-price-max CANCEL_GAS_PRICE_MAX]
-                                 [--debug] [--trace]
+                                 [--cancel-gas-price-file CANCEL_GAS_PRICE_FILE]
+                                 [--smart-gas-price] [--debug] [--trace]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -231,6 +233,8 @@ optional arguments:
                         120)
   --gas-price-max GAS_PRICE_MAX
                         Maximum gas price (in Wei)
+  --gas-price-file GAS_PRICE_FILE
+                        Gas price configuration file
   --cancel-gas-price CANCEL_GAS_PRICE
                         Gas price (in Wei) for order cancellation
   --cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE
@@ -242,6 +246,10 @@ optional arguments:
                         (in seconds, default: 120)
   --cancel-gas-price-max CANCEL_GAS_PRICE_MAX
                         Maximum gas price (in Wei) for order cancellation
+  --cancel-gas-price-file CANCEL_GAS_PRICE_FILE
+                        Gas price configuration file for order cancellation
+  --smart-gas-price     Use smart gas pricing strategy, based on the
+                        ethgasstation.info feed
   --debug               Enable debug output
   --trace               Enable trace output
 ```
@@ -285,18 +293,31 @@ usage: etherdelta-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       ETH_FROM --tub-address TUB_ADDRESS
                                       --etherdelta-address ETHERDELTA_ADDRESS
                                       --etherdelta-socket ETHERDELTA_SOCKET
+                                      [--etherdelta-number-of-attempts ETHERDELTA_NUMBER_OF_ATTEMPTS]
+                                      [--etherdelta-retry-interval ETHERDELTA_RETRY_INTERVAL]
+                                      [--etherdelta-timeout ETHERDELTA_TIMEOUT]
                                       --config CONFIG
                                       [--price-feed PRICE_FEED] --order-age
                                       ORDER_AGE
                                       [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
+                                      [--order-no-cancel-threshold ORDER_NO_CANCEL_THRESHOLD]
                                       --eth-reserve ETH_RESERVE
                                       [--min-eth-balance MIN_ETH_BALANCE]
                                       --min-eth-deposit MIN_ETH_DEPOSIT
                                       --min-sai-deposit MIN_SAI_DEPOSIT
                                       [--cancel-on-shutdown]
                                       [--withdraw-on-shutdown]
-                                      [--gas-price GAS_PRICE] [--debug]
-                                      [--trace]
+                                      [--gas-price GAS_PRICE]
+                                      [--gas-price-increase GAS_PRICE_INCREASE]
+                                      [--gas-price-increase-every GAS_PRICE_INCREASE_EVERY]
+                                      [--gas-price-max GAS_PRICE_MAX]
+                                      [--gas-price-file GAS_PRICE_FILE]
+                                      [--cancel-gas-price CANCEL_GAS_PRICE]
+                                      [--cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE]
+                                      [--cancel-gas-price-increase-every CANCEL_GAS_PRICE_INCREASE_EVERY]
+                                      [--cancel-gas-price-max CANCEL_GAS_PRICE_MAX]
+                                      [--cancel-gas-price-file CANCEL_GAS_PRICE_FILE]
+                                      [--smart-gas-price] [--debug] [--trace]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -309,6 +330,15 @@ optional arguments:
                         Ethereum address of the EtherDelta contract
   --etherdelta-socket ETHERDELTA_SOCKET
                         Ethereum address of the EtherDelta API socket
+  --etherdelta-number-of-attempts ETHERDELTA_NUMBER_OF_ATTEMPTS
+                        Number of attempts of running the tool to talk to the
+                        EtherDelta API socket
+  --etherdelta-retry-interval ETHERDELTA_RETRY_INTERVAL
+                        Retry interval for sending orders over the EtherDelta
+                        API socket
+  --etherdelta-timeout ETHERDELTA_TIMEOUT
+                        Timeout for sending orders over the EtherDelta API
+                        socket
   --config CONFIG       Buy/sell bands configuration file
   --price-feed PRICE_FEED
                         Source of price feed. Tub price feed will be used if
@@ -316,8 +346,14 @@ optional arguments:
   --order-age ORDER_AGE
                         Age of created orders (in blocks)
   --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
-                        Order age at which order is considered already expired
-                        (in blocks)
+                        Remaining order age (in blocks) at which order is
+                        considered already expired, which means the keeper
+                        will send a new replacement order slightly ahead
+  --order-no-cancel-threshold ORDER_NO_CANCEL_THRESHOLD
+                        Remaining order age (in blocks) below which keeper
+                        does not try to cancel orders, assuming that they will
+                        probably expire before the cancel transaction gets
+                        mined
   --eth-reserve ETH_RESERVE
                         Amount of ETH which will never be deposited so the
                         keeper can cover gas
@@ -337,6 +373,31 @@ optional arguments:
                         keeper shutdown
   --gas-price GAS_PRICE
                         Gas price (in Wei)
+  --gas-price-increase GAS_PRICE_INCREASE
+                        Gas price increase (in Wei) if no confirmation within
+                        --gas-price-increase-every seconds
+  --gas-price-increase-every GAS_PRICE_INCREASE_EVERY
+                        Gas price increase frequency (in seconds, default:
+                        120)
+  --gas-price-max GAS_PRICE_MAX
+                        Maximum gas price (in Wei)
+  --gas-price-file GAS_PRICE_FILE
+                        Gas price configuration file
+  --cancel-gas-price CANCEL_GAS_PRICE
+                        Gas price (in Wei) for order cancellation
+  --cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE
+                        Gas price increase (in Wei) for order cancellation if
+                        no confirmation within --cancel-gas-price-increase-
+                        every seconds
+  --cancel-gas-price-increase-every CANCEL_GAS_PRICE_INCREASE_EVERY
+                        Gas price increase frequency for order cancellation
+                        (in seconds, default: 120)
+  --cancel-gas-price-max CANCEL_GAS_PRICE_MAX
+                        Maximum gas price (in Wei) for order cancellation
+  --cancel-gas-price-file CANCEL_GAS_PRICE_FILE
+                        Gas price configuration file for order cancellation
+  --smart-gas-price     Use smart gas pricing strategy, based on the
+                        ethgasstation.info feed
   --debug               Enable debug output
   --trace               Enable trace output
 ```
