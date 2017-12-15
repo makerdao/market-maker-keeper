@@ -47,9 +47,9 @@ class Setzer():
         assert(isinstance(source, str))
 
         line = f"{self.command} price {source}"
-        process = subprocess.Popen(line.split(), stdout=subprocess.PIPE)
+        process = subprocess.Popen(line.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = process.communicate()
-        if error is not None:
+        if len(error) > 0:
             raise ValueError(f'Error invoking setzer via {line}: {error}')
 
         return Wad.from_number(float(output))
@@ -64,9 +64,9 @@ class Setzer():
         assert(isinstance(source, str))
 
         line = f"{self.command} volume {source}"
-        process = subprocess.Popen(line.split(), stdout=subprocess.PIPE)
+        process = subprocess.Popen(line.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = process.communicate()
-        if error is not None:
+        if len(error) > 0:
             raise ValueError(f'Error invoking setzer via {line}: {error}')
 
         return Wad.from_number(float(output))
