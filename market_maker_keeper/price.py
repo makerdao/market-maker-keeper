@@ -50,7 +50,6 @@ class SetzerPriceFeed(PriceFeed):
         self.setzer_retries = 0
         self.setzer_source = setzer_source
         self.logger = logger
-        self._fetch_price()
         threading.Thread(target=self._background_run, daemon=True).start()
 
     def _fetch_price(self):
@@ -69,8 +68,8 @@ class SetzerPriceFeed(PriceFeed):
 
     def _background_run(self):
         while True:
-            time.sleep(10)
             self._fetch_price()
+            time.sleep(10)
 
     def get_price(self) -> Optional[Wad]:
         if self.setzer_price is None:

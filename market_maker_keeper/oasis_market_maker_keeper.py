@@ -144,6 +144,7 @@ class OasisMarketMakerKeeper:
     def main(self):
         with Web3Lifecycle(self.web3, self.logger) as lifecycle:
             self.lifecycle = lifecycle
+            lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.on_block(self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
