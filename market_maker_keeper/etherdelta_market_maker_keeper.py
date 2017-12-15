@@ -23,6 +23,8 @@ from functools import reduce
 import os
 
 import itertools
+from typing import Iterable
+
 import pkg_resources
 from web3 import Web3, HTTPProvider
 
@@ -83,7 +85,12 @@ class EtherDeltaMarketMakerKeeper:
                             help="Age of created orders (in blocks)")
 
         parser.add_argument("--order-expiry-threshold", type=int, default=0,
-                            help="Order age at which order is considered already expired (in blocks)")
+                            help="Remaining order age (in blocks) at which order is considered already expired, which"
+                                 " means the keeper will send a new replacement order slightly ahead")
+
+        parser.add_argument("--order-no-cancel-threshold", type=int, default=0,
+                            help="Remaining order age (in blocks) below which keeper does not try to cancel orders,"
+                                 " assuming that they will probably expire before the cancel transaction gets mined")
 
         parser.add_argument("--eth-reserve", type=float, required=True,
                             help="Amount of ETH which will never be deposited so the keeper can cover gas")
@@ -168,6 +175,9 @@ class EtherDeltaMarketMakerKeeper:
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")
+
+        assert(self.arguments.order_expiry_threshold >= 0)
+        assert(self.arguments.order_no_cancel_threshold >= self.arguments.order_expiry_threshold)
 
         # Choose the price feed
         if self.arguments.price_feed is not None:
@@ -264,17 +274,28 @@ class EtherDeltaMarketMakerKeeper:
 
         if target_price is not None:
             self.remove_expired_orders(block_number)
-            self.cancel_orders(list(itertools.chain(self.excessive_buy_orders(buy_bands, target_price),
-                                                    self.excessive_sell_orders(sell_bands, target_price),
-                                                    self.outside_orders(buy_bands, sell_bands, target_price))))
+            self.cancel_orders(itertools.chain(self.excessive_buy_orders(buy_bands, target_price),
+                                               self.excessive_sell_orders(sell_bands, target_price),
+                                               self.outside_orders(buy_bands, sell_bands, target_price)), block_number)
             self.top_up_bands(buy_bands, sell_bands, target_price)
         else:
             self.logger.warning("Cancelling all orders as no price feed available.")
             self.cancel_all_orders()
 
+    @staticmethod
+    def is_order_age_above_threshold(order: Order, block_number: int, threshold: int):
+        return block_number >= order.expires-threshold  # we do >= 0, which makes us effectively detect an order
+                                                        # as expired one block earlier than the contract, but
+                                                        # this is desirable from the keeper point of view
+
+    def is_expired(self, order: Order, block_number: int):
+        return self.is_order_age_above_threshold(order, block_number, self.arguments.order_expiry_threshold)
+
+    def is_non_cancellable(self, order: Order, block_number: int):
+        return self.is_order_age_above_threshold(order, block_number, self.arguments.order_no_cancel_threshold)
+
     def remove_expired_orders(self, block_number: int):
-        self.our_orders = list(filter(lambda order: order.expires - block_number > self.arguments.order_expiry_threshold-1,
-                                      self.our_orders))
+        self.our_orders = list(filter(lambda order: not self.is_expired(order, block_number), self.our_orders))
 
     def outside_orders(self, buy_bands: list, sell_bands: list, target_price: Wad):
         """Return orders which do not fall into any buy or sell band."""
@@ -286,12 +307,11 @@ class EtherDeltaMarketMakerKeeper:
         return itertools.chain(outside_any_band_orders(self.our_buy_orders(), buy_bands, target_price),
                                outside_any_band_orders(self.our_sell_orders(), sell_bands, target_price))
 
-    def cancel_orders(self, orders: list):
+    def cancel_orders(self, orders: Iterable, block_number: int):
         """Cancel orders asynchronously."""
-        assert(isinstance(orders, list))  # so we can read the list twice - once to cancel,
-                                          # second time to remove from 'self.our_orders'
-        synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price_for_order_cancellation) for order in orders])
-        self.our_orders = list(set(self.our_orders) - set(orders))
+        cancellable_orders = list(filter(lambda order: not self.is_non_cancellable(order, block_number), orders))
+        synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price_for_order_cancellation) for order in cancellable_orders])
+        self.our_orders = list(set(self.our_orders) - set(cancellable_orders))
 
     def excessive_sell_orders(self, sell_bands: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
