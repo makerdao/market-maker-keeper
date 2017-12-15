@@ -27,10 +27,10 @@ import pkg_resources
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import BuyBand, SellBand
+from market_maker_keeper.config import ReloadableConfig
 from market_maker_keeper.price import SetzerPriceFeed, TubPriceFeed
 from pymaker import Address, synchronize, Contract
 from pymaker.approval import directly
-from pymaker.config import ReloadableConfig
 from pymaker.gas import GasPrice, FixedGasPrice, DefaultGasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.logger import Logger

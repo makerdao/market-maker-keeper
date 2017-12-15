@@ -29,12 +29,12 @@ import time
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import BuyBand, SellBand
+from market_maker_keeper.config import ReloadableConfig
 from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed
-from market_maker_keeper.smart_gas import SmartGasPrice
+from market_maker_keeper.gas import SmartGasPrice, GasPriceFile
 from pymaker import Address, Contract
 from pymaker.approval import directly
-from pymaker.config import ReloadableConfig
-from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice, IncreasingGasPrice, GasPriceFile
+from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice, IncreasingGasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.logger import Event, Logger
 from pymaker.numeric import Wad

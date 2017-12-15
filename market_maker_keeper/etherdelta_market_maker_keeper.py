@@ -28,12 +28,12 @@ from typing import Iterable
 import pkg_resources
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.smart_gas import SmartGasPrice
+from market_maker_keeper.config import ReloadableConfig
+from market_maker_keeper.gas import SmartGasPrice, GasPriceFile
 from pymaker import Address, synchronize, Logger, Contract
 from pymaker.approval import directly
-from pymaker.config import ReloadableConfig
 from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
-from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice, IncreasingGasPrice, GasPriceFile
+from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice, IncreasingGasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 from market_maker_keeper.band import BuyBand, SellBand
