@@ -332,7 +332,7 @@ class EtherDeltaMarketMakerKeeper:
 
     def cancel_all_orders(self):
         """Cancel all our orders."""
-        self.cancel_orders(self.our_orders)
+        self.cancel_orders(self.our_orders, self.web3.eth.blockNumber)
 
     def withdraw_everything(self):
         eth_balance = self.etherdelta.balance_of(self.our_address)
