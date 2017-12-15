@@ -28,6 +28,7 @@ from typing import Iterable
 import pkg_resources
 from web3 import Web3, HTTPProvider
 
+from market_maker_keeper.smart_gas import SmartGasPrice
 from pymaker import Address, synchronize, Logger, Contract
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
@@ -141,6 +142,9 @@ class EtherDeltaMarketMakerKeeper:
 
         parser.add_argument("--cancel-gas-price-file", type=str,
                             help="Gas price configuration file for order cancellation")
+
+        parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
+                            help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
@@ -432,7 +436,9 @@ class EtherDeltaMarketMakerKeeper:
         return Wad(int(amount.value / 10**9) * 10**9)
 
     def get_gas_price_for_deposits(self) -> GasPrice:
-        if self.arguments.gas_price_file:
+        if self.arguments.smart_gas_price:
+            return SmartGasPrice(self.logger)
+        elif self.arguments.gas_price_file:
             return GasPriceFile(self.arguments.gas_price_file, self.logger)
         elif self.arguments.gas_price > 0:
             if self.arguments.gas_price_increase is not None:
@@ -446,7 +452,9 @@ class EtherDeltaMarketMakerKeeper:
             return DefaultGasPrice()
 
     def get_gas_price_for_order_cancellation(self) -> GasPrice:
-        if self.arguments.cancel_gas_price_file:
+        if self.arguments.smart_gas_price:
+            return self.gas_price_for_deposits
+        elif self.arguments.cancel_gas_price_file:
             return GasPriceFile(self.arguments.cancel_gas_price_file, self.logger)
         elif self.arguments.cancel_gas_price > 0:
             if self.arguments.cancel_gas_price_increase is not None:

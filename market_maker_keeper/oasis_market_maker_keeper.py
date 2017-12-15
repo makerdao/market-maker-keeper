@@ -30,6 +30,7 @@ from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import BuyBand, SellBand
 from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed
+from market_maker_keeper.smart_gas import SmartGasPrice
 from pymaker import Address, Contract
 from pymaker.approval import directly
 from pymaker.config import ReloadableConfig
@@ -107,6 +108,9 @@ class OasisMarketMakerKeeper:
 
         parser.add_argument("--cancel-gas-price-file", type=str,
                             help="Gas price configuration file for order cancellation")
+
+        parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
+                            help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
@@ -302,7 +306,9 @@ class OasisMarketMakerKeeper:
         return reduce(operator.add, map(lambda order: order.pay_amount, orders), Wad(0))
 
     def get_gas_price_for_order_placement(self) -> GasPrice:
-        if self.arguments.gas_price_file:
+        if self.arguments.smart_gas_price:
+            return SmartGasPrice(self.logger)
+        elif self.arguments.gas_price_file:
             return GasPriceFile(self.arguments.gas_price_file, self.logger)
         elif self.arguments.gas_price > 0:
             if self.arguments.gas_price_increase is not None:
@@ -316,7 +322,9 @@ class OasisMarketMakerKeeper:
             return DefaultGasPrice()
 
     def get_gas_price_for_order_cancellation(self) -> GasPrice:
-        if self.arguments.cancel_gas_price_file:
+        if self.arguments.smart_gas_price:
+            return self.gas_price_for_order_placement
+        elif self.arguments.cancel_gas_price_file:
             return GasPriceFile(self.arguments.cancel_gas_price_file, self.logger)
         elif self.arguments.cancel_gas_price > 0:
             if self.arguments.cancel_gas_price_increase is not None:
