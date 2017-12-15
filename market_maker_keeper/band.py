@@ -144,17 +144,35 @@ class SellBand(Band):
 class Bands:
     def __init__(self, reloadable_config: ReloadableConfig):
         assert(isinstance(reloadable_config, ReloadableConfig))
-        self.reloadable_config = reloadable_config
 
-    def get_bands(self):
-        config = self.reloadable_config.get_config()
-        buy_bands = list(map(BuyBand, config['buyBands']))
-        sell_bands = list(map(SellBand, config['sellBands']))
+        config = reloadable_config.get_config()
+        self.buy_bands = list(map(BuyBand, config['buyBands']))
+        self.sell_bands = list(map(SellBand, config['sellBands']))
 
-        if self.bands_overlap(buy_bands) or self.bands_overlap(sell_bands):
+        if self.bands_overlap(self.buy_bands) or self.bands_overlap(self.sell_bands):
             raise Exception(f"Bands in the config file overlap")
-        else:
-            return buy_bands, sell_bands
+
+    def excessive_sell_orders(self, our_sell_orders: list, target_price: Wad):
+        """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
+        for band in self.sell_bands:
+            for order in band.excessive_orders(our_sell_orders, target_price):
+                yield order
+
+    def excessive_buy_orders(self, our_buy_orders: list, target_price: Wad):
+        """Return buy orders which need to be cancelled to bring total amounts within all buy bands below maximums."""
+        for band in self.buy_bands:
+            for order in band.excessive_orders(our_buy_orders, target_price):
+                yield order
+
+    def outside_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Wad):
+        """Return orders which do not fall into any buy or sell band."""
+        def outside_any_band_orders(orders: list, bands: list):
+            for order in orders:
+                if not any(band.includes(order, target_price) for band in bands):
+                    yield order
+
+        return itertools.chain(outside_any_band_orders(our_buy_orders, self.buy_bands),
+                               outside_any_band_orders(our_sell_orders, self.sell_bands))
 
     @staticmethod
     def bands_overlap(bands: list):

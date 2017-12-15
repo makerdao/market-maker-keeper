@@ -169,7 +169,7 @@ class EtherDeltaMarketMakerKeeper:
         self.logger = Logger('etherdelta-market-maker-keeper', self.chain, _json_log, self.arguments.debug, self.arguments.trace)
         Contract.logger = self.logger
 
-        self.bands_config = Bands(ReloadableConfig(self.arguments.config, self.logger))
+        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
@@ -247,9 +247,9 @@ class EtherDeltaMarketMakerKeeper:
             self.cancel_all_orders()
             return
 
+        bands = Bands(self.bands_config)
         block_number = self.web3.eth.blockNumber
         target_price = self.price_feed.get_price()
-        buy_bands, sell_bands = self.bands_config.get_bands()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
         # The moment the price feed comes back, the keeper will resume placing orders.
@@ -259,10 +259,10 @@ class EtherDeltaMarketMakerKeeper:
             return
 
         self.remove_expired_orders(block_number)
-        self.cancel_orders(itertools.chain(self.excessive_buy_orders(buy_bands, target_price),
-                                           self.excessive_sell_orders(sell_bands, target_price),
-                                           self.outside_orders(buy_bands, sell_bands, target_price)), block_number)
-        self.top_up_bands(buy_bands, sell_bands, target_price)
+        self.cancel_orders(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(), target_price),
+                                           bands.excessive_sell_orders(self.our_sell_orders(), target_price),
+                                           bands.outside_orders(self.our_buy_orders(), self.our_sell_orders(), target_price)), block_number)
+        self.top_up_bands(bands.buy_bands, bands.sell_bands, target_price)
 
     @staticmethod
     def is_order_age_above_threshold(order: Order, block_number: int, threshold: int):
@@ -279,33 +279,11 @@ class EtherDeltaMarketMakerKeeper:
     def remove_expired_orders(self, block_number: int):
         self.our_orders = list(filter(lambda order: not self.is_expired(order, block_number), self.our_orders))
 
-    def outside_orders(self, buy_bands: list, sell_bands: list, target_price: Wad):
-        """Return orders which do not fall into any buy or sell band."""
-        def outside_any_band_orders(orders: list, bands: list, target_price: Wad):
-            for order in orders:
-                if not any(band.includes(order, target_price) for band in bands):
-                    yield order
-
-        return itertools.chain(outside_any_band_orders(self.our_buy_orders(), buy_bands, target_price),
-                               outside_any_band_orders(self.our_sell_orders(), sell_bands, target_price))
-
     def cancel_orders(self, orders: Iterable, block_number: int):
         """Cancel orders asynchronously."""
         cancellable_orders = list(filter(lambda order: not self.is_non_cancellable(order, block_number), orders))
         synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price_for_order_cancellation) for order in cancellable_orders])
         self.our_orders = list(set(self.our_orders) - set(cancellable_orders))
-
-    def excessive_sell_orders(self, sell_bands: list, target_price: Wad):
-        """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
-        for band in sell_bands:
-            for order in band.excessive_orders(self.our_sell_orders(), target_price):
-                yield order
-
-    def excessive_buy_orders(self, buy_bands: list, target_price: Wad):
-        """Return buy orders which need to be cancelled to bring total amounts within all buy bands below maximums."""
-        for band in buy_bands:
-            for order in band.excessive_orders(self.our_buy_orders(), target_price):
-                yield order
 
     def cancel_all_orders(self):
         """Cancel all our orders."""

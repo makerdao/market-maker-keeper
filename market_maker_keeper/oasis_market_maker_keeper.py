@@ -135,7 +135,7 @@ class OasisMarketMakerKeeper:
         Contract.logger = self.logger
 
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
-        self.bands_config = Bands(ReloadableConfig(self.arguments.config, self.logger))
+        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
         self.gas_price_for_order_placement = self.get_gas_price_for_order_placement()
         self.gas_price_for_order_cancellation = self.get_gas_price_for_order_cancellation()
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.logger)
@@ -178,7 +178,7 @@ class OasisMarketMakerKeeper:
             self.cancel_all_orders()
             return
 
-        buy_bands, sell_bands = self.bands_config.get_bands()
+        bands = Bands(self.bands_config)
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 
@@ -193,13 +193,13 @@ class OasisMarketMakerKeeper:
         # bands until the next block. This way we would create new orders based on the most recent price and
         # order book state. We could theoretically retrieve both (`target_price` and `our_orders`) again here,
         # but it just seems cleaner to do it in one place instead of in two.
-        orders_to_cancel = list(itertools.chain(self.excessive_buy_orders(our_orders, buy_bands, target_price),
-                                                self.excessive_sell_orders(our_orders, sell_bands, target_price),
-                                                self.outside_orders(our_orders, buy_bands, sell_bands, target_price)))
+        orders_to_cancel = list(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(our_orders), target_price),
+                                                bands.excessive_sell_orders(self.our_sell_orders(our_orders), target_price),
+                                                bands.outside_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)))
         if len(orders_to_cancel) > 0:
             self.cancel_orders(orders_to_cancel)
         else:
-            self.top_up_bands(our_orders, buy_bands, sell_bands, target_price)
+            self.top_up_bands(our_orders, bands.buy_bands, bands.sell_bands, target_price)
 
             # We do wait some time after the orders have been created. The reason for that is sometimes
             # orders that have been just placed were not picked up by the next `our_orders()` call
@@ -210,16 +210,6 @@ class OasisMarketMakerKeeper:
             # There is no specific reason behind choosing to wait exactly 7s.
             time.sleep(7)
 
-    def outside_orders(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
-        """Return orders which do not fall into any buy or sell band."""
-        def outside_any_band_orders(orders: list, bands: list, target_price: Wad):
-            for order in orders:
-                if not any(band.includes(order, target_price) for band in bands):
-                    yield order
-
-        return itertools.chain(outside_any_band_orders(self.our_buy_orders(our_orders), buy_bands, target_price),
-                               outside_any_band_orders(self.our_sell_orders(our_orders), sell_bands, target_price))
-
     def cancel_all_orders(self):
         """Cancel all orders owned by the keeper."""
         self.cancel_orders(self.our_orders())
@@ -228,18 +218,6 @@ class OasisMarketMakerKeeper:
         """Cancel orders asynchronously."""
         synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price_for_order_cancellation)
                      for order in orders])
-
-    def excessive_sell_orders(self, our_orders: list, sell_bands: list, target_price: Wad):
-        """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
-        for band in sell_bands:
-            for order in band.excessive_orders(self.our_sell_orders(our_orders), target_price):
-                yield order
-
-    def excessive_buy_orders(self, our_orders: list, buy_bands: list, target_price: Wad):
-        """Return buy orders which need to be cancelled to bring total amounts within all buy bands below maximums."""
-        for band in buy_bands:
-            for order in band.excessive_orders(self.our_buy_orders(our_orders), target_price):
-                yield order
 
     def top_up_bands(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Asynchronously create new buy and sell orders in all send and buy bands if necessary."""
