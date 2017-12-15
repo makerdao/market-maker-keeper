@@ -27,8 +27,8 @@ import pkg_resources
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import BuyBand, SellBand
-from market_maker_keeper.config import ReloadableConfig
-from market_maker_keeper.price import SetzerPriceFeed, TubPriceFeed
+from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.price import SetzerPriceFeed, TubPriceFeed, PriceFeedFactory
 from pymaker import Address, synchronize, Contract
 from pymaker.approval import directly
 from pymaker.gas import GasPrice, FixedGasPrice, DefaultGasPrice
@@ -112,12 +112,7 @@ class RadarRelayMarketMakerKeeper:
 
         self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
-
-        # Choose the price feed
-        if self.arguments.price_feed is not None:
-            self.price_feed = SetzerPriceFeed(self.tub, self.arguments.price_feed, self.logger)
-        else:
-            self.price_feed = TubPriceFeed(self.tub)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.logger)
 
         self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay,

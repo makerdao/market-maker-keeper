@@ -29,8 +29,8 @@ import time
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import BuyBand, SellBand
-from market_maker_keeper.config import ReloadableConfig
-from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed
+from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed, PriceFeedFactory
 from market_maker_keeper.gas import SmartGasPrice, GasPriceFile
 from pymaker import Address, Contract
 from pymaker.approval import directly
@@ -138,12 +138,7 @@ class OasisMarketMakerKeeper:
         self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
         self.gas_price_for_order_placement = self.get_gas_price_for_order_placement()
         self.gas_price_for_order_cancellation = self.get_gas_price_for_order_cancellation()
-
-        # Choose the price feed
-        if self.arguments.price_feed is not None:
-            self.price_feed = SetzerPriceFeed(self.tub, self.arguments.price_feed, self.logger)
-        else:
-            self.price_feed = TubPriceFeed(self.tub)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.logger)
 
     def main(self):
         with Web3Lifecycle(self.web3, self.logger) as lifecycle:

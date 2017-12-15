@@ -28,7 +28,7 @@ from typing import Iterable
 import pkg_resources
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.config import ReloadableConfig
+from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.gas import SmartGasPrice, GasPriceFile
 from pymaker import Address, synchronize, Logger, Contract
 from pymaker.approval import directly
@@ -37,7 +37,7 @@ from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice, IncreasingGasP
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 from market_maker_keeper.band import BuyBand, SellBand
-from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed
+from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed, PriceFeedFactory
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance, chain
@@ -176,18 +176,13 @@ class EtherDeltaMarketMakerKeeper:
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
         self.gas_price_for_deposits = self.get_gas_price_for_deposits()
         self.gas_price_for_order_cancellation = self.get_gas_price_for_order_cancellation()
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.logger)
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")
 
         assert(self.arguments.order_expiry_threshold >= 0)
         assert(self.arguments.order_no_cancel_threshold >= self.arguments.order_expiry_threshold)
-
-        # Choose the price feed
-        if self.arguments.price_feed is not None:
-            self.price_feed = SetzerPriceFeed(self.tub, self.arguments.price_feed, self.logger)
-        else:
-            self.price_feed = TubPriceFeed(self.tub)
 
         self.etherdelta = EtherDelta(web3=self.web3, address=Address(self.arguments.etherdelta_address))
         self.etherdelta_api = EtherDeltaApi(client_tool_directory="lib/pymaker/utils/etherdelta-client",

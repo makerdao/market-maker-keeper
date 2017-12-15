@@ -17,7 +17,7 @@
 
 from mock import MagicMock
 
-from market_maker_keeper.config import ReloadableConfig
+from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker.logger import Logger
 
 

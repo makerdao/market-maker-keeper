@@ -76,3 +76,12 @@ class SetzerPriceFeed(PriceFeed):
             return None
         else:
             return self.setzer_price / self.tub.par()
+
+
+class PriceFeedFactory:
+    @staticmethod
+    def create_price_feed(price_feed_argument: str, tub: Tub, logger: Logger) -> PriceFeed:
+        if price_feed_argument is not None:
+            return SetzerPriceFeed(tub, price_feed_argument, logger)
+        else:
+            return TubPriceFeed(tub)

@@ -17,7 +17,7 @@
 
 from typing import Optional
 
-from market_maker_keeper.config import ReloadableConfig
+from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.gas_station import EthGasStation
 from pymaker.gas import GasPrice, IncreasingGasPrice, FixedGasPrice, DefaultGasPrice
 from pymaker.logger import Logger
