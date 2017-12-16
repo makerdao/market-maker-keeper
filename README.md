@@ -197,12 +197,7 @@ usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                  [--gas-price-increase-every GAS_PRICE_INCREASE_EVERY]
                                  [--gas-price-max GAS_PRICE_MAX]
                                  [--gas-price-file GAS_PRICE_FILE]
-                                 [--cancel-gas-price CANCEL_GAS_PRICE]
-                                 [--cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE]
-                                 [--cancel-gas-price-increase-every CANCEL_GAS_PRICE_INCREASE_EVERY]
-                                 [--cancel-gas-price-max CANCEL_GAS_PRICE_MAX]
-                                 [--cancel-gas-price-file CANCEL_GAS_PRICE_FILE]
-                                 [--smart-gas-price] [--debug] [--trace]
+                                 [--smart-gas-price] [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -227,7 +222,7 @@ optional arguments:
                         Gas price (in Wei)
   --gas-price-increase GAS_PRICE_INCREASE
                         Gas price increase (in Wei) if no confirmation within
-                        --gas-price-increase-every seconds
+                        `--gas-price-increase-every` seconds
   --gas-price-increase-every GAS_PRICE_INCREASE_EVERY
                         Gas price increase frequency (in seconds, default:
                         120)
@@ -235,23 +230,9 @@ optional arguments:
                         Maximum gas price (in Wei)
   --gas-price-file GAS_PRICE_FILE
                         Gas price configuration file
-  --cancel-gas-price CANCEL_GAS_PRICE
-                        Gas price (in Wei) for order cancellation
-  --cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE
-                        Gas price increase (in Wei) for order cancellation if
-                        no confirmation within --cancel-gas-price-increase-
-                        every seconds
-  --cancel-gas-price-increase-every CANCEL_GAS_PRICE_INCREASE_EVERY
-                        Gas price increase frequency for order cancellation
-                        (in seconds, default: 120)
-  --cancel-gas-price-max CANCEL_GAS_PRICE_MAX
-                        Maximum gas price (in Wei) for order cancellation
-  --cancel-gas-price-file CANCEL_GAS_PRICE_FILE
-                        Gas price configuration file for order cancellation
   --smart-gas-price     Use smart gas pricing strategy, based on the
                         ethgasstation.info feed
   --debug               Enable debug output
-  --trace               Enable trace output
 ```
 
 
@@ -312,12 +293,7 @@ usage: etherdelta-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       [--gas-price-increase-every GAS_PRICE_INCREASE_EVERY]
                                       [--gas-price-max GAS_PRICE_MAX]
                                       [--gas-price-file GAS_PRICE_FILE]
-                                      [--cancel-gas-price CANCEL_GAS_PRICE]
-                                      [--cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE]
-                                      [--cancel-gas-price-increase-every CANCEL_GAS_PRICE_INCREASE_EVERY]
-                                      [--cancel-gas-price-max CANCEL_GAS_PRICE_MAX]
-                                      [--cancel-gas-price-file CANCEL_GAS_PRICE_FILE]
-                                      [--smart-gas-price] [--debug] [--trace]
+                                      [--smart-gas-price] [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -375,7 +351,7 @@ optional arguments:
                         Gas price (in Wei)
   --gas-price-increase GAS_PRICE_INCREASE
                         Gas price increase (in Wei) if no confirmation within
-                        --gas-price-increase-every seconds
+                        `--gas-price-increase-every` seconds
   --gas-price-increase-every GAS_PRICE_INCREASE_EVERY
                         Gas price increase frequency (in seconds, default:
                         120)
@@ -383,23 +359,9 @@ optional arguments:
                         Maximum gas price (in Wei)
   --gas-price-file GAS_PRICE_FILE
                         Gas price configuration file
-  --cancel-gas-price CANCEL_GAS_PRICE
-                        Gas price (in Wei) for order cancellation
-  --cancel-gas-price-increase CANCEL_GAS_PRICE_INCREASE
-                        Gas price increase (in Wei) for order cancellation if
-                        no confirmation within --cancel-gas-price-increase-
-                        every seconds
-  --cancel-gas-price-increase-every CANCEL_GAS_PRICE_INCREASE_EVERY
-                        Gas price increase frequency for order cancellation
-                        (in seconds, default: 120)
-  --cancel-gas-price-max CANCEL_GAS_PRICE_MAX
-                        Maximum gas price (in Wei) for order cancellation
-  --cancel-gas-price-file CANCEL_GAS_PRICE_FILE
-                        Gas price configuration file for order cancellation
   --smart-gas-price     Use smart gas pricing strategy, based on the
                         ethgasstation.info feed
   --debug               Enable debug output
-  --trace               Enable trace output
 ```
 
 ### Known limitations
@@ -446,7 +408,6 @@ usage: radarrelay-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       [--min-eth-balance MIN_ETH_BALANCE]
                                       [--cancel-on-shutdown]
                                       [--gas-price GAS_PRICE] [--debug]
-                                      [--trace]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -478,7 +439,6 @@ optional arguments:
   --gas-price GAS_PRICE
                         Gas price (in Wei)
   --debug               Enable debug output
-  --trace               Enable trace output
 ```
 
 ### Known limitations

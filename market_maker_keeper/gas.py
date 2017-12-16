@@ -84,3 +84,22 @@ class GasPriceFile(GasPrice):
             strategy = DefaultGasPrice()
 
         return strategy.get_gas_price(time_elapsed=time_elapsed)
+
+
+class GasPriceFactory:
+    @staticmethod
+    def create_gas_price(arguments) -> GasPrice:
+        if arguments.smart_gas_price:
+            return SmartGasPrice()
+        elif arguments.gas_price_file:
+            return GasPriceFile(arguments.gas_price_file)
+        elif arguments.gas_price:
+            if arguments.gas_price_increase is not None:
+                return IncreasingGasPrice(initial_price=arguments.gas_price,
+                                          increase_by=arguments.gas_price_increase,
+                                          every_secs=arguments.gas_price_increase_every,
+                                          max_price=arguments.gas_price_max)
+            else:
+                return FixedGasPrice(arguments.gas_price)
+        else:
+            return DefaultGasPrice()
