@@ -24,6 +24,24 @@ import requests
 
 
 class EthGasStation:
+    """Asynchronous client of the ethgasstation.info API.
+
+    Creating an instance of this class runs a background thread, which fetches current
+    recommended gas prices from EthGasStation every `refresh_interval` seconds. If due
+    to network issues no current gas prices have been fetched for `expiry` seconds,
+    old values expire and all `*_price()` methods will start returning `None` until
+    the feed becomes available again.
+
+    Also the moment before the first fetch has finished, all `*_price()` methods
+    of this class return `None`.
+
+    All gas prices are returned in Wei.
+
+    Attributes:
+        refresh_interval: Refresh frequency (in seconds).
+        expiry: Expiration time (in seconds).
+    """
+
     URL = "https://ethgasstation.info/json/ethgasAPI.json"
     SCALE = 100000000
 
@@ -75,13 +93,37 @@ class EthGasStation:
             return None
 
     def safe_low_price(self) -> Optional[int]:
+        """Returns the current 'SafeLow (<60m)' gas rice (in Wei).
+
+        Returns:
+            The current 'SafeLow (<60m)' gas price (in Wei), or `None` if the EthGasStation
+            feed has expired.
+        """
         return self._return_value_if_valid(self._safe_low_price)
 
     def standard_price(self) -> Optional[int]:
+        """Returns the current 'Standard (<5m)' gas price (in Wei).
+
+        Returns:
+            The current 'Standard (<5m)' gas price (in Wei), or `None` if the EthGasStation
+            feed has expired.
+        """
         return self._return_value_if_valid(self._standard_price)
 
     def fast_price(self) -> Optional[int]:
+        """Returns the current 'Fast (<2m)' gas price (in Wei).
+
+        Returns:
+            The current 'Fast (<2m)' gas price (in Wei), or `None` if the EthGasStation
+            feed has expired.
+        """
         return self._return_value_if_valid(self._fast_price)
 
     def fastest_price(self) -> Optional[int]:
+        """Returns the current fastest (undocumented!) gas price (in Wei).
+
+        Returns:
+            The current fastest (undocumented!) gas price (in Wei), or `None` if the EthGasStation
+            feed has expired.
+        """
         return self._return_value_if_valid(self._fastest_price)
