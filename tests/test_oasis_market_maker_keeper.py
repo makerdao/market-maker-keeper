@@ -538,6 +538,36 @@ class TestOasisMarketMakerKeeper:
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_amount == Wad.from_number(780)
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_token == deployment.sai.address
 
+    def test_should_use_specified_gas_price_for_all_transactions(self, deployment: Deployment, tmpdir):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file} "
+                                                  f"--gas-price 70000000000"),
+                                        web3=deployment.web3)
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        start_block_number = deployment.web3.eth.blockNumber
+
+        # when
+        keeper.approve()
+        self.synchronize_orders_twice(keeper)
+        keeper.shutdown()
+
+        # then
+        for block_number in range(start_block_number+1, deployment.web3.eth.blockNumber+1):
+            for transaction in deployment.web3.eth.getBlock(block_number, full_transactions=True).transactions:
+                assert transaction.gasPrice == 70000000000
+
     def test_should_cancel_all_orders_but_not_terminate_if_eth_balance_below_minimum(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)

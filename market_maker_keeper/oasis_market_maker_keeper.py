@@ -149,7 +149,7 @@ class OasisMarketMakerKeeper:
 
     def approve(self):
         """Approve OasisDEX to access our balances, so we can place orders."""
-        self.otc.approve([self.gem, self.sai], directly())
+        self.otc.approve([self.gem, self.sai], directly(gas_price=self.gas_price_for_order_placement))
 
     def our_orders(self):
         return list(filter(lambda order: order.maker == self.our_address, self.otc.get_orders()))

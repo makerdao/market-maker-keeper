@@ -217,7 +217,7 @@ class EtherDeltaMarketMakerKeeper:
 
     def approve(self):
         """Approve EtherDelta to access our SAI, so we can deposit it with the exchange"""
-        self.etherdelta.approve([self.sai], directly())
+        self.etherdelta.approve([self.sai], directly(gas_price=self.gas_price_for_deposits))
 
     def place_order(self, order: Order):
         self.our_orders.append(order)

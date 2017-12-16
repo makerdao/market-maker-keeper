@@ -738,6 +738,41 @@ class TestEtherDeltaMarketMakerKeeper:
         assert len(self.orders(keeper)) == 0
         assert not keeper.lifecycle.terminated_internally
 
+    def test_should_use_specified_gas_price_for_all_transactions(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"
+                                                       f" --cancel-on-shutdown"
+                                                       f" --gas-price 69000000000"),
+                                             web3=deployment.web3)
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        start_block_number = deployment.web3.eth.blockNumber
+
+        # when
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        keeper.shutdown()
+
+        # then
+        for block_number in range(start_block_number+1, deployment.web3.eth.blockNumber+1):
+            for transaction in deployment.web3.eth.getBlock(block_number, full_transactions=True).transactions:
+                assert transaction.gasPrice == 69000000000
+
     def test_should_not_create_any_orders_but_not_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
