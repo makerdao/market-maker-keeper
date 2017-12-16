@@ -16,36 +16,35 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import logging
 import operator
 import sys
 from functools import reduce
 from typing import List
 
-import os
-
 import itertools
-import pkg_resources
 import time
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.band import BuyBand, SellBand, Bands
+from market_maker_keeper.band import Bands
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed, PriceFeedFactory
+from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.gas import SmartGasPrice, GasPriceFile
-from pymaker import Address, Contract
+from pymaker import Address
 from pymaker.approval import directly
 from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice, IncreasingGasPrice
 from pymaker.lifecycle import Web3Lifecycle
-from pymaker.logger import Event, Logger
 from pymaker.numeric import Wad
 from pymaker.oasis import Order, MatchingMarket
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
-from pymaker.util import synchronize, eth_balance, chain
+from pymaker.util import synchronize, eth_balance
 
 
 class OasisMarketMakerKeeper:
     """Keeper acting as a market maker on OasisDEX, on the W-ETH/SAI pair."""
+
+    logger = logging.getLogger('oasis-market-maker-keeper')
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='oasis-market-maker-keeper')
@@ -115,33 +114,27 @@ class OasisMarketMakerKeeper:
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
-        parser.add_argument("--trace", dest='trace', action='store_true',
-                            help="Enable trace output")
-
         self.arguments = parser.parse_args(args)
 
         self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}"))
         self.web3.eth.defaultAccount = self.arguments.eth_from
-
-        self.chain = chain(self.web3)
         self.our_address = Address(self.arguments.eth_from)
         self.otc = MatchingMarket(web3=self.web3, address=Address(self.arguments.oasis_address))
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
-        _json_log = os.path.abspath(pkg_resources.resource_filename(__name__, f"../logs/oasis-market-maker-keeper_{self.chain}_{self.our_address}.json.log".lower()))
-        self.logger = Logger('oasis-market-maker-keeper', self.chain, _json_log, self.arguments.debug, self.arguments.trace)
-        Contract.logger = self.logger
+        logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
+                            level=(logging.DEBUG if self.arguments.debug else logging.INFO))
 
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
-        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
+        self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price_for_order_placement = self.get_gas_price_for_order_placement()
         self.gas_price_for_order_cancellation = self.get_gas_price_for_order_cancellation()
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.logger)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub)
 
     def main(self):
-        with Web3Lifecycle(self.web3, self.logger) as lifecycle:
+        with Web3Lifecycle(self.web3) as lifecycle:
             self.lifecycle = lifecycle
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
@@ -259,9 +252,9 @@ class OasisMarketMakerKeeper:
 
     def get_gas_price_for_order_placement(self) -> GasPrice:
         if self.arguments.smart_gas_price:
-            return SmartGasPrice(self.logger)
+            return SmartGasPrice()
         elif self.arguments.gas_price_file:
-            return GasPriceFile(self.arguments.gas_price_file, self.logger)
+            return GasPriceFile(self.arguments.gas_price_file)
         elif self.arguments.gas_price > 0:
             if self.arguments.gas_price_increase is not None:
                 return IncreasingGasPrice(initial_price=self.arguments.gas_price,
@@ -277,7 +270,7 @@ class OasisMarketMakerKeeper:
         if self.arguments.smart_gas_price:
             return self.gas_price_for_order_placement
         elif self.arguments.cancel_gas_price_file:
-            return GasPriceFile(self.arguments.cancel_gas_price_file, self.logger)
+            return GasPriceFile(self.arguments.cancel_gas_price_file)
         elif self.arguments.cancel_gas_price > 0:
             if self.arguments.cancel_gas_price_increase is not None:
                 return IncreasingGasPrice(initial_price=self.arguments.cancel_gas_price,

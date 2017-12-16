@@ -15,13 +15,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import threading
 import time
 from typing import Optional
 
 from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
-from pymaker.logger import Logger
 from pymaker.numeric import Wad
 from pymaker.sai import Tub
 
@@ -44,12 +44,13 @@ class TubPriceFeed(PriceFeed):
 
 
 class SetzerPriceFeed(PriceFeed):
-    def __init__(self, tub: Tub, setzer_source: str, logger: Logger):
+    logger = logging.getLogger('setzer-price-feed')
+
+    def __init__(self, tub: Tub, setzer_source: str):
         self.tub = tub
         self.setzer_price = None
         self.setzer_retries = 0
         self.setzer_source = setzer_source
-        self.logger = logger
         threading.Thread(target=self._background_run, daemon=True).start()
 
     def _fetch_price(self):
@@ -80,8 +81,8 @@ class SetzerPriceFeed(PriceFeed):
 
 class PriceFeedFactory:
     @staticmethod
-    def create_price_feed(price_feed_argument: str, tub: Tub, logger: Logger) -> PriceFeed:
+    def create_price_feed(price_feed_argument: str, tub: Tub) -> PriceFeed:
         if price_feed_argument is not None:
-            return SetzerPriceFeed(tub, price_feed_argument, logger)
+            return SetzerPriceFeed(tub, price_feed_argument)
         else:
             return TubPriceFeed(tub)

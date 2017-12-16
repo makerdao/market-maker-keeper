@@ -17,9 +17,8 @@
 
 import _jsonnet
 import json
+import logging
 import zlib
-
-from pymaker.logger import Logger
 
 
 class ReloadableConfig:
@@ -34,14 +33,14 @@ class ReloadableConfig:
 
     Attributes:
         filename: Filename of the configuration file.
-        logger: Logger used to log events.
     """
-    def __init__(self, filename: str, logger: Logger):
+
+    logger = logging.getLogger('reloadable-config')
+
+    def __init__(self, filename: str):
         assert(isinstance(filename, str))
-        assert(isinstance(logger, Logger))
 
         self.filename = filename
-        self.logger = logger
         self._checksum = None
 
     def get_config(self):

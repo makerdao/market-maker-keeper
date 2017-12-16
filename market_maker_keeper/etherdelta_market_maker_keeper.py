@@ -16,35 +16,35 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import logging
 import operator
 import sys
 from functools import reduce
 
-import os
-
 import itertools
 from typing import Iterable
 
-import pkg_resources
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.gas import SmartGasPrice, GasPriceFile
-from pymaker import Address, synchronize, Logger, Contract
+from pymaker import Address, synchronize
 from pymaker.approval import directly
 from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
 from pymaker.gas import FixedGasPrice, DefaultGasPrice, GasPrice, IncreasingGasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
-from market_maker_keeper.band import BuyBand, SellBand, Bands
-from market_maker_keeper.price import TubPriceFeed, SetzerPriceFeed, PriceFeedFactory
+from market_maker_keeper.band import Bands
+from market_maker_keeper.price import PriceFeedFactory
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
-from pymaker.util import eth_balance, chain
+from pymaker.util import eth_balance
 
 
 class EtherDeltaMarketMakerKeeper:
     """Keeper acting as a market maker on EtherDelta, on the ETH/SAI pair."""
+
+    logger = logging.getLogger('etherdelta-market-maker-keeper')
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='etherdelta-market-maker-keeper')
@@ -149,34 +149,28 @@ class EtherDeltaMarketMakerKeeper:
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
-        parser.add_argument("--trace", dest='trace', action='store_true',
-                            help="Enable trace output")
-
         parser.set_defaults(cancel_on_shutdown=False, withdraw_on_shutdown=False)
 
         self.arguments = parser.parse_args(args)
 
         self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}"))
         self.web3.eth.defaultAccount = self.arguments.eth_from
-
-        self.chain = chain(self.web3)
         self.our_address = Address(self.arguments.eth_from)
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
-        _json_log = os.path.abspath(pkg_resources.resource_filename(__name__, f"../logs/etherdelta-market-maker-keeper_{self.chain}_{self.our_address}.json.log".lower()))
-        self.logger = Logger('etherdelta-market-maker-keeper', self.chain, _json_log, self.arguments.debug, self.arguments.trace)
-        Contract.logger = self.logger
+        logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
+                            level=(logging.DEBUG if self.arguments.debug else logging.INFO))
 
-        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
+        self.bands_config = ReloadableConfig(self.arguments.config)
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
         self.gas_price_for_deposits = self.get_gas_price_for_deposits()
         self.gas_price_for_order_cancellation = self.get_gas_price_for_order_cancellation()
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.logger)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub)
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")
@@ -190,13 +184,12 @@ class EtherDeltaMarketMakerKeeper:
                                             api_server=self.arguments.etherdelta_socket,
                                             number_of_attempts=self.arguments.etherdelta_number_of_attempts,
                                             retry_interval=self.arguments.etherdelta_retry_interval,
-                                            timeout=self.arguments.etherdelta_timeout,
-                                            logger=self.logger)
+                                            timeout=self.arguments.etherdelta_timeout)
 
         self.our_orders = list()
 
     def main(self):
-        with Web3Lifecycle(self.web3, self.logger) as lifecycle:
+        with Web3Lifecycle(self.web3) as lifecycle:
             self.lifecycle = lifecycle
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
@@ -392,9 +385,9 @@ class EtherDeltaMarketMakerKeeper:
 
     def get_gas_price_for_deposits(self) -> GasPrice:
         if self.arguments.smart_gas_price:
-            return SmartGasPrice(self.logger)
+            return SmartGasPrice()
         elif self.arguments.gas_price_file:
-            return GasPriceFile(self.arguments.gas_price_file, self.logger)
+            return GasPriceFile(self.arguments.gas_price_file)
         elif self.arguments.gas_price > 0:
             if self.arguments.gas_price_increase is not None:
                 return IncreasingGasPrice(initial_price=self.arguments.gas_price,
@@ -410,7 +403,7 @@ class EtherDeltaMarketMakerKeeper:
         if self.arguments.smart_gas_price:
             return self.gas_price_for_deposits
         elif self.arguments.cancel_gas_price_file:
-            return GasPriceFile(self.arguments.cancel_gas_price_file, self.logger)
+            return GasPriceFile(self.arguments.cancel_gas_price_file)
         elif self.arguments.cancel_gas_price > 0:
             if self.arguments.cancel_gas_price_increase is not None:
                 return IncreasingGasPrice(initial_price=self.arguments.cancel_gas_price,

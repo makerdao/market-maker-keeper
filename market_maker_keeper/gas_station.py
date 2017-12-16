@@ -15,27 +15,26 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import threading
-
 import time
 from typing import Optional
 
 import requests
-
-from pymaker import Logger
 
 
 class EthGasStation:
     URL = "https://ethgasstation.info/json/ethgasAPI.json"
     SCALE = 100000000
 
-    def __init__(self, refresh_interval: int, expiry: int, logger: Logger):
+    logger = logging.getLogger('eth-gas-station')
+
+    def __init__(self, refresh_interval: int, expiry: int):
         assert(isinstance(refresh_interval, int))
         assert(isinstance(expiry, int))
 
         self.refresh_interval = refresh_interval
         self.expiry = expiry
-        self.logger = logger
         self._safe_low_price = None
         self._standard_price = None
         self._fast_price = None

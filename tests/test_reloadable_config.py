@@ -15,15 +15,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from mock import MagicMock
-
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from pymaker.logger import Logger
 
 
 class TestReloadableConfig:
-    logger = MagicMock(spec=Logger)
-
     @staticmethod
     def write_sample_config(tmpdir):
         file = tmpdir.join("sample_config.json")
@@ -38,7 +33,7 @@ class TestReloadableConfig:
 
     def test_should_read_simple_file(self, tmpdir):
         # when
-        config = ReloadableConfig(self.write_sample_config(tmpdir), self.logger).get_config()
+        config = ReloadableConfig(self.write_sample_config(tmpdir)).get_config()
 
         # then
         assert len(config) == 1
@@ -46,7 +41,7 @@ class TestReloadableConfig:
 
     def test_should_read_advanced_file(self, tmpdir):
         # when
-        config = ReloadableConfig(self.write_advanced_config(tmpdir, "b"), self.logger).get_config()
+        config = ReloadableConfig(self.write_advanced_config(tmpdir, "b")).get_config()
 
         # then
         assert len(config) == 2
@@ -55,7 +50,7 @@ class TestReloadableConfig:
 
     def test_should_read_file_again_if_changed(self, tmpdir):
         # given
-        reloadable_config = ReloadableConfig(self.write_advanced_config(tmpdir, "b"), self.logger)
+        reloadable_config = ReloadableConfig(self.write_advanced_config(tmpdir, "b"))
 
         # when
         config = reloadable_config.get_config()

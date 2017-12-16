@@ -16,12 +16,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from market_maker_keeper.gas import GasPriceFile
-from pymaker import Logger
 
 
 class TestGasPriceFile:
-    logger = Logger('-', '-')
-
     @staticmethod
     def config_file(body, tmpdir):
         file = tmpdir.join("gas_price.json")
@@ -31,7 +28,7 @@ class TestGasPriceFile:
     def test_can_behave_as_default_gas_price(self, tmpdir):
         # given
         file = self.config_file("""{}""", tmpdir)
-        file_gas_price = GasPriceFile(file, self.logger)
+        file_gas_price = GasPriceFile(file)
 
         # expect
         assert file_gas_price.get_gas_price(0) is None
@@ -41,7 +38,7 @@ class TestGasPriceFile:
     def test_can_behave_as_fixed_gas_price(self, tmpdir):
         # given
         file = self.config_file("""{"gasPrice": 7000000000}""", tmpdir)
-        file_gas_price = GasPriceFile(file, self.logger)
+        file_gas_price = GasPriceFile(file)
 
         # expect
         assert file_gas_price.get_gas_price(0) == 7000000000
@@ -54,7 +51,7 @@ class TestGasPriceFile:
             "gasPrice": 7000000000,
             "gasPriceIncrease": 1000000000,
             "gasPriceIncreaseEvery": 60}""", tmpdir)
-        file_gas_price = GasPriceFile(file, self.logger)
+        file_gas_price = GasPriceFile(file)
 
         # expect
         assert file_gas_price.get_gas_price(0) == 7000000000
@@ -72,7 +69,7 @@ class TestGasPriceFile:
             "gasPriceIncrease": 1000000000,
             "gasPriceIncreaseEvery": 60,
             "gasPriceMax": 12000000000}""", tmpdir)
-        file_gas_price = GasPriceFile(file, self.logger)
+        file_gas_price = GasPriceFile(file)
 
         # expect
         assert file_gas_price.get_gas_price(0) == 7000000000

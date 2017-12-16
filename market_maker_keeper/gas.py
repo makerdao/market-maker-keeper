@@ -20,7 +20,6 @@ from typing import Optional
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.gas_station import EthGasStation
 from pymaker.gas import GasPrice, IncreasingGasPrice, FixedGasPrice, DefaultGasPrice
-from pymaker.logger import Logger
 
 
 class SmartGasPrice(GasPrice):
@@ -33,8 +32,8 @@ class SmartGasPrice(GasPrice):
 
     GWEI = 1000000000
 
-    def __init__(self, logger: Logger):
-        self.gas_station = EthGasStation(refresh_interval=60, expiry=600, logger=logger)
+    def __init__(self):
+        self.gas_station = EthGasStation(refresh_interval=60, expiry=600)
 
     def get_gas_price(self, time_elapsed: int) -> Optional[int]:
         fast_price = self.gas_station.fast_price()
@@ -61,13 +60,11 @@ class GasPriceFile(GasPrice):
 
     Attributes:
         filename: Filename of the configuration file.
-        logger: Logger used to log events.
     """
-    def __init__(self, filename: str, logger: Logger):
+    def __init__(self, filename: str):
         assert(isinstance(filename, str))
-        assert(isinstance(logger, Logger))
 
-        self.reloadable_config = ReloadableConfig(filename, logger)
+        self.reloadable_config = ReloadableConfig(filename)
 
     def get_gas_price(self, time_elapsed: int) -> Optional[int]:
         assert(isinstance(time_elapsed, int))

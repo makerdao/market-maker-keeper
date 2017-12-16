@@ -17,32 +17,32 @@
 
 import argparse
 import itertools
+import logging
 import operator
-import os
 import sys
 import time
 from functools import reduce
 
-import pkg_resources
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.band import BuyBand, SellBand, Bands
+from market_maker_keeper.band import Bands
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from market_maker_keeper.price import SetzerPriceFeed, TubPriceFeed, PriceFeedFactory
-from pymaker import Address, synchronize, Contract
+from market_maker_keeper.price import PriceFeedFactory
+from pymaker import Address, synchronize
 from pymaker.approval import directly
 from pymaker.gas import GasPrice, FixedGasPrice, DefaultGasPrice
 from pymaker.lifecycle import Web3Lifecycle
-from pymaker.logger import Logger
 from pymaker.numeric import Wad
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
-from pymaker.util import eth_balance, chain
+from pymaker.util import eth_balance
 from pymaker.zrx import ZrxExchange, ZrxRelayerApi
 
 
 class RadarRelayMarketMakerKeeper:
     """Keeper acting as a market maker on RadarRelay, on the WETH/SAI pair."""
+
+    logger = logging.getLogger('radarrelay-market-maker-keeper')
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='radarrelay-market-maker-keeper')
@@ -92,35 +92,27 @@ class RadarRelayMarketMakerKeeper:
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
-        parser.add_argument("--trace", dest='trace', action='store_true',
-                            help="Enable trace output")
-
         self.arguments = parser.parse_args(args)
 
         self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}"))
         self.web3.eth.defaultAccount = self.arguments.eth_from
-
-        self.chain = chain(self.web3)
         self.our_address = Address(self.arguments.eth_from)
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.ether_token = ERC20Token(web3=self.web3, address=Address(self.arguments.weth_address))
 
-        _json_log = os.path.abspath(pkg_resources.resource_filename(__name__, f"../logs/radarrelay-market-maker-keeper_{self.chain}_{self.our_address}.json.log".lower()))
-        self.logger = Logger('radarrelay-market-maker-keeper', self.chain, _json_log, self.arguments.debug, self.arguments.trace)
-        Contract.logger = self.logger
+        logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
+                            level=(logging.DEBUG if self.arguments.debug else logging.INFO))
 
-        self.bands_config = ReloadableConfig(self.arguments.config, self.logger)
+        self.bands_config = ReloadableConfig(self.arguments.config)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.logger)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub)
 
         self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
-        self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay,
-                                             api_server=self.arguments.relayer_api_server,
-                                             logger=self.logger)
+        self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay, api_server=self.arguments.relayer_api_server)
 
     def main(self):
-        with Web3Lifecycle(self.web3, self.logger) as lifecycle:
+        with Web3Lifecycle(self.web3) as lifecycle:
             self.lifecycle = lifecycle
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
