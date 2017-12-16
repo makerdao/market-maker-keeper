@@ -41,7 +41,7 @@ class SmartGasPrice(GasPrice):
             # start from fast_price + 10 GWei
             # increase by 10 GWei every 60 seconds
             # max is fast_price + 50 GWei
-            return min(fast_price+(10*self.GWEI) + int(time_elapsed/60)*(10*self.GWEI), fast_price+(50*self.GWEI))
+            return min(int(fast_price*1.1) + int(time_elapsed/60)*(10*self.GWEI), int(fast_price*1.1)+(50*self.GWEI))
         else:
             # default gas pricing when EthGasStation feed is down
             return IncreasingGasPrice(initial_price=50*self.GWEI,
