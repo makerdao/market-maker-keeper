@@ -632,6 +632,39 @@ class TestOasisMarketMakerKeeper:
         assert len(deployment.otc.get_orders()) == 0
         assert not keeper.lifecycle.terminated_internally
 
+    def test_should_cancel_all_orders_but_not_terminate_if_market_gets_closed(self, deployment: Deployment, tmpdir):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--config {config_file}"),
+                                        web3=deployment.web3)
+        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        self.synchronize_orders_twice(keeper)
+
+        # then
+        assert len(deployment.otc.get_orders()) == 2
+
+        # when
+        deployment.otc._contract.transact().stop()
+
+        # and
+        self.synchronize_orders_twice(keeper)
+
+        # then
+        assert len(deployment.otc.get_orders()) == 0
+        assert not keeper.lifecycle.terminated_internally
+
     @staticmethod
     def leave_only_some_eth(deployment: Deployment, amount_of_eth_to_leave: Wad):
         balance = Wad(deployment.web3.eth.getBalance(deployment.our_address.address))
