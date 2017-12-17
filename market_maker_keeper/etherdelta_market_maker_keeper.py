@@ -267,7 +267,7 @@ class EtherDeltaMarketMakerKeeper:
     def withdraw_everything(self):
         eth_balance = self.etherdelta.balance_of(self.our_address)
         if eth_balance > Wad(0):
-            self.etherdelta.withdraw(eth_balance).transact()
+            self.etherdelta.withdraw(eth_balance).transact(gas_price=self.gas_price)
 
         sai_balance = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
         if sai_balance > Wad(0):
