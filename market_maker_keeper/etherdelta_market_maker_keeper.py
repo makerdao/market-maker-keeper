@@ -35,7 +35,7 @@ from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 from market_maker_keeper.band import Bands
 from market_maker_keeper.price import PriceFeedFactory
-from pymaker.sai import Tub
+from pymaker.sai import Tub, Vox
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
 
@@ -140,6 +140,7 @@ class EtherDeltaMarketMakerKeeper:
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
+        self.vox = Vox(web3=self.web3, address=self.tub.vox())
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
@@ -152,7 +153,7 @@ class EtherDeltaMarketMakerKeeper:
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.vox)
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")

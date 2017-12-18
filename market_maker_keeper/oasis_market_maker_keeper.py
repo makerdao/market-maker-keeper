@@ -36,7 +36,7 @@ from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice, IncreasingGasP
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 from pymaker.oasis import Order, MatchingMarket
-from pymaker.sai import Tub
+from pymaker.sai import Tub, Vox
 from pymaker.token import ERC20Token
 from pymaker.util import synchronize, eth_balance
 
@@ -105,6 +105,7 @@ class OasisMarketMakerKeeper:
         self.our_address = Address(self.arguments.eth_from)
         self.otc = MatchingMarket(web3=self.web3, address=Address(self.arguments.oasis_address))
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
+        self.vox = Vox(web3=self.web3, address=self.tub.vox())
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
@@ -114,7 +115,7 @@ class OasisMarketMakerKeeper:
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.vox)
 
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:

@@ -33,7 +33,7 @@ from pymaker.approval import directly
 from pymaker.gas import GasPrice, FixedGasPrice, DefaultGasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
-from pymaker.sai import Tub
+from pymaker.sai import Tub, Vox
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
 from pymaker.zrx import ZrxExchange, ZrxRelayerApi
@@ -98,6 +98,7 @@ class RadarRelayMarketMakerKeeper:
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
+        self.vox = Vox(web3=self.web3, address=self.tub.vox())
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.ether_token = ERC20Token(web3=self.web3, address=Address(self.arguments.weth_address))
 
@@ -106,7 +107,7 @@ class RadarRelayMarketMakerKeeper:
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.vox)
 
         self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay, api_server=self.arguments.relayer_api_server)

@@ -23,7 +23,7 @@ from typing import Optional
 from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
 from pymaker.numeric import Wad
-from pymaker.sai import Tub
+from pymaker.sai import Tub, Vox
 
 
 class PriceFeed(object):
@@ -32,22 +32,29 @@ class PriceFeed(object):
 
 
 class TubPriceFeed(PriceFeed):
-    def __init__(self, tub: Tub):
+    def __init__(self, tub: Tub, vox: Vox):
+        assert(isinstance(tub, Tub))
+        assert(isinstance(vox, Vox))
+
         self.tub = tub
+        self.vox = vox
         self.ds_value = DSValue(web3=self.tub.web3, address=self.tub.pip())
 
     def get_ref_per_gem(self):
         return Wad(self.ds_value.read_as_int())
 
     def get_price(self) -> Optional[Wad]:
-        return self.get_ref_per_gem() / self.tub.par()
+        return self.get_ref_per_gem() / Wad(self.vox.par())
 
 
 class SetzerPriceFeed(PriceFeed):
     logger = logging.getLogger('setzer-price-feed')
 
-    def __init__(self, tub: Tub, setzer_source: str):
-        self.tub = tub
+    def __init__(self, vox: Vox, setzer_source: str):
+        assert(isinstance(vox, Vox))
+        assert(isinstance(setzer_source, str))
+
+        self.vox = vox
         self.setzer_price = None
         self.setzer_retries = 0
         self.setzer_source = setzer_source
@@ -76,13 +83,13 @@ class SetzerPriceFeed(PriceFeed):
         if self.setzer_price is None:
             return None
         else:
-            return self.setzer_price / self.tub.par()
+            return self.setzer_price / Wad(self.vox.par())
 
 
 class PriceFeedFactory:
     @staticmethod
-    def create_price_feed(price_feed_argument: str, tub: Tub) -> PriceFeed:
+    def create_price_feed(price_feed_argument: str, tub: Tub, vox: Vox) -> PriceFeed:
         if price_feed_argument is not None:
-            return SetzerPriceFeed(tub, price_feed_argument)
+            return SetzerPriceFeed(vox, price_feed_argument)
         else:
-            return TubPriceFeed(tub)
+            return TubPriceFeed(tub, vox)
