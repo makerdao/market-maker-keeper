@@ -177,7 +177,7 @@ class EtherDeltaMarketMakerKeeper:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.on_block(self.synchronize_orders)
-            lifecycle.every(60*60, self.print_balances)
+            lifecycle.every(15*60, self.print_balances)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
