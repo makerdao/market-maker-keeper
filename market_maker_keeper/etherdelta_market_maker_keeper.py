@@ -193,10 +193,13 @@ class EtherDeltaMarketMakerKeeper:
     def print_balances(self):
         sai_owned = self.sai.balance_of(self.our_address)
         sai_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
+        self.logger.info(f"Keeper SAI balance is {sai_owned + sai_deposited} SAI"
+                         f" ({sai_owned} SAI in keeper account, {sai_deposited} SAI deposited to EtherDelta)")
+
         eth_owned = eth_balance(self.web3, self.our_address)
         eth_deposited = self.etherdelta.balance_of(self.our_address)
-
-        self.logger.info(f"Keeper balances are {sai_owned} + {sai_deposited} SAI, {eth_owned} + {eth_deposited} ETH")
+        self.logger.info(f"Keeper ETH balance is {eth_owned + eth_deposited} ETH"
+                         f" ({eth_owned} ETH in keeper account, {eth_deposited} ETH deposited to EtherDelta)")
 
     def approve(self):
         """Approve EtherDelta to access our SAI, so we can deposit it with the exchange"""
