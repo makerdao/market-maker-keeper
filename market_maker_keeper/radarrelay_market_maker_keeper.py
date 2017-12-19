@@ -36,7 +36,7 @@ from pymaker.numeric import Wad
 from pymaker.sai import Tub, Vox
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
-from pymaker.zrx import ZrxExchange, ZrxRelayerApi
+from pymaker.zrx import ZrxExchange, ZrxRelayerApi, Order
 
 
 class RadarRelayMarketMakerKeeper:
@@ -155,6 +155,12 @@ class RadarRelayMarketMakerKeeper:
         """Approve 0x to access our 0x-WETH and SAI, so we can sell it on the exchange."""
         self.radar_relay.approve([self.ether_token, self.sai], directly(gas_price=self.gas_price))
 
+    def place_order(self, order: Order, our_orders: list):
+        order = self.radar_relay_api.calculate_fees(order)
+        order = self.radar_relay.sign_order(order)
+        self.radar_relay_api.submit_order(order)
+        our_orders.append(order)
+
     def our_orders(self) -> list:
         our_orders = self.radar_relay_api.get_orders_by_maker(self.our_address)
         current_timestamp = int(time.time())
@@ -203,45 +209,33 @@ class RadarRelayMarketMakerKeeper:
 
     def top_up_sell_bands(self, our_orders: list, sell_bands: list, target_price: Wad):
         """Ensure our WETH engagement is not below minimum in all sell bands. Place new orders if necessary."""
-        our_balance = self.ether_token.balance_of(self.our_address)  #TODO deduct orders / or maybe not...?
+        our_balance = self.ether_token.balance_of(self.our_address)
         for band in sell_bands:
             orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
-                have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
-                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    our_balance = our_balance - have_amount  #TODO I think this line is unnecessary here
-                    want_amount = have_amount * round(band.avg_price(target_price))
-                    if want_amount > Wad(0):
-                        order = self.radar_relay.create_order(pay_token=self.ether_token.address,
-                                                              pay_amount=have_amount, buy_token=self.sai.address,
-                                                              buy_amount=want_amount,
-                                                              expiration=int(time.time()) + self.arguments.order_expiry)
-
-                        order = self.radar_relay_api.calculate_fees(order)
-                        order = self.radar_relay.sign_order(order)
-                        self.radar_relay_api.submit_order(order)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_sell_orders(our_orders)))
+                buy_amount = pay_amount * band.avg_price(target_price)
+                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    order = self.radar_relay.create_order(pay_token=self.ether_token.address, pay_amount=pay_amount,
+                                                          buy_token=self.sai.address, buy_amount=buy_amount,
+                                                          expiration=int(time.time()) + self.arguments.order_expiry)
+                    self.place_order(order, our_orders)
 
     def top_up_buy_bands(self, our_orders: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Place new orders if necessary."""
-        our_balance = self.sai.balance_of(self.our_address)  #TODO deduct orders / or maybe not...?
+        our_balance = self.sai.balance_of(self.our_address)
         for band in buy_bands:
             orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
-                have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
-                if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)):
-                    our_balance = our_balance - have_amount  #TODO I think this line is unnecessary here
-                    want_amount = have_amount / round(band.avg_price(target_price))
-                    if want_amount > Wad(0):
-                        order = self.radar_relay.create_order(pay_token=self.sai.address, pay_amount=have_amount,
-                                                              buy_token=self.ether_token.address,
-                                                              buy_amount=want_amount,
-                                                              expiration=int(time.time()) + self.arguments.order_expiry)
-
-                        order = self.radar_relay_api.calculate_fees(order)
-                        order = self.radar_relay.sign_order(order)
-                        self.radar_relay_api.submit_order(order)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_buy_orders(our_orders)))
+                buy_amount = pay_amount / band.avg_price(target_price)
+                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    order = self.radar_relay.create_order(pay_token=self.sai.address, pay_amount=pay_amount,
+                                                          buy_token=self.ether_token.address, buy_amount=buy_amount,
+                                                          expiration=int(time.time()) + self.arguments.order_expiry)
+                    self.place_order(order, our_orders)
 
     def total_amount(self, orders):
         pay_amount_available = lambda order: order.pay_amount - (self.radar_relay.get_unavailable_buy_amount(order) * order.pay_amount / order.buy_amount)
