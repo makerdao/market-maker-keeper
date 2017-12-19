@@ -26,11 +26,11 @@ from functools import reduce
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
+from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.price import PriceFeedFactory
 from pymaker import Address, synchronize
 from pymaker.approval import directly
-from pymaker.gas import GasPrice, FixedGasPrice, DefaultGasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 from pymaker.sai import Tub, Vox
@@ -89,6 +89,22 @@ class RadarRelayMarketMakerKeeper:
         parser.add_argument("--gas-price", type=int, default=0,
                             help="Gas price (in Wei)")
 
+        parser.add_argument("--gas-price-increase", type=int,
+                            help="Gas price increase (in Wei) if no confirmation within"
+                                 " `--gas-price-increase-every` seconds")
+
+        parser.add_argument("--gas-price-increase-every", type=int, default=120,
+                            help="Gas price increase frequency (in seconds, default: 120)")
+
+        parser.add_argument("--gas-price-max", type=int,
+                            help="Maximum gas price (in Wei)")
+
+        parser.add_argument("--gas-price-file", type=str,
+                            help="Gas price configuration file")
+
+        parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
+                            help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -105,8 +121,9 @@ class RadarRelayMarketMakerKeeper:
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
                             level=(logging.DEBUG if self.arguments.debug else logging.INFO))
 
-        self.bands_config = ReloadableConfig(self.arguments.config)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
+        self.bands_config = ReloadableConfig(self.arguments.config)
+        self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.vox)
 
         self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
@@ -136,7 +153,7 @@ class RadarRelayMarketMakerKeeper:
 
     def approve(self):
         """Approve 0x to access our 0x-WETH and SAI, so we can sell it on the exchange."""
-        self.radar_relay.approve([self.ether_token, self.sai], directly())
+        self.radar_relay.approve([self.ether_token, self.sai], directly(gas_price=self.gas_price))
 
     def our_orders(self) -> list:
         our_orders = self.radar_relay_api.get_orders_by_maker(self.our_address)
@@ -177,16 +194,7 @@ class RadarRelayMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
-        synchronize([self.radar_relay.cancel_order(order).transact_async(gas_price=self.gas_price()) for order in orders])
-
-    def excessive_orders_in_band(self, band, orders: list, target_price: Wad):
-        """Return orders which need to be cancelled to bring the total order amount in the band below maximum."""
-        # if total amount of orders in this band is greater than the maximum, we cancel them all
-        #
-        # if may not be the best solution as cancelling only some of them could bring us below
-        # the maximum, but let's stick to it for now
-        orders_in_band = [order for order in orders if band.includes(order, target_price)]
-        return orders_in_band if self.total_amount(orders_in_band) > band.max_amount else []
+        synchronize([self.radar_relay.cancel_order(order).transact_async(gas_price=self.gas_price) for order in orders])
 
     def top_up_bands(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Create new buy and sell orders in all send and buy bands if necessary."""
@@ -238,12 +246,6 @@ class RadarRelayMarketMakerKeeper:
     def total_amount(self, orders):
         pay_amount_available = lambda order: order.pay_amount - (self.radar_relay.get_unavailable_buy_amount(order) * order.pay_amount / order.buy_amount)
         return reduce(operator.add, map(pay_amount_available, orders), Wad(0))
-
-    def gas_price(self) -> GasPrice:
-        if self.arguments.gas_price > 0:
-            return FixedGasPrice(self.arguments.gas_price)
-        else:
-            return DefaultGasPrice()
 
 
 if __name__ == '__main__':
