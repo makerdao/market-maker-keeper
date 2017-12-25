@@ -55,6 +55,18 @@ class Order:
         self.money = money
         self.money_symbol = money_symbol
 
+    @property
+    def sell_to_buy_price(self) -> Wad:
+        return self.money / self.amount
+
+    @property
+    def buy_to_sell_price(self) -> Wad:
+        return self.money / self.amount
+
+    @property
+    def remaining_sell_amount(self) -> Wad:
+        return self.amount if self.is_sell else self.money
+
     def __eq__(self, other):
         assert(isinstance(other, Order))
         return self.order_id == other.order_id and \
@@ -149,17 +161,22 @@ class BiboxApi:
         assert(isinstance(money, Wad))
         assert(isinstance(money_symbol, str))
 
-        return self._request('/v1/orderpending', {"cmd": "orderpending/trade",
-                                                  "body": {
-                                                      "pair": amount_symbol + "_" + money_symbol,
-                                                      "account_type": 0,
-                                                      "order_type": 2,
-                                                      "order_side": 2 if is_sell else 1,
-                                                      "pay_bix": 0,
-                                                      "price": float(money / amount),
-                                                      "amount": float(amount),
-                                                      "money": float(money)
-                                                  }})
+        order_id = self._request('/v1/orderpending', {"cmd": "orderpending/trade",
+                                                      "body": {
+                                                          "pair": amount_symbol + "_" + money_symbol,
+                                                          "account_type": 0,
+                                                          "order_type": 2,
+                                                          "order_side": 2 if is_sell else 1,
+                                                          "pay_bix": 0,
+                                                          "price": float(money / amount),
+                                                          "amount": float(amount),
+                                                          "money": float(money)
+                                                      }})
+
+        self.logger.info(f"Placed order #{order_id} (is_sell={is_sell}, amount {amount} {amount_symbol},"
+                         f" money {money} {money_symbol})")
+
+        return order_id
 
     def cancel_order(self, order_id: int):
         assert(isinstance(order_id, int))

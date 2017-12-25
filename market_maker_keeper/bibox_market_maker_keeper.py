@@ -17,15 +17,19 @@
 
 import argparse
 import logging
+import operator
 import sys
+from functools import reduce
 from typing import List
 
+import itertools
 from web3 import Web3, HTTPProvider
 
+from market_maker_keeper.band import Bands
 from market_maker_keeper.bibox_api import BiboxApi, Order
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from pymaker import Address
+from pymaker import Address, Wad
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.sai import Tub, Vox
 
@@ -84,7 +88,9 @@ class BiboxMarketMakerKeeper:
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:
             self.lifecycle = lifecycle
+            lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
+            lifecycle.every(10, self.synchronize_orders)
             lifecycle.every(15*60, self.print_balances)
             lifecycle.on_shutdown(self.shutdown)
 
@@ -97,26 +103,92 @@ class BiboxMarketMakerKeeper:
     def shutdown(self):
         self.cancel_orders(self.our_orders())
 
-    def print_balance(self, coin_list: list, symbol: str):
-        assert(isinstance(coin_list, list))
-        assert(isinstance(symbol, str))
-
-        coin = next(filter(lambda c: c['symbol'] == symbol, coin_list))
-        self.logger.info(f"Keeper {symbol} balance is {coin['totalBalance']} {symbol}"
-                         f" ({coin['balance']} {symbol} available + {coin['freeze']} {symbol} in orders)")
+    def print_balance(self, coin: dict):
+        assert(isinstance(coin, dict))
+        self.logger.info(f"Keeper {coin['symbol']} balance is {coin['totalBalance']} {coin['symbol']}"
+                         f" ({coin['balance']} {coin['symbol']} available + {coin['freeze']} {coin['symbol']} in orders)")
 
     def print_balances(self):
-        coin_list = self.bibox_api.coin_list()
+        our_balances = self.our_balances()
+        self.print_balance(self.our_balance(our_balances, 'ETH'))
+        self.print_balance(self.our_balance(our_balances, 'DAI'))
 
-        self.print_balance(coin_list, 'ETH')
-        self.print_balance(coin_list, 'DAI')
+    def our_balances(self):
+        return self.bibox_api.coin_list()
+
+    def our_balance(self, our_balances: list, symbol: str) -> dict:
+        return next(filter(lambda coin: coin['symbol'] == symbol, our_balances))
 
     def our_orders(self):
         return self.bibox_api.get_orders('ETH_DAI')
 
-    def cancel_orders(self, orders: List[Order]):
+    def our_sell_orders(self, our_orders: list) -> list:
+        return list(filter(lambda order: order.is_sell, our_orders))
+
+    def our_buy_orders(self, our_orders: list) -> list:
+        return list(filter(lambda order: not order.is_sell, our_orders))
+
+    def synchronize_orders(self):
+        """Update our positions in the order book to reflect keeper parameters."""
+        bands = Bands(self.bands_config)
+        our_orders = self.our_orders()
+        our_balances = self.our_balances()
+        target_price = self.price_feed.get_price()
+
+        if target_price is None:
+            self.logger.warning("Cancelling all orders as no price feed available.")
+            self.cancel_orders(our_orders)
+            return
+
+        orders_to_cancel = list(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(our_orders), target_price),
+                                                bands.excessive_sell_orders(self.our_sell_orders(our_orders), target_price),
+                                                bands.outside_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)))
+        if len(orders_to_cancel) > 0:
+            self.cancel_orders(orders_to_cancel)
+        else:
+            self.top_up_bands(our_orders, our_balances, bands.buy_bands, bands.sell_bands, target_price)
+
+    def cancel_orders(self, orders):
         for order in orders:
             self.bibox_api.cancel_order(order.order_id)
+
+    def top_up_bands(self, our_orders: list, our_balances: list, buy_bands: list, sell_bands: list, target_price: Wad):
+        """Create new buy and sell orders in all send and buy bands if necessary."""
+        self.top_up_buy_bands(our_orders, our_balances, buy_bands, target_price)
+        self.top_up_sell_bands(our_orders, our_balances, sell_bands, target_price)
+
+    def top_up_sell_bands(self, our_orders: list, our_balances: list, sell_bands: list, target_price: Wad):
+        """Ensure our ETH engagement is not below minimum in all sell bands. Place new orders if necessary."""
+        our_available_balance = Wad.from_number(self.our_balance(our_balances, 'ETH')['balance'])
+        for band in sell_bands:
+            orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
+            total_amount = self.total_amount(orders)
+            if total_amount < band.min_amount:
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_available_balance)
+                buy_amount = pay_amount * band.avg_price(target_price)
+                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.bibox_api.place_order(is_sell=True,
+                                               amount=pay_amount, amount_symbol='ETH',
+                                               money=buy_amount, money_symbol='DAI')
+                    our_available_balance = our_available_balance - buy_amount
+
+    def top_up_buy_bands(self, our_orders: list, our_balances: list, buy_bands: list, target_price: Wad):
+        """Ensure our SAI engagement is not below minimum in all buy bands. Place new orders if necessary."""
+        our_available_balance = Wad.from_number(self.our_balance(our_balances, 'DAI')['balance'])
+        for band in buy_bands:
+            orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
+            total_amount = self.total_amount(orders)
+            if total_amount < band.min_amount:
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_available_balance)
+                buy_amount = pay_amount / band.avg_price(target_price)
+                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.bibox_api.place_order(is_sell=False,
+                                               amount=buy_amount, amount_symbol='ETH',
+                                               money=pay_amount, money_symbol='DAI')
+                    our_available_balance = our_available_balance - pay_amount
+
+    def total_amount(self, orders):
+        return reduce(operator.add, map(lambda order: order.amount if order.is_sell else order.money, orders), Wad(0))
 
 
 if __name__ == '__main__':
