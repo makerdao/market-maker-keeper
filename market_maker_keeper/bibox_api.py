@@ -173,7 +173,7 @@ class BiboxApi:
                                                           "money": float(money)
                                                       }})
 
-        self.logger.info(f"Placed order #{order_id} (is_sell={is_sell}, amount {amount} {amount_symbol},"
+        self.logger.info(f"Placed order #{order_id} ({'SELL' if is_sell else 'BUY'}, amount {amount} {amount_symbol},"
                          f" money {money} {money_symbol})")
 
         return order_id
