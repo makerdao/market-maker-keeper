@@ -89,6 +89,8 @@ class BiboxMarketMakerKeeper:
 
     def startup(self):
         user_info = self.bibox_api.user_info()
+
+        self.logger.info("Bibox API key seems to be valid")
         self.logger.info(f"Accessing Bibox as user_id: '{user_info['user_id']}', email: '{user_info['email']}'")
 
     def shutdown(self):
