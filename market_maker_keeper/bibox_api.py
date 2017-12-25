@@ -23,12 +23,12 @@ import requests
 
 
 class BiboxApi:
-    def __init__(self, api_path: str, api_key: str, secret: str):
-        assert(isinstance(api_path, str))
+    def __init__(self, api_server: str, api_key: str, secret: str):
+        assert(isinstance(api_server, str))
         assert(isinstance(api_key, str))
         assert(isinstance(secret, str))
 
-        self.api_path = api_path
+        self.api_path = api_server
         self.api_key = api_key
         self.secret = secret
 
@@ -43,7 +43,7 @@ class BiboxApi:
             "sign": self._sign(cmds)
         }
 
-        result = requests.post(self.api_path + path, json=call, headers={"Content-Type": "application/json"})
+        result = requests.post(self.api_path + path, json=call)
         result_json = result.json()
 
         if 'error' in result_json:
@@ -57,3 +57,9 @@ class BiboxApi:
 
     def user_info(self) -> dict:
         return self._request('/v1/user', {"cmd":"user/userInfo","body":{}})
+
+    def coin_list(self) -> dict:
+        return self._request('/v1/transfer', {"cmd":"transfer/coinList","body":{}})
+
+    def assets(self) -> dict:
+        return self._request('/v1/transfer', {"cmd":"transfer/assets","body":{}})

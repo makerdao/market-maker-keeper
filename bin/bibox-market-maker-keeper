@@ -1,0 +1,4 @@
+#!/bin/sh
+dir="$(dirname "$0")"/..
+export PYTHONPATH=$PYTHONPATH:$dir:$dir/lib/pymaker
+exec python3 -m market_maker_keeper.bibox_market_maker_keeper $@
