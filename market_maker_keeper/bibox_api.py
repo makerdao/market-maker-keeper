@@ -32,7 +32,7 @@ class BiboxApi:
         self.api_key = api_key
         self.secret = secret
 
-    def _request(self, path: str, cmd: dict) -> dict:
+    def _request(self, path: str, cmd: dict):
         assert(isinstance(path, str))
         assert(isinstance(cmd, dict))
 
@@ -58,7 +58,7 @@ class BiboxApi:
     def user_info(self) -> dict:
         return self._request('/v1/user', {"cmd":"user/userInfo","body":{}})
 
-    def coin_list(self) -> dict:
+    def coin_list(self) -> list:
         return self._request('/v1/transfer', {"cmd":"transfer/coinList","body":{}})
 
     def assets(self) -> dict:

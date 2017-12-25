@@ -97,12 +97,19 @@ class BiboxMarketMakerKeeper:
         pass
         # self.cancel_orders(self.our_orders())
 
+    def print_balance(self, coin_list: list, symbol: str):
+        assert(isinstance(coin_list, list))
+        assert(isinstance(symbol, str))
+
+        coin = next(filter(lambda c: c['symbol'] == symbol, coin_list))
+        self.logger.info(f"Keeper {coin['symbol']} balance is {coin['totalBalance']} {coin['symbol']}"
+                         f" ({coin['balance']} {coin['symbol']} balance, {coin['freeze']} {coin['symbol']} freeze)")
+
     def print_balances(self):
-        pass
-        # sai_owned = self.sai.balance_of(self.our_address)
-        # weth_owned = self.ether_token.balance_of(self.our_address)
-        #
-        # self.logger.info(f"Keeper balances are {sai_owned} SAI, {weth_owned} 0x-WETH")
+        coin_list = self.bibox_api.coin_list()
+
+        self.print_balance(coin_list, 'ETH')
+        self.print_balance(coin_list, 'DAI')
 
 
 if __name__ == '__main__':
