@@ -142,6 +142,25 @@ class BiboxApi:
                                            money=Wad.from_number(item['money']),
                                            money_symbol=item['currency_symbol']), items))
 
+    def place_order(self, is_sell: bool, amount: Wad, amount_symbol: str, money: Wad, money_symbol: str) -> int:
+        assert(isinstance(is_sell, bool))
+        assert(isinstance(amount, Wad))
+        assert(isinstance(amount_symbol, str))
+        assert(isinstance(money, Wad))
+        assert(isinstance(money_symbol, str))
+
+        return self._request('/v1/orderpending', {"cmd": "orderpending/trade",
+                                                  "body": {
+                                                      "pair": amount_symbol + "_" + money_symbol,
+                                                      "account_type": 0,
+                                                      "order_type": 2,
+                                                      "order_side": 2 if is_sell else 1,
+                                                      "pay_bix": 0,
+                                                      "price": float(money / amount),
+                                                      "amount": float(amount),
+                                                      "money": float(money)
+                                                  }})
+
     def cancel_order(self, order_id: int):
         assert(isinstance(order_id, int))
 
