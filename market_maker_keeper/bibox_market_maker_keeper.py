@@ -18,10 +18,11 @@
 import argparse
 import logging
 import sys
+from typing import List
 
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.bibox_api import BiboxApi
+from market_maker_keeper.bibox_api import BiboxApi, Order
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker import Address
@@ -90,26 +91,32 @@ class BiboxMarketMakerKeeper:
     def startup(self):
         user_info = self.bibox_api.user_info()
 
-        self.logger.info("Bibox API key seems to be valid")
+        self.logger.info(f"Bibox API key seems to be valid")
         self.logger.info(f"Accessing Bibox as user_id: '{user_info['user_id']}', email: '{user_info['email']}'")
 
     def shutdown(self):
-        pass
-        # self.cancel_orders(self.our_orders())
+        self.cancel_orders(self.our_orders())
 
     def print_balance(self, coin_list: list, symbol: str):
         assert(isinstance(coin_list, list))
         assert(isinstance(symbol, str))
 
         coin = next(filter(lambda c: c['symbol'] == symbol, coin_list))
-        self.logger.info(f"Keeper {coin['symbol']} balance is {coin['totalBalance']} {coin['symbol']}"
-                         f" ({coin['balance']} {coin['symbol']} balance, {coin['freeze']} {coin['symbol']} freeze)")
+        self.logger.info(f"Keeper {symbol} balance is {coin['totalBalance']} {symbol}"
+                         f" ({coin['balance']} {symbol} available + {coin['freeze']} {symbol} in orders)")
 
     def print_balances(self):
         coin_list = self.bibox_api.coin_list()
 
         self.print_balance(coin_list, 'ETH')
         self.print_balance(coin_list, 'DAI')
+
+    def our_orders(self):
+        return self.bibox_api.get_orders('ETH_DAI')
+
+    def cancel_orders(self, orders: List[Order]):
+        for order in orders:
+            self.bibox_api.cancel_order(order.order_id)
 
 
 if __name__ == '__main__':
