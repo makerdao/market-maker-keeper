@@ -6,7 +6,7 @@
 The _DAI Stablecoin System_ incentivizes external agents, called _keepers_,
 to automate certain operations around the Ethereum blockchain.
 
-`market-maker-keeper` is actually a set of keepers that facilitate SAI/W-ETH and SAI/ETH
+`market-maker-keeper` is actually a set of keepers that facilitate DAI/W-ETH and DAI/ETH
 market making of the following exchanges:
 * OasisDEX (`oasis-market-maker-keeper`),
 * EtherDelta (`etherdelta-market-maker-keeper`),
@@ -18,8 +18,8 @@ a series of orders in so called _bands_, which are configured with a JSON file
 containing parameters like spreads, maximum engagement etc. Please see the
 _"Bands configuration"_ section below for more details regarding keeper mechanics.
 
-All these keepers are currently only capable of market-making on the SAI/W-ETH
-(for OasisDEX and RadarRelay) and SAI/ETH (for EtherDelta and Bibox) pairs. Changing it
+All these keepers are currently only capable of market-making on the DAI/W-ETH
+(for OasisDEX and RadarRelay) and DAI/ETH (for EtherDelta and Bibox) pairs. Changing it
 would require making some changes to their source code. Having said that,
 that change seems to be pretty trivial.
 
@@ -80,16 +80,16 @@ Bands configuration file is directly related to how market maker keepers work. T
 monitor and adjusts its positions in the order to book, maintaining open buy and sell orders
 in multiple bands at the same time.
 
-In each buy band, the keepers aim to have open SAI sell orders for at least `minSaiAmount`.
+In each buy band, the keepers aim to have open DAI sell orders for at least `minSaiAmount`.
 In each sell band they aim to have open WETH (or ETH) sell orders for at least `minWEthAmount`.
 In both cases, they will ensure the price of open orders stays within the <minMargin,maxMargin>
-range from the current SAI/ETH price.
+range from the current DAI/ETH price.
 
 When started, keepers places orders for the average amounts (`avgSaiAmount`
 and `avgWEthAmount`) in each band, using use `avgMargin` to calculate the order price.
 
 As long as the price of orders stays within the band (i.e. is in the <minMargin,maxMargin>
-range from the current SAI/ETH price, which is of course constantly moving), the keepers
+range from the current DAI/ETH price, which is of course constantly moving), the keepers
 keep them open. If some orders leave the band, they either enter another adjacent band
 or fall outside all bands. In case of the latter, they get immediately cancelled. In case of
 the former, keepers can keep these orders open as long as their amount is within the
@@ -105,14 +105,14 @@ In this case also a new order gets created for the remaining amount so the total
 amount of orders in this band is equal to `avgSaiAmount` / `avgWEthAmount`.
 
 Keeper will constantly use gas to cancel orders (for OasisDEX, EtherDelta and RadarRelay)
-and create new ones (OasisDEX only) as the SAI/ETH price changes. Gas usage can be limited
+and create new ones (OasisDEX only) as the DAI/ETH price changes. Gas usage can be limited
 by setting the margin and amount ranges wide enough and also by making sure that bands
 are always adjacent to each other and that their <min,max> amount ranges overlap.
 
 ### File format
 
 Bands configuration file consists of two main sections: *buyBands* (configuration determining how the keeper
-buys WETH (or ETH) with SAI) and *sellBands* (configuration determining how the keeper sells WETH (or ETH) for SAI).
+buys WETH (or ETH) with DAI) and *sellBands* (configuration determining how the keeper sells WETH (or ETH) for DAI).
 Each section is an array containing one object per each band.
 
 The *minMargin* and *maxMargin* fields in each band object represent the margin (spread) range of that band.
@@ -123,7 +123,7 @@ represents the margin (spread) of newly created orders within a band.
 The next three fields (*minSaiAmount*, *avgSaiAmount* and *maxSaiAmount* for buy bands, or *minWEthAmount*,
 *avgWEthAmount* and *maxWEthAmount* for sell bands) are the minimum, target and maximum keeper engagement
 per each band. The *dustCutoff* field is the minimum value of order created in each individual band,
-expressed in SAI for buy bands and in WETH (or ETH) for sell bands. Setting it to a non-zero value prevents
+expressed in DAI for buy bands and in WETH (or ETH) for sell bands. Setting it to a non-zero value prevents
 keepers from creating of lot of very tiny orders, which can cost a lot of gas in case of OasisDEX.  
 
 Sample bands configuration file:
