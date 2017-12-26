@@ -93,6 +93,12 @@ class Order:
 
 
 class BiboxApi:
+    """Bibox API interface.
+
+    Developed according to the following manual:
+    <https://github.com/Biboxcom/api_reference/wiki/home_en>.
+    """
+
     logger = logging.getLogger('bibox-api')
 
     def __init__(self, api_server: str, api_key: str, secret: str):
