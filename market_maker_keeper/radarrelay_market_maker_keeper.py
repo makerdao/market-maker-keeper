@@ -149,7 +149,7 @@ class RadarRelayMarketMakerKeeper:
         sai_owned = self.sai.balance_of(self.our_address)
         weth_owned = self.ether_token.balance_of(self.our_address)
 
-        self.logger.info(f"Keeper balances are {sai_owned} SAI, {weth_owned} 0x-WETH")
+        self.logger.info(f"Keeper balances are {sai_owned} DAI, {weth_owned} 0x-WETH")
 
     def approve(self):
         """Approve 0x to access our 0x-WETH and SAI, so we can sell it on the exchange."""

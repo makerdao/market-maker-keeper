@@ -193,8 +193,8 @@ class EtherDeltaMarketMakerKeeper:
     def print_balances(self):
         sai_owned = self.sai.balance_of(self.our_address)
         sai_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
-        self.logger.info(f"Keeper SAI balance is {sai_owned + sai_deposited} SAI"
-                         f" ({sai_owned} SAI in keeper account, {sai_deposited} SAI deposited to EtherDelta)")
+        self.logger.info(f"Keeper DAI balance is {sai_owned + sai_deposited} DAI"
+                         f" ({sai_owned} DAI in keeper account, {sai_deposited} DAI deposited to EtherDelta)")
 
         eth_owned = eth_balance(self.web3, self.our_address)
         eth_deposited = self.etherdelta.balance_of(self.our_address)

@@ -134,7 +134,7 @@ class OasisMarketMakerKeeper:
 
     def print_token_balances(self):
         orders = self.our_orders()
-        self.print_token_balance(orders, self.sai, 'SAI')
+        self.print_token_balance(orders, self.sai, 'DAI')
         self.print_token_balance(orders, self.gem, 'WETH')
 
     def print_token_balance(self, orders: list, token: ERC20Token, token_name: str):
