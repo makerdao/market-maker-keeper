@@ -92,6 +92,64 @@ class Order:
         return pformat(vars(self))
 
 
+class Trade:
+    def __init__(self,
+                 trade_id: id,
+                 timestamp: int,
+                 is_sell: bool,
+                 price: Wad,
+                 amount: Wad,
+                 amount_symbol: str,
+                 money: Wad,
+                 money_symbol: str,
+                 fee: Wad):
+        assert(isinstance(trade_id, int))
+        assert(isinstance(timestamp, int))
+        assert(isinstance(is_sell, bool))
+        assert(isinstance(price, Wad))
+        assert(isinstance(amount, Wad))
+        assert(isinstance(amount_symbol, str))
+        assert(isinstance(money, Wad))
+        assert(isinstance(money_symbol, str))
+        assert(isinstance(fee, Wad))
+
+        self.trade_id = trade_id
+        self.timestamp = timestamp
+        self.is_sell = is_sell
+        self.price = price
+        self.amount = amount
+        self.amount_symbol = amount_symbol
+        self.money = money
+        self.money_symbol = money_symbol
+        self.fee = fee
+
+    def __eq__(self, other):
+        assert(isinstance(other, Trade))
+        return self.trade_id == other.trade_id and \
+               self.timestamp == other.timestamp and \
+               self.is_sell == other.is_sell and \
+               self.price == other.price and \
+               self.amount == other.amount and \
+               self.amount_symbol == other.amount_symbol and \
+               self.money == other.money and \
+               self.money_symbol == other.money_symbol and \
+               self.fee == other.fee
+
+    def __hash__(self):
+        return hash((self.trade_id,
+                     self.timestamp,
+                     self.is_sell,
+                     self.price,
+                     self.amount,
+                     self.amount_symbol,
+                     self.money,
+                     self.money_symbol,
+                     self.fee))
+
+    def __repr__(self):
+        return pformat(vars(self))
+
+
 class BiboxApi:
     """Bibox API interface.
 
@@ -189,3 +247,36 @@ class BiboxApi:
 
         self._request('/v1/orderpending', {"cmd": "orderpending/cancelTrade", "body": {"orders_id": order_id}})
         self.logger.info(f"Cancelled order #{order_id}")
+
+    def get_trade_history(self, pair: str, number_of_trades: int) -> List[Trade]:
+        assert(isinstance(pair, str))
+        assert(isinstance(number_of_trades, int))
+
+        items = []
+        for page in range(1, 100):
+            result = self._request('/v1/orderpending', {"cmd": "orderpending/orderHistoryList",
+                                                        "body": {
+                                                            "pair": pair,
+                                                            "account_type": 0,
+                                                            "page": page,
+                                                            "size": 200
+                                                        }})['items']
+
+            # We are interested in limit orders only ("order_type":2)
+            items = items + list(filter(lambda item: item['order_type'] == 2, result))
+
+            if len(result) == 0:
+                break
+
+            if len(items) >= number_of_trades:
+                break
+
+        return list(map(lambda item: Trade(trade_id=item['id'],
+                                           timestamp=int(item['createdAt']/1000),
+                                           is_sell=True if item['order_side'] == 2 else False,
+                                           price=Wad.from_number(item['price']),
+                                           amount=Wad.from_number(item['amount']),
+                                           amount_symbol=item['coin_symbol'],
+                                           money=Wad.from_number(item['money']),
+                                           money_symbol=item['currency_symbol'],
+                                           fee=Wad.from_number(item['fee'])), items[:number_of_trades]))
