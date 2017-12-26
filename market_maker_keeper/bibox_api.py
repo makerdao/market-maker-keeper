@@ -115,7 +115,7 @@ class BiboxApi:
             "sign": self._sign(cmds)
         }
 
-        result = requests.post(self.api_path + path, json=call)
+        result = requests.post(self.api_path + path, json=call, timeout=15.5)
         result_json = result.json()
 
         if 'error' in result_json:
