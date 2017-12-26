@@ -10,7 +10,8 @@ to automate certain operations around the Ethereum blockchain.
 market making of the following exchanges:
 * OasisDEX (`oasis-market-maker-keeper`),
 * EtherDelta (`etherdelta-market-maker-keeper`),
-* RadarRelay (`radarrelay-market-maker-keeper`).
+* RadarRelay (`radarrelay-market-maker-keeper`),
+* Bibox (`bibox-market-maker-keeper`).
 
 All these three keepers share some logic and operate in a similar way. They create
 a series of orders in so called _bands_, which are configured with a JSON file
@@ -18,7 +19,7 @@ containing parameters like spreads, maximum engagement etc. Please see the
 _"Bands configuration"_ section below for more details regarding keeper mechanics.
 
 All these keepers are currently only capable of market-making on the SAI/W-ETH
-(for OasisDEX and RadarRelay) and SAI/ETH (for EtherDelta) pairs. Changing it
+(for OasisDEX and RadarRelay) and SAI/ETH (for EtherDelta and Bibox) pairs. Changing it
 would require making some changes to their source code. Having said that,
 that change seems to be pretty trivial.
 
@@ -448,6 +449,55 @@ optional arguments:
   every 10 minutes and does order pruning. Because of that, if we configure the keeper to refresh
   the orders too frequently (i.e. if the `--order-expiry` will be too low), the exchange users will
   see two or even more duplicates of market maker orders.
+
+
+## `bibox-market-maker-keeper`
+
+This keeper supports market-making on the [Bibox](https://www.bibox.com/exchange) centralized exchange.
+
+### Usage
+
+```
+usage: bibox-market-maker-keeper [-h] [--rpc-host RPC_HOST]
+                                 [--rpc-port RPC_PORT] --tub-address
+                                 TUB_ADDRESS
+                                 [--bibox-api-server BIBOX_API_SERVER]
+                                 --bibox-api-key BIBOX_API_KEY --bibox-secret
+                                 BIBOX_SECRET --config CONFIG
+                                 [--price-feed PRICE_FEED] [--debug]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
+  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --tub-address TUB_ADDRESS
+                        Ethereum address of the Tub contract
+  --bibox-api-server BIBOX_API_SERVER
+                        Address of the Bibox API server (default:
+                        'https://api.bibox.com')
+  --bibox-api-key BIBOX_API_KEY
+                        API key for the Bibox API
+  --bibox-secret BIBOX_SECRET
+                        Secret for the Bibox API
+  --config CONFIG       Buy/sell bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed. Tub price feed will be used if
+                        not specified
+  --debug               Enable debug output
+```
+
+### Known limitations
+
+* The keeper does not handle depositing neither DAI nor ETH to the exchange, so the deposits
+  have to be done manually in the Bibox UI. The keeper does not have to be shut down during
+  deposits, it will pick up new balances automatically and place new orders if needed.
+
+* The only reason the keeper needs to have a working connection to an Ethereum node is
+  getting the price feed from the `Tub` or (if the `--price-feed` argument is specified)
+  getting the `par` value from `Vox`.
+
+* As no transactions are sent to the Ethereum network by this keeper, it does take the
+  `--eth-from` argument and does not require any account to be unlocked.
 
 
 ## License
