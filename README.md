@@ -496,7 +496,7 @@ optional arguments:
   getting the price feed from the `Tub` or (if the `--price-feed` argument is specified)
   getting the `par` value from `Vox`.
 
-* As no transactions are sent to the Ethereum network by this keeper, it does take the
+* As no transactions are sent to the Ethereum network by this keeper, it does not take the
   `--eth-from` argument and does not require any account to be unlocked.
 
 
