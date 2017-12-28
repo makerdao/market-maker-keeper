@@ -89,7 +89,7 @@ class BiboxMarketMakerKeeper:
             self.lifecycle = lifecycle
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
-            lifecycle.every(6, self.synchronize_orders)
+            lifecycle.every(3, self.synchronize_orders)
             lifecycle.every(15*60, self.print_balances)
             lifecycle.on_shutdown(self.shutdown)
 
