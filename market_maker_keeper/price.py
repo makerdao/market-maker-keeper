@@ -67,17 +67,17 @@ class SetzerPriceFeed(PriceFeed):
             self.logger.debug(f"Fetched price from {self.setzer_source}: {self.setzer_price}")
         except:
             self.setzer_retries += 1
-            if self.setzer_retries > 5:
+            if self.setzer_retries > 10:
                 self.logger.warning(f"Failed to get price from {self.setzer_source}, tried {self.setzer_retries} times")
                 self.logger.warning(f"Please check if 'setzer' is installed and working correctly")
-            if self.setzer_retries > 10:
+            if self.setzer_retries > 20:
                 self.setzer_price = None
                 self.logger.warning(f"There is no valid price feed as maximum number of tries has been reached")
 
     def _background_run(self):
         while True:
             self._fetch_price()
-            time.sleep(10)
+            time.sleep(5)
 
     def get_price(self) -> Optional[Wad]:
         if self.setzer_price is None:
