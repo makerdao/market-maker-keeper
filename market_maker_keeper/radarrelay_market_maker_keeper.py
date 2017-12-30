@@ -135,7 +135,6 @@ class RadarRelayMarketMakerKeeper:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.every(15, self.synchronize_orders)
-            lifecycle.every(15*60, self.print_balances)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
@@ -144,12 +143,6 @@ class RadarRelayMarketMakerKeeper:
     def shutdown(self):
         if self.arguments.cancel_on_shutdown:
             self.cancel_orders(self.our_orders())
-
-    def print_balances(self):
-        sai_owned = self.sai.balance_of(self.our_address)
-        weth_owned = self.ether_token.balance_of(self.our_address)
-
-        self.logger.info(f"Keeper balances are {sai_owned} DAI, {weth_owned} 0x-WETH")
 
     def approve(self):
         """Approve 0x to access our 0x-WETH and SAI, so we can sell it on the exchange."""

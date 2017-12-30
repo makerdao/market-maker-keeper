@@ -177,7 +177,6 @@ class EtherDeltaMarketMakerKeeper:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.on_block(self.synchronize_orders)
-            lifecycle.every(15*60, self.print_balances)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
@@ -189,17 +188,6 @@ class EtherDeltaMarketMakerKeeper:
 
         if self.arguments.withdraw_on_shutdown:
             self.withdraw_everything()
-
-    def print_balances(self):
-        sai_owned = self.sai.balance_of(self.our_address)
-        sai_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
-        self.logger.info(f"Keeper DAI balance is {sai_owned + sai_deposited} DAI"
-                         f" ({sai_owned} DAI in keeper account, {sai_deposited} DAI deposited to EtherDelta)")
-
-        eth_owned = eth_balance(self.web3, self.our_address)
-        eth_deposited = self.etherdelta.balance_of(self.our_address)
-        self.logger.info(f"Keeper ETH balance is {eth_owned + eth_deposited} ETH"
-                         f" ({eth_owned} ETH in keeper account, {eth_deposited} ETH deposited to EtherDelta)")
 
     def approve(self):
         """Approve EtherDelta to access our SAI, so we can deposit it with the exchange"""

@@ -90,7 +90,6 @@ class BiboxMarketMakerKeeper:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.every(3, self.synchronize_orders)
-            lifecycle.every(15*60, self.print_balances)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
@@ -101,16 +100,6 @@ class BiboxMarketMakerKeeper:
 
     def shutdown(self):
         self.cancel_orders(self.our_orders())
-
-    def print_balance(self, coin: dict):
-        assert(isinstance(coin, dict))
-        self.logger.info(f"Keeper {coin['symbol']} balance is {coin['totalBalance']} {coin['symbol']}"
-                         f" ({coin['balance']} {coin['symbol']} available + {coin['freeze']} {coin['symbol']} in orders)")
-
-    def print_balances(self):
-        our_balances = self.our_balances()
-        self.print_balance(self.our_balance(our_balances, 'ETH'))
-        self.print_balance(self.our_balance(our_balances, 'DAI'))
 
     def our_balances(self):
         return self.bibox_api.coin_list()
