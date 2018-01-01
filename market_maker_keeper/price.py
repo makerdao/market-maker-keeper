@@ -103,8 +103,9 @@ class GdaxPriceFeed(PriceFeed):
 
         self.ws_url = ws_url
         self.expiry = expiry
-        self.last_price = None
-        self.last_timestamp = None
+        self._last_price = None
+        self._last_timestamp = 0
+        self._expired = True
         threading.Thread(target=self._background_run, daemon=True).start()
 
     def _background_run(self):
@@ -148,19 +149,24 @@ class GdaxPriceFeed(PriceFeed):
         self.logger.info(f"GDAX WebSocket error: '{error}'")
 
     def get_price(self) -> Optional[Wad]:
-        if self.last_timestamp is None:
-            return None
-        elif time.time() - self.last_timestamp > self.expiry:
+        if time.time() - self._last_timestamp > self.expiry:
+            if not self._expired:
+                self.logger.warning(f"Price feed from GDAX has expired")
+                self._expired = True
             return None
         else:
-            return self.last_price
+            return self._last_price
 
     def _process_ticker(self, message_obj):
-        self.last_price = Wad.from_number(message_obj['price'])
-        self.last_timestamp = time.time()
+        self._last_price = Wad.from_number(message_obj['price'])
+        self._last_timestamp = time.time()
+
+        if self._expired:
+            self.logger.info(f"Price feed from GDAX became available")
+            self._expired = False
 
     def _process_heartbeat(self):
-        self.last_timestamp = time.time()
+        self._last_timestamp = time.time()
 
 
 class PriceFeedFactory:
