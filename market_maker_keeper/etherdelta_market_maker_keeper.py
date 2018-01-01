@@ -282,9 +282,12 @@ class EtherDeltaMarketMakerKeeper:
                 if self.deposit_for_sell_order_if_needed(band.avg_amount - total_amount):
                     return
 
+                price = band.avg_price(target_price)
                 pay_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_sell_orders())))
-                buy_amount = self.fix_amount(pay_amount * band.avg_price(target_price))
+                buy_amount = self.fix_amount(pay_amount * price)
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.logger.debug(f"Using price {price} for new sell order")
+
                     order = self.etherdelta.create_order(pay_token=EtherDelta.ETH_TOKEN,
                                                          pay_amount=pay_amount,
                                                          buy_token=self.sai.address,
@@ -302,9 +305,12 @@ class EtherDeltaMarketMakerKeeper:
                 if self.deposit_for_buy_order_if_needed(band.avg_amount - total_amount):
                     return
 
+                price = band.avg_price(target_price)
                 pay_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_buy_orders())))
-                buy_amount = self.fix_amount(pay_amount / band.avg_price(target_price))
+                buy_amount = self.fix_amount(pay_amount / price)
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.logger.debug(f"Using price {price} for new buy order")
+
                     order = self.etherdelta.create_order(pay_token=self.sai.address,
                                                          pay_amount=pay_amount,
                                                          buy_token=EtherDelta.ETH_TOKEN,

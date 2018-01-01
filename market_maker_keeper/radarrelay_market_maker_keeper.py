@@ -209,9 +209,12 @@ class RadarRelayMarketMakerKeeper:
             orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
+                price = band.avg_price(target_price)
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_sell_orders(our_orders)))
-                buy_amount = pay_amount * band.avg_price(target_price)
+                buy_amount = pay_amount * price
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.logger.debug(f"Using price {price} for new sell order")
+
                     order = self.radar_relay.create_order(pay_token=self.ether_token.address, pay_amount=pay_amount,
                                                           buy_token=self.sai.address, buy_amount=buy_amount,
                                                           expiration=int(time.time()) + self.arguments.order_expiry)
@@ -224,9 +227,12 @@ class RadarRelayMarketMakerKeeper:
             orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
+                price = band.avg_price(target_price)
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_buy_orders(our_orders)))
-                buy_amount = pay_amount / band.avg_price(target_price)
+                buy_amount = pay_amount / price
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.logger.debug(f"Using price {price} for new buy order")
+
                     order = self.radar_relay.create_order(pay_token=self.sai.address, pay_amount=pay_amount,
                                                           buy_token=self.ether_token.address, buy_amount=buy_amount,
                                                           expiration=int(time.time()) + self.arguments.order_expiry)

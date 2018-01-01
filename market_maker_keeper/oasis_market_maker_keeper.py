@@ -216,9 +216,12 @@ class OasisMarketMakerKeeper:
             orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
+                price = round(band.avg_price(target_price), self.arguments.round_places)
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
-                want_amount = have_amount * round(band.avg_price(target_price), self.arguments.round_places)
+                want_amount = have_amount * price
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)) and (want_amount > Wad(0)):
+                    self.logger.debug(f"Using price {price} for new sell order")
+
                     our_balance = our_balance - have_amount
                     yield self.otc.make(pay_token=self.gem.address, pay_amount=have_amount,
                                         buy_token=self.sai.address, buy_amount=want_amount)
@@ -230,9 +233,12 @@ class OasisMarketMakerKeeper:
             orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
+                price = round(band.avg_price(target_price), self.arguments.round_places)
                 have_amount = Wad.min(band.avg_amount - total_amount, our_balance)
-                want_amount = have_amount / round(band.avg_price(target_price), self.arguments.round_places)
+                want_amount = have_amount / price
                 if (have_amount >= band.dust_cutoff) and (have_amount > Wad(0)) and (want_amount > Wad(0)):
+                    self.logger.debug(f"Using price {price} for new buy order")
+
                     our_balance = our_balance - have_amount
                     yield self.otc.make(pay_token=self.sai.address, pay_amount=have_amount,
                                         buy_token=self.gem.address, buy_amount=want_amount)
