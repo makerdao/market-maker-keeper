@@ -16,23 +16,22 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import itertools
 import logging
 import operator
 import sys
+import time
 from functools import reduce
 from typing import List
 
-import itertools
-import time
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
-from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.price import PriceFeedFactory
-from market_maker_keeper.gas import SmartGasPrice, GasPriceFile, GasPriceFactory
+from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker import Address
 from pymaker.approval import directly
-from pymaker.gas import GasPrice, DefaultGasPrice, FixedGasPrice, IncreasingGasPrice
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 from pymaker.oasis import Order, MatchingMarket
