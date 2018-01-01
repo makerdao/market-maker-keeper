@@ -111,6 +111,7 @@ class OasisMarketMakerKeeper:
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
                             level=(logging.DEBUG if self.arguments.debug else logging.INFO))
         logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
+        logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.INFO)
 
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
