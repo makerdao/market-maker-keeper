@@ -190,6 +190,9 @@ class PriceFeedFactory:
         assert(isinstance(price_feed_expiry_argument, int))
 
         if price_feed_argument is not None:
-            return ApplyTargetPrice(SetzerPriceFeed(price_feed_argument, expiry=price_feed_expiry_argument), vox)
+            if price_feed_argument.lower() == 'gdax-websocket':
+                return ApplyTargetPrice(GdaxPriceFeed("wss://ws-feed.gdax.com", expiry=price_feed_expiry_argument), vox)
+            else:
+                return ApplyTargetPrice(SetzerPriceFeed(price_feed_argument, expiry=price_feed_expiry_argument), vox)
         else:
             return ApplyTargetPrice(TubPriceFeed(tub), vox)
