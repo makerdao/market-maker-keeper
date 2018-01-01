@@ -35,29 +35,37 @@ class PriceFeed(object):
 
 
 class TubPriceFeed(PriceFeed):
-    def __init__(self, tub: Tub, vox: Vox):
+    def __init__(self, tub: Tub):
         assert(isinstance(tub, Tub))
-        assert(isinstance(vox, Vox))
 
-        self.tub = tub
-        self.vox = vox
-        self.ds_value = DSValue(web3=self.tub.web3, address=self.tub.pip())
-
-    def get_ref_per_gem(self):
-        return Wad(self.ds_value.read_as_int())
+        self.ds_value = DSValue(web3=tub.web3, address=tub.pip())
 
     def get_price(self) -> Optional[Wad]:
-        return self.get_ref_per_gem() / Wad(self.vox.par())
+        return Wad(self.ds_value.read_as_int())
+
+
+class ApplyTargetPrice(PriceFeed):
+    def __init__(self, price_feed: PriceFeed, vox: Vox):
+        assert(isinstance(price_feed, PriceFeed))
+        assert(isinstance(vox, Vox))
+
+        self.price_feed = price_feed
+        self.vox = vox
+
+    def get_price(self) -> Optional[Wad]:
+        price = self.price_feed.get_price()
+        if price is None:
+            return None
+        else:
+            return price / Wad(self.vox.par())
 
 
 class SetzerPriceFeed(PriceFeed):
     logger = logging.getLogger()
 
-    def __init__(self, vox: Vox, setzer_source: str):
-        assert(isinstance(vox, Vox))
+    def __init__(self, setzer_source: str):
         assert(isinstance(setzer_source, str))
 
-        self.vox = vox
         self.setzer_price = None
         self.setzer_retries = 0
         self.setzer_source = setzer_source
@@ -83,10 +91,7 @@ class SetzerPriceFeed(PriceFeed):
             time.sleep(5)
 
     def get_price(self) -> Optional[Wad]:
-        if self.setzer_price is None:
-            return None
-        else:
-            return self.setzer_price / Wad(self.vox.par())
+        return self.setzer_price
 
 
 class GdaxPriceFeed(PriceFeed):
@@ -162,6 +167,6 @@ class PriceFeedFactory:
     @staticmethod
     def create_price_feed(price_feed_argument: str, tub: Tub, vox: Vox) -> PriceFeed:
         if price_feed_argument is not None:
-            return SetzerPriceFeed(vox, price_feed_argument)
+            return ApplyTargetPrice(SetzerPriceFeed(price_feed_argument), vox)
         else:
-            return TubPriceFeed(tub, vox)
+            return ApplyTargetPrice(TubPriceFeed(tub), vox)
