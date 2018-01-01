@@ -63,27 +63,34 @@ class ApplyTargetPrice(PriceFeed):
 class SetzerPriceFeed(PriceFeed):
     logger = logging.getLogger()
 
-    def __init__(self, setzer_source: str):
-        assert(isinstance(setzer_source, str))
+    def __init__(self, source: str, expiry: int):
+        assert(isinstance(source, str))
+        assert(isinstance(expiry, int))
 
-        self.setzer_price = None
-        self.setzer_retries = 0
-        self.setzer_source = setzer_source
+        self.source = source
+        self.expiry = expiry
+        self._price = None
+        self._retries = 0
+        self._timestamp = 0
+        self._expired = True
         threading.Thread(target=self._background_run, daemon=True).start()
 
     def _fetch_price(self):
         try:
-            self.setzer_price = Setzer().price(self.setzer_source)
-            self.setzer_retries = 0
-            self.logger.debug(f"Fetched price from {self.setzer_source}: {self.setzer_price}")
+            self._price = Setzer().price(self.source)
+            self._retries = 0
+            self._timestamp = time.time()
+
+            self.logger.debug(f"Fetched price from {self.source}: {self._price}")
+
+            if self._expired:
+                self.logger.info(f"Price feed from 'setzer' ({self.source}) became available")
+                self._expired = False
         except:
-            self.setzer_retries += 1
-            if self.setzer_retries > 10:
-                self.logger.warning(f"Failed to get price from {self.setzer_source}, tried {self.setzer_retries} times")
+            self._retries += 1
+            if self._retries > 10:
+                self.logger.warning(f"Failed to get price from 'setzer' ({self.source}), tried {self._retries} times")
                 self.logger.warning(f"Please check if 'setzer' is installed and working correctly")
-            if self.setzer_retries > 20:
-                self.setzer_price = None
-                self.logger.warning(f"There is no valid price feed as maximum number of tries has been reached")
 
     def _background_run(self):
         while True:
@@ -91,7 +98,14 @@ class SetzerPriceFeed(PriceFeed):
             time.sleep(5)
 
     def get_price(self) -> Optional[Wad]:
-        return self.setzer_price
+        if time.time() - self._timestamp > self.expiry:
+            if not self._expired:
+                self.logger.warning(f"Price feed from 'setzer' ({self.source}) has expired")
+                self._expired = True
+
+            return None
+        else:
+            return self._price
 
 
 class GdaxPriceFeed(PriceFeed):
@@ -173,6 +187,6 @@ class PriceFeedFactory:
     @staticmethod
     def create_price_feed(price_feed_argument: str, tub: Tub, vox: Vox) -> PriceFeed:
         if price_feed_argument is not None:
-            return ApplyTargetPrice(SetzerPriceFeed(price_feed_argument), vox)
+            return ApplyTargetPrice(SetzerPriceFeed(price_feed_argument, expiry=120), vox)
         else:
             return ApplyTargetPrice(TubPriceFeed(tub), vox)
