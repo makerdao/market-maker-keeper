@@ -42,7 +42,7 @@ from pymaker.zrx import ZrxExchange, ZrxRelayerApi, Order
 class RadarRelayMarketMakerKeeper:
     """Keeper acting as a market maker on RadarRelay, on the WETH/SAI pair."""
 
-    logger = logging.getLogger('radarrelay-market-maker-keeper')
+    logger = logging.getLogger()
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='radarrelay-market-maker-keeper')

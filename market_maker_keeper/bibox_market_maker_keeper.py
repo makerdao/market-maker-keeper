@@ -36,7 +36,7 @@ from pymaker.sai import Tub, Vox
 class BiboxMarketMakerKeeper:
     """Keeper acting as a market maker on Bibox, on the ETH/DAI pair."""
 
-    logger = logging.getLogger('bibox-market-maker-keeper')
+    logger = logging.getLogger()
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='bibox-market-maker-keeper')

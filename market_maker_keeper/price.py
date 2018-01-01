@@ -48,7 +48,7 @@ class TubPriceFeed(PriceFeed):
 
 
 class SetzerPriceFeed(PriceFeed):
-    logger = logging.getLogger('setzer-price-feed')
+    logger = logging.getLogger()
 
     def __init__(self, vox: Vox, setzer_source: str):
         assert(isinstance(vox, Vox))

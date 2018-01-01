@@ -43,7 +43,7 @@ from pymaker.util import synchronize, eth_balance
 class OasisMarketMakerKeeper:
     """Keeper acting as a market maker on OasisDEX, on the W-ETH/SAI pair."""
 
-    logger = logging.getLogger('oasis-market-maker-keeper')
+    logger = logging.getLogger()
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='oasis-market-maker-keeper')

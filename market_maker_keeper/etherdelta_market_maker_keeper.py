@@ -43,7 +43,7 @@ from pymaker.util import eth_balance
 class EtherDeltaMarketMakerKeeper:
     """Keeper acting as a market maker on EtherDelta, on the ETH/SAI pair."""
 
-    logger = logging.getLogger('etherdelta-market-maker-keeper')
+    logger = logging.getLogger()
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='etherdelta-market-maker-keeper')

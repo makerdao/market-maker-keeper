@@ -35,7 +35,7 @@ class ReloadableConfig:
         filename: Filename of the configuration file.
     """
 
-    logger = logging.getLogger('reloadable-config')
+    logger = logging.getLogger()
 
     def __init__(self, filename: str):
         assert(isinstance(filename, str))

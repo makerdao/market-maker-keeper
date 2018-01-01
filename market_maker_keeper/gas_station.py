@@ -45,7 +45,7 @@ class EthGasStation:
     URL = "https://ethgasstation.info/json/ethgasAPI.json"
     SCALE = 100000000
 
-    logger = logging.getLogger('eth-gas-station')
+    logger = logging.getLogger()
 
     def __init__(self, refresh_interval: int, expiry: int):
         assert(isinstance(refresh_interval, int))
