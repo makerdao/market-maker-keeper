@@ -65,6 +65,9 @@ class BiboxMarketMakerKeeper:
         parser.add_argument("--price-feed", type=str,
                             help="Source of price feed. Tub price feed will be used if not specified")
 
+        parser.add_argument("--price-feed-expiry", type=int, default=120,
+                            help="Maximum age of non-Tub price feed (in seconds, default: 120)")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -80,7 +83,8 @@ class BiboxMarketMakerKeeper:
         logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.INFO)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.vox)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
+                                                               self.arguments.price_feed_expiry, self.tub, self.vox)
 
         self.bibox_api = BiboxApi(api_server=self.arguments.bibox_api_server,
                                   api_key=self.arguments.bibox_api_key,

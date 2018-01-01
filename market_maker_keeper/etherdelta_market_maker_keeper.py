@@ -81,6 +81,9 @@ class EtherDeltaMarketMakerKeeper:
         parser.add_argument("--price-feed", type=str,
                             help="Source of price feed. Tub price feed will be used if not specified")
 
+        parser.add_argument("--price-feed-expiry", type=int, default=120,
+                            help="Maximum age of non-Tub price feed (in seconds, default: 120)")
+
         parser.add_argument("--order-age", type=int, required=True,
                             help="Age of created orders (in blocks)")
 
@@ -155,7 +158,8 @@ class EtherDeltaMarketMakerKeeper:
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.vox)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
+                                                               self.arguments.price_feed_expiry, self.tub, self.vox)
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")

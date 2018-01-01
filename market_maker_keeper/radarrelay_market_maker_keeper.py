@@ -74,6 +74,9 @@ class RadarRelayMarketMakerKeeper:
         parser.add_argument("--price-feed", type=str,
                             help="Source of price feed. Tub price feed will be used if not specified")
 
+        parser.add_argument("--price-feed-expiry", type=int, default=120,
+                            help="Maximum age of non-Tub price feed (in seconds, default: 120)")
+
         parser.add_argument("--order-expiry", type=int, required=True,
                             help="Expiration time of created orders (in seconds)")
 
@@ -126,7 +129,8 @@ class RadarRelayMarketMakerKeeper:
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.vox)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
+                                                               self.arguments.price_feed_expiry, self.tub, self.vox)
 
         self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay, api_server=self.arguments.relayer_api_server)

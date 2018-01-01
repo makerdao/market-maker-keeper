@@ -185,8 +185,11 @@ class GdaxPriceFeed(PriceFeed):
 
 class PriceFeedFactory:
     @staticmethod
-    def create_price_feed(price_feed_argument: str, tub: Tub, vox: Vox) -> PriceFeed:
+    def create_price_feed(price_feed_argument: str, price_feed_expiry_argument: int, tub: Tub, vox: Vox) -> PriceFeed:
+        assert(isinstance(price_feed_argument, str))
+        assert(isinstance(price_feed_expiry_argument, int))
+
         if price_feed_argument is not None:
-            return ApplyTargetPrice(SetzerPriceFeed(price_feed_argument, expiry=120), vox)
+            return ApplyTargetPrice(SetzerPriceFeed(price_feed_argument, expiry=price_feed_expiry_argument), vox)
         else:
             return ApplyTargetPrice(TubPriceFeed(tub), vox)
