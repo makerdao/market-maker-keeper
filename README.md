@@ -191,6 +191,7 @@ usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                  --tub-address TUB_ADDRESS --oasis-address
                                  OASIS_ADDRESS --config CONFIG
                                  [--price-feed PRICE_FEED]
+                                 [--price-feed-expiry PRICE_FEED_EXPIRY]
                                  [--round-places ROUND_PLACES]
                                  [--min-eth-balance MIN_ETH_BALANCE]
                                  [--gas-price GAS_PRICE]
@@ -213,6 +214,9 @@ optional arguments:
   --price-feed PRICE_FEED
                         Source of price feed. Tub price feed will be used if
                         not specified
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of non-Tub price feed (in seconds,
+                        default: 120)
   --round-places ROUND_PLACES
                         Number of decimal places to round order prices to
                         (default=2)
@@ -279,8 +283,9 @@ usage: etherdelta-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       [--etherdelta-retry-interval ETHERDELTA_RETRY_INTERVAL]
                                       [--etherdelta-timeout ETHERDELTA_TIMEOUT]
                                       --config CONFIG
-                                      [--price-feed PRICE_FEED] --order-age
-                                      ORDER_AGE
+                                      [--price-feed PRICE_FEED]
+                                      [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                      --order-age ORDER_AGE
                                       [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
                                       [--order-no-cancel-threshold ORDER_NO_CANCEL_THRESHOLD]
                                       --eth-reserve ETH_RESERVE
@@ -320,6 +325,9 @@ optional arguments:
   --price-feed PRICE_FEED
                         Source of price feed. Tub price feed will be used if
                         not specified
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of non-Tub price feed (in seconds,
+                        default: 120)
   --order-age ORDER_AGE
                         Age of created orders (in blocks)
   --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
@@ -403,12 +411,18 @@ usage: radarrelay-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       --weth-address WETH_ADDRESS
                                       --relayer-api-server RELAYER_API_SERVER
                                       --config CONFIG
-                                      [--price-feed PRICE_FEED] --order-expiry
-                                      ORDER_EXPIRY
+                                      [--price-feed PRICE_FEED]
+                                      [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                      --order-expiry ORDER_EXPIRY
                                       [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
                                       [--min-eth-balance MIN_ETH_BALANCE]
                                       [--cancel-on-shutdown]
-                                      [--gas-price GAS_PRICE] [--debug]
+                                      [--gas-price GAS_PRICE]
+                                      [--gas-price-increase GAS_PRICE_INCREASE]
+                                      [--gas-price-increase-every GAS_PRICE_INCREASE_EVERY]
+                                      [--gas-price-max GAS_PRICE_MAX]
+                                      [--gas-price-file GAS_PRICE_FILE]
+                                      [--smart-gas-price] [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -427,6 +441,9 @@ optional arguments:
   --price-feed PRICE_FEED
                         Source of price feed. Tub price feed will be used if
                         not specified
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of non-Tub price feed (in seconds,
+                        default: 120)
   --order-expiry ORDER_EXPIRY
                         Expiration time of created orders (in seconds)
   --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
@@ -439,6 +456,18 @@ optional arguments:
                         keeper shutdown
   --gas-price GAS_PRICE
                         Gas price (in Wei)
+  --gas-price-increase GAS_PRICE_INCREASE
+                        Gas price increase (in Wei) if no confirmation within
+                        `--gas-price-increase-every` seconds
+  --gas-price-increase-every GAS_PRICE_INCREASE_EVERY
+                        Gas price increase frequency (in seconds, default:
+                        120)
+  --gas-price-max GAS_PRICE_MAX
+                        Maximum gas price (in Wei)
+  --gas-price-file GAS_PRICE_FILE
+                        Gas price configuration file
+  --smart-gas-price     Use smart gas pricing strategy, based on the
+                        ethgasstation.info feed
   --debug               Enable debug output
 ```
 
@@ -464,7 +493,9 @@ usage: bibox-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                  [--bibox-api-server BIBOX_API_SERVER]
                                  --bibox-api-key BIBOX_API_KEY --bibox-secret
                                  BIBOX_SECRET --config CONFIG
-                                 [--price-feed PRICE_FEED] [--debug]
+                                 [--price-feed PRICE_FEED]
+                                 [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                 [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -483,6 +514,9 @@ optional arguments:
   --price-feed PRICE_FEED
                         Source of price feed. Tub price feed will be used if
                         not specified
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of non-Tub price feed (in seconds,
+                        default: 120)
   --debug               Enable debug output
 ```
 
