@@ -15,10 +15,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import json
 import logging
 import threading
 import time
 from typing import Optional
+
+import websocket
 
 from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
@@ -84,6 +87,75 @@ class SetzerPriceFeed(PriceFeed):
             return None
         else:
             return self.setzer_price / Wad(self.vox.par())
+
+
+class GdaxPriceFeed(PriceFeed):
+    logger = logging.getLogger()
+
+    def __init__(self, ws_url: str, expiry: int):
+        assert(isinstance(ws_url, str))
+        assert(isinstance(expiry, int))
+
+        self.ws_url = ws_url
+        self.expiry = expiry
+        self.last_price = None
+        self.last_timestamp = None
+        threading.Thread(target=self._background_run, daemon=True).start()
+
+    def _background_run(self):
+        while True:
+            ws = websocket.WebSocketApp(url=self.ws_url,
+                                        on_message=self._on_message,
+                                        on_error=self._on_error,
+                                        on_open=self._on_open,
+                                        on_close=self._on_close)
+            ws.run_forever(ping_interval=15, ping_timeout=10)
+            time.sleep(1)
+
+    def _on_open(self, ws):
+        self.logger.info(f"GDAX WebSocket connected")
+        ws.send("""{
+            "type": "subscribe",
+            "channels": [
+                { "name": "ticker", "product_ids": ["ETH-USD"] },
+                { "name": "heartbeat", "product_ids": ["ETH-USD"] }
+            ]}""")
+
+    def _on_close(self, ws):
+        self.logger.info(f"GDAX WebSocket disconnected")
+
+    def _on_message(self, ws, message):
+        self.logger.debug(f"GDAX WebSocket message received: '{message}'")
+        try:
+            message_obj = json.loads(message)
+            if message_obj['type'] == 'subscriptions':
+                pass
+            elif message_obj['type'] == 'ticker':
+                self._process_ticker(message_obj)
+            elif message_obj['type'] == 'heartbeat':
+                self._process_heartbeat()
+            else:
+                self.logger.warning(f"GDAX WebSocket received unknown message type: '{message}'")
+        except:
+            self.logger.warning(f"GDAX WebSocket received invalid message: '{message}'")
+
+    def _on_error(self, ws, error):
+        self.logger.info(f"GDAX WebSocket error: '{error}'")
+
+    def get_price(self) -> Optional[Wad]:
+        if self.last_timestamp is None:
+            return None
+        elif time.time() - self.last_timestamp > self.expiry:
+            return None
+        else:
+            return self.last_price
+
+    def _process_ticker(self, message_obj):
+        self.last_price = Wad.from_number(message_obj['price'])
+        self.last_timestamp = time.time()
+
+    def _process_heartbeat(self):
+        self.last_timestamp = time.time()
 
 
 class PriceFeedFactory:
