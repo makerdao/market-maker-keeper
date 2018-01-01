@@ -76,6 +76,7 @@ class BiboxMarketMakerKeeper:
 
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
                             level=(logging.DEBUG if self.arguments.debug else logging.INFO))
+        logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.tub, self.vox)

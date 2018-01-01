@@ -146,6 +146,7 @@ class EtherDeltaMarketMakerKeeper:
 
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
                             level=(logging.DEBUG if self.arguments.debug else logging.INFO))
+        logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
