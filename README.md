@@ -41,18 +41,7 @@ git submodule update --init --recursive
 pip3 install -r requirements.txt
 ```
 
-### Known macOS issues
-
-In order for the Python requirements to install correctly on _macOS_, please install
-`openssl`, `libtool` and `pkg-config` using [Homebrew](https://brew.sh/):
-```
-brew install openssl libtool pkg-config
-```
-
-and set the `LDFLAGS` environment variable before you run `pip3 install -r requirements.txt`:
-```
-export LDFLAGS="-L$(brew --prefix openssl)/lib" CFLAGS="-I$(brew --prefix openssl)/include" 
-```
+For some known macOS issues see the [pymaker](https://github.com/makerdao/pymaker) README.
 
 ### Installation of `etherdelta-client`
 
