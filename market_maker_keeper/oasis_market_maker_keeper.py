@@ -187,7 +187,7 @@ class OasisMarketMakerKeeper:
         if len(orders_to_cancel) > 0:
             self.cancel_orders(orders_to_cancel)
         else:
-            self.top_up_bands(our_orders, bands.buy_bands, bands.sell_bands, target_price)
+            any_order_created = self.top_up_bands(our_orders, bands.buy_bands, bands.sell_bands, target_price)
 
             # We do wait some time after the orders have been created. The reason for that is sometimes
             # orders that have been just placed were not picked up by the next `our_orders()` call
@@ -196,7 +196,8 @@ class OasisMarketMakerKeeper:
             # resulted in wasted gas and significant delay in keeper operation.
             #
             # There is no specific reason behind choosing to wait exactly 7s.
-            time.sleep(7)
+            if any_order_created:
+                time.sleep(7)
 
     def cancel_all_orders(self):
         """Cancel all orders owned by the keeper."""
@@ -207,11 +208,13 @@ class OasisMarketMakerKeeper:
         synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price)
                      for order in orders])
 
-    def top_up_bands(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
+    def top_up_bands(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad) -> bool:
         """Asynchronously create new buy and sell orders in all send and buy bands if necessary."""
-        synchronize([transact.transact_async(gas_price=self.gas_price)
-                     for transact in itertools.chain(self.top_up_buy_bands(our_orders, buy_bands, target_price),
-                                                     self.top_up_sell_bands(our_orders, sell_bands, target_price))])
+        transacts = list(itertools.chain(self.top_up_buy_bands(our_orders, buy_bands, target_price),
+                                         self.top_up_sell_bands(our_orders, sell_bands, target_price)))
+        synchronize([transact.transact_async(gas_price=self.gas_price) for transact in transacts])
+
+        return len(transacts) > 0
 
     def top_up_sell_bands(self, our_orders: list, sell_bands: list, target_price: Wad):
         """Ensure our WETH engagement is not below minimum in all sell bands. Yield new orders if necessary."""
