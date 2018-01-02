@@ -141,7 +141,7 @@ class OasisMarketMakerKeeper:
         self.otc.approve([self.gem, self.sai], directly(gas_price=self.gas_price))
 
     def our_orders(self):
-        return list(filter(lambda order: order.maker == self.our_address, self.otc.get_orders()))
+        return self.otc.get_orders_by_maker(self.our_address)
 
     def our_sell_orders(self, our_orders: list):
         return list(filter(lambda order: order.buy_token == self.sai.address and
