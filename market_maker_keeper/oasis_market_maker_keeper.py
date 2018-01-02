@@ -195,9 +195,9 @@ class OasisMarketMakerKeeper:
             # the keeper try to place same order(s) again. Of course the second transaction did fail, but it
             # resulted in wasted gas and significant delay in keeper operation.
             #
-            # There is no specific reason behind choosing to wait exactly 7s.
+            # There is no specific reason behind choosing to wait exactly 3s.
             if any_order_created:
-                time.sleep(7)
+                time.sleep(3)
 
     def cancel_all_orders(self):
         """Cancel all orders owned by the keeper."""
