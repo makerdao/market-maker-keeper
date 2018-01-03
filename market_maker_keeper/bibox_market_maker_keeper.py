@@ -100,7 +100,7 @@ class BiboxMarketMakerKeeper:
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
-        user_info = self.bibox_api.user_info()
+        user_info = self.bibox_api.user_info(retry=True)
 
         self.logger.info(f"Bibox API key seems to be valid")
         self.logger.info(f"Accessing Bibox as user_id: '{user_info['user_id']}', email: '{user_info['email']}'")
@@ -109,13 +109,13 @@ class BiboxMarketMakerKeeper:
         self.cancel_orders(self.our_orders())
 
     def our_balances(self):
-        return self.bibox_api.coin_list()
+        return self.bibox_api.coin_list(retry=True)
 
     def our_balance(self, our_balances: list, symbol: str) -> dict:
         return next(filter(lambda coin: coin['symbol'] == symbol, our_balances))
 
     def our_orders(self):
-        return self.bibox_api.get_orders('ETH_DAI')
+        return self.bibox_api.get_orders('ETH_DAI', retry=True)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -146,7 +146,7 @@ class BiboxMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.bibox_api.cancel_order(order.order_id)
+            self.bibox_api.cancel_order(order.order_id, retry=True)
 
     def top_up_bands(self, our_orders: list, our_balances: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Create new buy and sell orders in all send and buy bands if necessary."""
