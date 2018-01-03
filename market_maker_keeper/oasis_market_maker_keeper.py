@@ -154,7 +154,7 @@ class OasisMarketMakerKeeper:
     def synchronize_orders(self):
         # If market is closed, cancel all orders but do not terminate the keeper.
         if self.otc.is_closed():
-            self.logger.warning("Marked is closed. Cancelling all orders.")
+            self.logger.warning("Market is closed. Cancelling all orders.")
             self.cancel_all_orders()
             return
 
