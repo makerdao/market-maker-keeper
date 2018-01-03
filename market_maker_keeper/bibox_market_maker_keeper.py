@@ -88,7 +88,8 @@ class BiboxMarketMakerKeeper:
 
         self.bibox_api = BiboxApi(api_server=self.arguments.bibox_api_server,
                                   api_key=self.arguments.bibox_api_key,
-                                  secret=self.arguments.bibox_secret)
+                                  secret=self.arguments.bibox_secret,
+                                  timeout=9.5)
 
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:
