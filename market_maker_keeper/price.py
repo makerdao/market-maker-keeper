@@ -186,7 +186,7 @@ class GdaxPriceFeed(PriceFeed):
 class PriceFeedFactory:
     @staticmethod
     def create_price_feed(price_feed_argument: str, price_feed_expiry_argument: int, tub: Tub, vox: Vox) -> PriceFeed:
-        assert(isinstance(price_feed_argument, str))
+        assert(isinstance(price_feed_argument, str) or price_feed_argument is None)
         assert(isinstance(price_feed_expiry_argument, int))
 
         if price_feed_argument is not None:
