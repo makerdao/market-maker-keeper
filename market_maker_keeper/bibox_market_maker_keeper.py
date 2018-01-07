@@ -111,7 +111,11 @@ class BiboxMarketMakerKeeper:
 
     def shutdown(self):
         while True:
-            our_orders = self.our_orders()[0]
+            try:
+                our_orders = self.our_orders()[0]
+            except:
+                continue
+
             if len(our_orders) == 0:
                 break
 
