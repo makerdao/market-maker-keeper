@@ -110,8 +110,13 @@ class BiboxMarketMakerKeeper:
         self.logger.info(f"Accessing Bibox as user_id: '{user_info['user_id']}', email: '{user_info['email']}'")
 
     def shutdown(self):
-        self.cancel_orders(self.our_orders()[0])
-        self.bibox_order_book.wait_for_order_cancellation()
+        while True:
+            our_orders = self.our_orders()[0]
+            if len(our_orders) == 0:
+                break
+
+            self.cancel_orders(our_orders)
+            self.bibox_order_book.wait_for_order_cancellation()
 
     def our_balances(self):
         return self.bibox_api.coin_list(retry=True)
