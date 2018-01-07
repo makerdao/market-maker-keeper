@@ -145,8 +145,11 @@ class BiboxMarketMakerKeeper:
                                                 bands.outside_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)))
         if len(orders_to_cancel) > 0:
             self.cancel_orders(orders_to_cancel)
-        elif our_orders_are_final:
-            self.top_up_bands(our_orders, our_balances, bands.buy_bands, bands.sell_bands, target_price)
+        else:
+            if our_orders_are_final:
+                self.top_up_bands(our_orders, our_balances, bands.buy_bands, bands.sell_bands, target_price)
+            else:
+                self.logger.info("Order cancellation in progress, no new orders being created")
 
     def cancel_orders(self, orders):
         for order in orders:
