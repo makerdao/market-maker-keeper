@@ -137,7 +137,6 @@ class BiboxMarketMakerKeeper:
         """Update our positions in the order book to reflect keeper parameters."""
         bands = Bands(self.bands_config)
         our_orders, our_orders_are_final = self.our_orders()
-        our_balances = self.our_balances()
         target_price = self.price_feed.get_price()
 
         if target_price is None:
@@ -152,6 +151,7 @@ class BiboxMarketMakerKeeper:
             self.cancel_orders(orders_to_cancel)
         else:
             if our_orders_are_final:
+                our_balances = self.our_balances()
                 self.top_up_bands(our_orders, our_balances, bands.buy_bands, bands.sell_bands, target_price)
             else:
                 self.logger.info("Order cancellation in progress, no new orders being created")
