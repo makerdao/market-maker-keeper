@@ -22,13 +22,16 @@ import sys
 from functools import reduce
 
 import itertools
+from typing import Tuple, List
+
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
+from market_maker_keeper.bibox_order_book import BiboxOrderBook
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker import Address, Wad
-from pymaker.bibox import BiboxApi
+from pymaker.bibox import BiboxApi, Order
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.sai import Tub, Vox
 
@@ -90,6 +93,7 @@ class BiboxMarketMakerKeeper:
                                   api_key=self.arguments.bibox_api_key,
                                   secret=self.arguments.bibox_secret,
                                   timeout=9.5)
+        self.bibox_order_book = BiboxOrderBook(bibox_api=self.bibox_api)
 
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:
@@ -106,7 +110,8 @@ class BiboxMarketMakerKeeper:
         self.logger.info(f"Accessing Bibox as user_id: '{user_info['user_id']}', email: '{user_info['email']}'")
 
     def shutdown(self):
-        self.cancel_orders(self.our_orders())
+        self.cancel_orders(self.our_orders()[0])
+        self.bibox_order_book.wait_for_order_cancellation()
 
     def our_balances(self):
         return self.bibox_api.coin_list(retry=True)
@@ -114,8 +119,8 @@ class BiboxMarketMakerKeeper:
     def our_balance(self, our_balances: list, symbol: str) -> dict:
         return next(filter(lambda coin: coin['symbol'] == symbol, our_balances))
 
-    def our_orders(self):
-        return self.bibox_api.get_orders('ETH_DAI', retry=True)
+    def our_orders(self) -> Tuple[List[Order], bool]:
+        return self.bibox_order_book.get_orders('ETH_DAI', retry=True)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -126,7 +131,7 @@ class BiboxMarketMakerKeeper:
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
         bands = Bands(self.bands_config)
-        our_orders = self.our_orders()
+        our_orders, our_orders_are_final = self.our_orders()
         our_balances = self.our_balances()
         target_price = self.price_feed.get_price()
 
@@ -140,13 +145,12 @@ class BiboxMarketMakerKeeper:
                                                 bands.outside_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)))
         if len(orders_to_cancel) > 0:
             self.cancel_orders(orders_to_cancel)
-            self.synchronize_orders()
-        else:
+        elif our_orders_are_final:
             self.top_up_bands(our_orders, our_balances, bands.buy_bands, bands.sell_bands, target_price)
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.bibox_api.cancel_order(order.order_id, retry=True)
+            self.bibox_order_book.cancel_order(order.order_id, retry=True)
 
     def top_up_bands(self, our_orders: list, our_balances: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Create new buy and sell orders in all send and buy bands if necessary."""
