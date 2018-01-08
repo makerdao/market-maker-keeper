@@ -27,7 +27,7 @@ from typing import Tuple, List
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
-from market_maker_keeper.bibox_order_book import BiboxOrderBook
+from market_maker_keeper.bibox_order_book import BiboxOrderBookManager
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker import Address, Wad
@@ -93,7 +93,9 @@ class BiboxMarketMakerKeeper:
                                   api_key=self.arguments.bibox_api_key,
                                   secret=self.arguments.bibox_secret,
                                   timeout=9.5)
-        self.bibox_order_book = BiboxOrderBook(bibox_api=self.bibox_api)
+
+        self.bibox_order_book_manager = BiboxOrderBookManager(bibox_api=self.bibox_api, pair='ETH_DAI',
+                                                              refresh_frequency=3)
 
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:
@@ -112,7 +114,7 @@ class BiboxMarketMakerKeeper:
     def shutdown(self):
         while True:
             try:
-                our_orders = self.our_orders()[0]
+                our_orders = self.bibox_api.get_orders('ETH_DAI', retry=True)
             except:
                 continue
 
@@ -120,16 +122,10 @@ class BiboxMarketMakerKeeper:
                 break
 
             self.cancel_orders(our_orders)
-            self.bibox_order_book.wait_for_order_cancellation()
-
-    def our_balances(self):
-        return self.bibox_api.coin_list(retry=True)
+            self.bibox_order_book_manager.wait_for_order_cancellation()
 
     def our_balance(self, our_balances: list, symbol: str) -> dict:
         return next(filter(lambda coin: coin['symbol'] == symbol, our_balances))
-
-    def our_orders(self) -> Tuple[List[Order], bool]:
-        return self.bibox_order_book.get_orders('ETH_DAI', retry=True)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -138,31 +134,30 @@ class BiboxMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        """Update our positions in the order book to reflect keeper parameters."""
         bands = Bands(self.bands_config)
-        our_orders, our_orders_are_final = self.our_orders()
+        order_book = self.bibox_order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 
         if target_price is None:
             self.logger.warning("Cancelling all orders as no price feed available.")
-            self.cancel_orders(our_orders)
+            self.cancel_orders(order_book.orders)
             return
 
-        orders_to_cancel = list(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(our_orders), target_price),
-                                                bands.excessive_sell_orders(self.our_sell_orders(our_orders), target_price),
-                                                bands.outside_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)))
+        orders_to_cancel = list(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(order_book.orders), target_price),
+                                                bands.excessive_sell_orders(self.our_sell_orders(order_book.orders), target_price),
+                                                bands.outside_orders(self.our_buy_orders(order_book.orders),
+                                                                     self.our_sell_orders(order_book.orders), target_price)))
         if len(orders_to_cancel) > 0:
             self.cancel_orders(orders_to_cancel)
         else:
-            if our_orders_are_final:
-                our_balances = self.our_balances()
-                self.top_up_bands(our_orders, our_balances, bands.buy_bands, bands.sell_bands, target_price)
+            if not order_book.in_progress:
+                self.top_up_bands(order_book.orders, order_book.balances, bands.buy_bands, bands.sell_bands, target_price)
             else:
-                self.logger.info("Order cancellation in progress, no new orders being created")
+                self.logger.info("Order book in progress, no new orders being created")
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.bibox_order_book.cancel_order(order.order_id, retry=True)
+            self.bibox_order_book_manager.cancel_order(order.order_id, retry=True)
 
     def top_up_bands(self, our_orders: list, our_balances: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Create new buy and sell orders in all send and buy bands if necessary."""
@@ -182,9 +177,9 @@ class BiboxMarketMakerKeeper:
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new sell order")
 
-                    self.bibox_api.place_order(is_sell=True,
-                                               amount=pay_amount, amount_symbol='ETH',
-                                               money=buy_amount, money_symbol='DAI')
+                    self.bibox_order_book_manager.place_order(is_sell=True,
+                                                              amount=pay_amount, amount_symbol='ETH',
+                                                              money=buy_amount, money_symbol='DAI')
                     our_available_balance = our_available_balance - buy_amount
 
     def top_up_buy_bands(self, our_orders: list, our_balances: list, buy_bands: list, target_price: Wad):
@@ -200,9 +195,9 @@ class BiboxMarketMakerKeeper:
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new sell order")
 
-                    self.bibox_api.place_order(is_sell=False,
-                                               amount=buy_amount, amount_symbol='ETH',
-                                               money=pay_amount, money_symbol='DAI')
+                    self.bibox_order_book_manager.place_order(is_sell=False,
+                                                              amount=buy_amount, amount_symbol='ETH',
+                                                              money=pay_amount, money_symbol='DAI')
                     our_available_balance = our_available_balance - pay_amount
 
     def total_amount(self, orders):
