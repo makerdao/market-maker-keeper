@@ -147,8 +147,8 @@ class BiboxOrderBookManager:
                                              cancellation_count_before=cancellation_count_before,
                                              orders_were_being_cancelled=orders_were_being_cancelled)
 
-                self.logger.info(f"Fetched the order book and balances,"
-                                 f" will fetch it again in {self.refresh_frequency} seconds")
+                self.logger.debug(f"Fetched the order book and balances,"
+                                  f" will fetch it again in {self.refresh_frequency} seconds")
             except Exception as e:
                 self.logger.info(f"Failed to fetch the order book or balances ({e}),"
                                  f" will try again in {self.refresh_frequency} seconds")
