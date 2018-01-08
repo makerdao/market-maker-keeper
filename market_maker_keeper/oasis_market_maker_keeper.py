@@ -127,6 +127,7 @@ class OasisMarketMakerKeeper:
             self.lifecycle = lifecycle
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
+            lifecycle.on_block(self.on_block)
             lifecycle.every(3, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
@@ -135,6 +136,11 @@ class OasisMarketMakerKeeper:
 
     def shutdown(self):
         self.cancel_all_orders()
+
+    def on_block(self):
+        # This method is present only so the lifecycle binds the new block listener, which makes
+        # it then terminate the keeper if no new blocks have been arriving for 300 seconds.
+        pass
 
     def approve(self):
         """Approve OasisDEX to access our balances, so we can place orders."""
