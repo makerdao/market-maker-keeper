@@ -18,6 +18,7 @@
 import _jsonnet
 import json
 import logging
+import os
 import zlib
 
 
@@ -42,6 +43,8 @@ class ReloadableConfig:
 
         self.filename = filename
         self._checksum = None
+        self._config = None
+        self._mtime = None
 
     def get_config(self):
         """Reads the JSON config file from disk and returns it as a Python object.
@@ -49,6 +52,18 @@ class ReloadableConfig:
         Returns:
             Current configuration as a `dict` or `list` object.
         """
+
+        mtime = os.path.getmtime(self.filename)
+
+        # If the modification time has not change since the last time we have read the file,
+        # we return the last content without opening and parsing it. It saves us around ~ 30ms.
+        #
+        # Ultimately something like `watchdog` (<https://pythonhosted.org/watchdog/index.html>)
+        # should be used to watch the filesystem changes asynchronously.
+        if self._config is not None and self._mtime is not None:
+            if mtime == self._mtime:
+                return self._config
+
         with open(self.filename) as data_file:
             content_file = data_file.read()
             content_config = _jsonnet.evaluate_snippet("snippet", content_file, ext_vars={})
@@ -62,6 +77,9 @@ class ReloadableConfig:
             elif self._checksum != checksum:
                 self.logger.info(f"Reloaded configuration from '{self.filename}'")
                 self.logger.debug(f"Reloaded config file is: " + json.dumps(result, indent=4))
+
             self._checksum = checksum
+            self._config = result
+            self._mtime = mtime
 
             return result
