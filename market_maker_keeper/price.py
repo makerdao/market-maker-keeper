@@ -198,4 +198,7 @@ class PriceFeedFactory:
         else:
             price_feed = TubPriceFeed(tub)
 
-        return ApplyTargetPrice(price_feed, vox)
+        # Optimization.
+        # Ultimately we should do: return ApplyTargetPrice(price_feed, vox)
+
+        return price_feed
