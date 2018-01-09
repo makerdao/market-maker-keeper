@@ -114,7 +114,7 @@ class BiboxMarketMakerKeeper:
     def shutdown(self):
         while True:
             try:
-                our_orders = self.bibox_api.get_orders('ETH_DAI', retry=True)
+                our_orders = self.bibox_api.get_orders(self.bibox_order_book_manager.pair, retry=True)
             except:
                 continue
 
@@ -152,8 +152,6 @@ class BiboxMarketMakerKeeper:
         else:
             if not order_book.in_progress:
                 self.top_up_bands(order_book.orders, order_book.balances, bands.buy_bands, bands.sell_bands, target_price)
-            else:
-                self.logger.info("Order book in progress, no new orders being created")
 
     def cancel_orders(self, orders):
         for order in orders:
