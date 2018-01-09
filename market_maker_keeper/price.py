@@ -192,8 +192,10 @@ class PriceFeedFactory:
 
         if price_feed_argument is not None:
             if price_feed_argument.lower() == 'gdax-websocket':
-                return ApplyTargetPrice(GdaxPriceFeed("wss://ws-feed.gdax.com", expiry=price_feed_expiry_argument), vox)
+                price_feed = GdaxPriceFeed("wss://ws-feed.gdax.com", expiry=price_feed_expiry_argument)
             else:
-                return ApplyTargetPrice(SetzerPriceFeed(price_feed_argument, expiry=price_feed_expiry_argument), vox)
+                price_feed = SetzerPriceFeed(price_feed_argument, expiry=price_feed_expiry_argument)
         else:
-            return ApplyTargetPrice(TubPriceFeed(tub), vox)
+            price_feed = TubPriceFeed(tub)
+
+        return ApplyTargetPrice(price_feed, vox)
