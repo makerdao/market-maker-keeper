@@ -37,21 +37,16 @@ class BiboxOrderBook:
 
 class BiboxState:
     def __init__(self, orders: List[Order], balances: list,
-                 placement_count_before: int, orders_were_being_placed: bool,
-                 cancellation_count_before: int, orders_were_being_cancelled: bool):
+                 placement_count_before: int, orders_were_being_placed: bool):
         assert(isinstance(orders, list))
         assert(isinstance(balances, list))
         assert(isinstance(placement_count_before, int))
         assert(isinstance(orders_were_being_placed, bool))
-        assert(isinstance(cancellation_count_before, int))
-        assert(isinstance(orders_were_being_cancelled, bool))
 
         self.orders = orders
         self.balances = balances
         self.placement_count_before = placement_count_before
         self.orders_were_being_placed = orders_were_being_placed
-        self.cancellation_count_before = cancellation_count_before
-        self.orders_were_being_cancelled = orders_were_being_cancelled
 
 
 class BiboxOrderBookManager:
@@ -84,9 +79,8 @@ class BiboxOrderBookManager:
                                                order.order_id not in self._order_ids_cancelled, self._state.orders))
             balances = self._state.balances
             in_progress = self._state.orders_were_being_placed or \
-                          self._state.orders_were_being_cancelled or \
                           self._placement_count > self._state.placement_count_before or \
-                          self._cancellation_count > self._state.cancellation_count_before
+                          len(self._order_ids_cancelling) > 0
 
         return BiboxOrderBook(orders=orders, balances=balances, in_progress=in_progress)
 
@@ -127,8 +121,6 @@ class BiboxOrderBookManager:
                 with self._lock:
                     placement_count_before = self._placement_count
                     orders_were_being_placed = self._currently_placing_orders > 0
-                    cancellation_count_before = self._cancellation_count
-                    orders_were_being_cancelled = len(self._order_ids_cancelling) > 0
 
                     orders_already_cancelled_before = set(self._order_ids_cancelled)
 
@@ -143,9 +135,7 @@ class BiboxOrderBookManager:
                     self._state = BiboxState(orders=orders,
                                              balances=balances,
                                              placement_count_before=placement_count_before,
-                                             orders_were_being_placed=orders_were_being_placed,
-                                             cancellation_count_before=cancellation_count_before,
-                                             orders_were_being_cancelled=orders_were_being_cancelled)
+                                             orders_were_being_placed=orders_were_being_placed)
 
                 self.logger.debug(f"Fetched the order book and balances,"
                                   f" will fetch it again in {self.refresh_frequency} seconds")
