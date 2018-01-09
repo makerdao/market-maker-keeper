@@ -175,6 +175,8 @@ class GdaxPriceFeed(PriceFeed):
         self._last_price = Wad.from_number(message_obj['price'])
         self._last_timestamp = time.time()
 
+        self.logger.debug(f"Price feed from GDAX is {self._last_price}")
+
         if self._expired:
             self.logger.info(f"Price feed from GDAX became available")
             self._expired = False
