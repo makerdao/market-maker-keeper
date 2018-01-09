@@ -152,6 +152,8 @@ class BiboxMarketMakerKeeper:
         else:
             if not order_book.in_progress:
                 self.top_up_bands(order_book.orders, order_book.balances, bands.buy_bands, bands.sell_bands, target_price)
+            else:
+                self.logger.debug("Order book is in progress, not placing new orders")
 
     def cancel_orders(self, orders):
         for order in orders:
@@ -191,7 +193,7 @@ class BiboxMarketMakerKeeper:
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_available_balance)
                 buy_amount = pay_amount / price
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new sell order")
+                    self.logger.debug(f"Using price {price} for new buy order")
 
                     self.bibox_order_book_manager.place_order(is_sell=False,
                                                               amount=buy_amount, amount_symbol='ETH',
