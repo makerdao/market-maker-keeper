@@ -24,6 +24,7 @@ import time
 from functools import reduce
 from typing import List
 
+from retry import retry
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
@@ -134,6 +135,7 @@ class OasisMarketMakerKeeper:
     def startup(self):
         self.approve()
 
+    @retry(delay=5, logger=logger)
     def shutdown(self):
         self.cancel_all_orders()
 

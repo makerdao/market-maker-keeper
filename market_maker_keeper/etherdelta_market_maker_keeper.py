@@ -24,6 +24,7 @@ from functools import reduce
 import itertools
 from typing import Iterable
 
+from retry import retry
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -188,6 +189,7 @@ class EtherDeltaMarketMakerKeeper:
     def startup(self):
         self.approve()
 
+    @retry(delay=5, logger=logger)
     def shutdown(self):
         if self.arguments.cancel_on_shutdown:
             self.cancel_all_orders()

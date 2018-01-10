@@ -23,6 +23,7 @@ import sys
 import time
 from functools import reduce
 
+from retry import retry
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
@@ -146,6 +147,7 @@ class RadarRelayMarketMakerKeeper:
     def startup(self):
         self.approve()
 
+    @retry(delay=5, logger=logger)
     def shutdown(self):
         if self.arguments.cancel_on_shutdown:
             self.cancel_orders(self.our_orders())
