@@ -176,9 +176,10 @@ This keeper supports market-making on the [OasisDEX](https://oasisdex.com/) exch
 
 ```
 usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                 [--rpc-port RPC_PORT] --eth-from ETH_FROM
-                                 --tub-address TUB_ADDRESS --oasis-address
-                                 OASIS_ADDRESS --config CONFIG
+                                 [--rpc-port RPC_PORT]
+                                 [--rpc-timeout RPC_TIMEOUT] --eth-from
+                                 ETH_FROM --tub-address TUB_ADDRESS
+                                 --oasis-address OASIS_ADDRESS --config CONFIG
                                  [--price-feed PRICE_FEED]
                                  [--price-feed-expiry PRICE_FEED_EXPIRY]
                                  [--round-places ROUND_PLACES]
@@ -194,6 +195,8 @@ optional arguments:
   -h, --help            show this help message and exit
   --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
   --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --rpc-timeout RPC_TIMEOUT
+                        JSON-RPC timeout (in seconds, default: 10)
   --eth-from ETH_FROM   Ethereum account from which to send transactions
   --tub-address TUB_ADDRESS
                         Ethereum address of the Tub contract
@@ -240,14 +243,17 @@ or if the network becomes congested.
 
 ```
 usage: oasis-market-maker-cancel [-h] [--rpc-host RPC_HOST]
-                                 [--rpc-port RPC_PORT] --eth-from ETH_FROM
-                                 --oasis-address OASIS_ADDRESS
+                                 [--rpc-port RPC_PORT]
+                                 [--rpc-timeout RPC_TIMEOUT] --eth-from
+                                 ETH_FROM --oasis-address OASIS_ADDRESS
                                  [--gas-price GAS_PRICE]
 
 optional arguments:
   -h, --help            show this help message and exit
   --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
   --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --rpc-timeout RPC_TIMEOUT
+                        JSON-RPC timeout (in seconds, default: 10)
   --eth-from ETH_FROM   Ethereum account from which to send transactions
   --oasis-address OASIS_ADDRESS
                         Ethereum address of the OasisDEX contract
@@ -264,7 +270,8 @@ This keeper supports market-making on the [EtherDelta](https://etherdelta.com/) 
 
 ```
 usage: etherdelta-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                      [--rpc-port RPC_PORT] --eth-from
+                                      [--rpc-port RPC_PORT]
+                                      [--rpc-timeout RPC_TIMEOUT] --eth-from
                                       ETH_FROM --tub-address TUB_ADDRESS
                                       --etherdelta-address ETHERDELTA_ADDRESS
                                       --etherdelta-socket ETHERDELTA_SOCKET
@@ -294,6 +301,8 @@ optional arguments:
   -h, --help            show this help message and exit
   --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
   --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --rpc-timeout RPC_TIMEOUT
+                        JSON-RPC timeout (in seconds, default: 10)
   --eth-from ETH_FROM   Ethereum account from which to send transactions
   --tub-address TUB_ADDRESS
                         Ethereum address of the Tub contract
@@ -394,7 +403,8 @@ keeper can be easily adapted to market-make on other 0x exchanges as well.
 
 ```
 usage: radarrelay-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                      [--rpc-port RPC_PORT] --eth-from
+                                      [--rpc-port RPC_PORT]
+                                      [--rpc-timeout RPC_TIMEOUT] --eth-from
                                       ETH_FROM --tub-address TUB_ADDRESS
                                       --exchange-address EXCHANGE_ADDRESS
                                       --weth-address WETH_ADDRESS
@@ -417,6 +427,8 @@ optional arguments:
   -h, --help            show this help message and exit
   --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
   --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --rpc-timeout RPC_TIMEOUT
+                        JSON-RPC timeout (in seconds, default: 10)
   --eth-from ETH_FROM   Ethereum account from which to send transactions
   --tub-address TUB_ADDRESS
                         Ethereum address of the Tub contract
@@ -477,7 +489,8 @@ This keeper supports market-making on the [Bibox](https://www.bibox.com/exchange
 
 ```
 usage: bibox-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                 [--rpc-port RPC_PORT] --tub-address
+                                 [--rpc-port RPC_PORT]
+                                 [--rpc-timeout RPC_TIMEOUT] --tub-address
                                  TUB_ADDRESS
                                  [--bibox-api-server BIBOX_API_SERVER]
                                  --bibox-api-key BIBOX_API_KEY --bibox-secret
@@ -490,6 +503,8 @@ optional arguments:
   -h, --help            show this help message and exit
   --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
   --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --rpc-timeout RPC_TIMEOUT
+                        JSON-RPC timeout (in seconds, default: 10)
   --tub-address TUB_ADDRESS
                         Ethereum address of the Tub contract
   --bibox-api-server BIBOX_API_SERVER
