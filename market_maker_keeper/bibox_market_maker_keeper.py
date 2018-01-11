@@ -104,6 +104,7 @@ class BiboxMarketMakerKeeper:
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:
             self.lifecycle = lifecycle
+            lifecycle.wait_for_sync(False)
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
