@@ -66,7 +66,6 @@ class BiboxOrderBookManager:
         self._order_ids_cancelling = set()
         self._order_ids_cancelled = set()
         self._placement_count = 0
-        self._cancellation_count = 0
         threading.Thread(target=self._refresh_order_book, daemon=True).start()
 
     def get_order_book(self) -> BiboxOrderBook:
@@ -107,7 +106,6 @@ class BiboxOrderBookManager:
 
         with self._lock:
             self._order_ids_cancelling.add(order_id)
-            self._cancellation_count += 1
 
         threading.Thread(target=self._cancel_function(order_id, retry)).start()
 
