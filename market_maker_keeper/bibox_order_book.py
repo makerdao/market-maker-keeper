@@ -36,17 +36,12 @@ class BiboxOrderBook:
 
 
 class BiboxState:
-    def __init__(self, orders: List[Order], balances: list,
-                 placement_count_before: int, orders_were_being_placed: bool):
+    def __init__(self, orders: List[Order], balances: list):
         assert(isinstance(orders, list))
         assert(isinstance(balances, list))
-        assert(isinstance(placement_count_before, int))
-        assert(isinstance(orders_were_being_placed, bool))
 
         self.orders = orders
         self.balances = balances
-        self.placement_count_before = placement_count_before
-        self.orders_were_being_placed = orders_were_being_placed
 
 
 class BiboxOrderBookManager:
@@ -63,9 +58,9 @@ class BiboxOrderBookManager:
         self._lock = threading.Lock()
         self._state = None
         self._currently_placing_orders = 0
+        self._orders_placed = list()
         self._order_ids_cancelling = set()
         self._order_ids_cancelled = set()
-        self._placement_count = 0
         threading.Thread(target=self._refresh_order_book, daemon=True).start()
 
     def get_order_book(self) -> BiboxOrderBook:
@@ -74,12 +69,25 @@ class BiboxOrderBookManager:
             time.sleep(0.5)
 
         with self._lock:
+            self.logger.debug(f"Getting the order book")
+            self.logger.debug(f"Orders kept in the internal state: {[order.order_id for order in self._state.orders]}")
+            self.logger.debug(f"Orders being cancelled: {[order_id for order_id in self._order_ids_cancelling]},"
+                              f" orders already cancelled: {[order_id for order_id in self._order_ids_cancelled]}")
+            self.logger.debug(f"Orders placed: {[order.order_id for order in self._orders_placed]}")
+
+            # Remove orders being cancelled and already cancelled.
             orders = list(filter(lambda order: order.order_id not in self._order_ids_cancelling and
                                                order.order_id not in self._order_ids_cancelled, self._state.orders))
+
+            # Add orders which have been placed.
+            for order in self._orders_placed:
+                if order.order_id not in list(map(lambda order: order.order_id, orders)):
+                    orders.append(order)
+
+            self.logger.debug(f"Returned orders: {[order.order_id for order in orders]}")
+
             balances = self._state.balances
-            in_progress = self._state.orders_were_being_placed or \
-                          self._placement_count > self._state.placement_count_before or \
-                          len(self._order_ids_cancelling) > 0
+            in_progress = self._currently_placing_orders > 0 or len(self._order_ids_cancelling) > 0
 
         return BiboxOrderBook(orders=orders, balances=balances, in_progress=in_progress)
 
@@ -92,7 +100,6 @@ class BiboxOrderBookManager:
 
         with self._lock:
             self._currently_placing_orders += 1
-            self._placement_count += 1
 
         threading.Thread(target=self._place_order_function(is_sell=is_sell,
                                                            amount=amount,
@@ -117,29 +124,24 @@ class BiboxOrderBookManager:
         while True:
             try:
                 with self._lock:
-                    placement_count_before = self._placement_count
-                    orders_were_being_placed = self._currently_placing_orders > 0
-
                     orders_already_cancelled_before = set(self._order_ids_cancelled)
+                    orders_already_placed_before = set(self._orders_placed)
 
-                # get orders
+                # get orders, get balances
                 orders = self.bibox_api.get_orders(pair=self.pair, retry=True)
-
-                # get balances
                 balances = self.bibox_api.coin_list(retry=True)
 
                 with self._lock:
                     self._order_ids_cancelled = self._order_ids_cancelled - orders_already_cancelled_before
-                    self._state = BiboxState(orders=orders,
-                                             balances=balances,
-                                             placement_count_before=placement_count_before,
-                                             orders_were_being_placed=orders_were_being_placed)
+                    for order in orders_already_placed_before:
+                        self._orders_placed.remove(order)
 
-                self.logger.debug(f"Fetched the order book and balances,"
-                                  f" will fetch it again in {self.refresh_frequency} seconds")
+                    self._state = BiboxState(orders=orders, balances=balances)
+
+                self.logger.debug(f"Fetched the order book and balances"
+                                  f" (orders from server: {[order.order_id for order in orders]})")
             except Exception as e:
-                self.logger.info(f"Failed to fetch the order book or balances ({e}),"
-                                 f" will try again in {self.refresh_frequency} seconds")
+                self.logger.info(f"Failed to fetch the order book or balances ({e})")
 
             time.sleep(self.refresh_frequency)
 
@@ -152,11 +154,14 @@ class BiboxOrderBookManager:
 
         def place_order_function():
             try:
-                self.bibox_api.place_order(is_sell=is_sell,
-                                           amount=amount,
-                                           amount_symbol=amount_symbol,
-                                           money=money,
-                                           money_symbol=money_symbol)
+                new_order_id = self.bibox_api.place_order(is_sell=is_sell,
+                                                          amount=amount,
+                                                          amount_symbol=amount_symbol,
+                                                          money=money,
+                                                          money_symbol=money_symbol)
+
+                with self._lock:
+                    self._orders_placed.append(Order(new_order_id, 0, is_sell, Wad(0), amount, amount_symbol, money, money_symbol))
             finally:
                 with self._lock:
                     self._currently_placing_orders -= 1
