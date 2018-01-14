@@ -27,7 +27,7 @@ from typing import List
 from retry import retry
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.band import Bands
+from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -198,8 +198,14 @@ class OasisMarketMakerKeeper:
                                                 bands.outside_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)))
         if len(orders_to_cancel) > 0:
             self.cancel_orders(orders_to_cancel)
-        else:
-            any_order_created = self.top_up_bands(our_orders, bands.buy_bands, bands.sell_bands, target_price)
+            return
+
+        # If there are any new orders to be created, create them.
+        new_orders = list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
+                                          bands.new_sell_orders(self.our_sell_orders(our_orders), self.gem.balance_of(self.our_address), target_price)))
+
+        if len(new_orders) > 0:
+            self.create_orders(new_orders)
 
             # We do wait some time after the orders have been created. The reason for that is sometimes
             # orders that have been just placed were not picked up by the next `our_orders()` call
@@ -208,8 +214,7 @@ class OasisMarketMakerKeeper:
             # resulted in wasted gas and significant delay in keeper operation.
             #
             # There is no specific reason behind choosing to wait exactly 3s.
-            if any_order_created:
-                time.sleep(3)
+            time.sleep(3)
 
     def cancel_all_orders(self):
         """Cancel all orders owned by the keeper."""
@@ -220,51 +225,21 @@ class OasisMarketMakerKeeper:
         synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price)
                      for order in orders])
 
-    def top_up_bands(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad) -> bool:
-        """Asynchronously create new buy and sell orders in all send and buy bands if necessary."""
-        transacts = list(itertools.chain(self.top_up_buy_bands(our_orders, buy_bands, target_price),
-                                         self.top_up_sell_bands(our_orders, sell_bands, target_price)))
-        synchronize([transact.transact_async(gas_price=self.gas_price) for transact in transacts])
+    def create_orders(self, new_orders):
+        """Create orders asynchronously."""
 
-        return len(transacts) > 0
+        def to_transaction(new_order: NewOrder):
+            assert(isinstance(new_order, NewOrder))
 
-    def top_up_sell_bands(self, our_orders: list, sell_bands: list, target_price: Wad):
-        """Ensure our WETH engagement is not below minimum in all sell bands. Yield new orders if necessary."""
-        our_balance = self.gem.balance_of(self.our_address)
-        for band in sell_bands:
-            orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = round(band.avg_price(target_price), self.arguments.round_places)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_balance)
-                buy_amount = pay_amount * price
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new sell order")
+            if new_order.is_sell:
+                return self.otc.make(pay_token=self.gem.address, pay_amount=new_order.pay_amount,
+                                     buy_token=self.sai.address, buy_amount=new_order.buy_amount)
+            else:
+                return self.otc.make(pay_token=self.sai.address, pay_amount=new_order.pay_amount,
+                                     buy_token=self.gem.address, buy_amount=new_order.buy_amount)
 
-                    our_balance = our_balance - pay_amount
-                    yield self.otc.make(pay_token=self.gem.address, pay_amount=pay_amount,
-                                        buy_token=self.sai.address, buy_amount=buy_amount)
-
-    def top_up_buy_bands(self, our_orders: list, buy_bands: list, target_price: Wad):
-        """Ensure our SAI engagement is not below minimum in all buy bands. Yield new orders if necessary."""
-        our_balance = self.sai.balance_of(self.our_address)
-        for band in buy_bands:
-            orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = round(band.avg_price(target_price), self.arguments.round_places)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_balance)
-                buy_amount = pay_amount / price
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new buy order")
-
-                    our_balance = our_balance - pay_amount
-                    yield self.otc.make(pay_token=self.sai.address, pay_amount=pay_amount,
-                                        buy_token=self.gem.address, buy_amount=buy_amount)
-
-    @staticmethod
-    def total_amount(orders: List[Order]):
-        return reduce(operator.add, map(lambda order: order.pay_amount, orders), Wad(0))
+        synchronize([transaction.transact_async(gas_price=self.gas_price)
+                     for transaction in map(to_transaction, new_orders)])
 
 
 if __name__ == '__main__':

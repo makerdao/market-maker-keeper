@@ -16,8 +16,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import itertools
+import logging
 import operator
 from functools import reduce
+from pprint import pformat
 
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker.numeric import Wad
@@ -141,7 +143,25 @@ class SellBand(Band):
         return price * Wad.from_number(1 + margin)
 
 
+class NewOrder:
+    def __init__(self, is_sell: bool, price: Wad, pay_amount: Wad, buy_amount: Wad):
+        assert(isinstance(is_sell, bool))
+        assert(isinstance(price, Wad))
+        assert(isinstance(pay_amount, Wad))
+        assert(isinstance(buy_amount, Wad))
+
+        self.is_sell = is_sell
+        self.price = price
+        self.pay_amount = pay_amount
+        self.buy_amount = buy_amount
+
+    def __repr__(self):
+        return pformat(vars(self))
+
+
 class Bands:
+    logger = logging.getLogger()
+
     def __init__(self, reloadable_config: ReloadableConfig):
         assert(isinstance(reloadable_config, ReloadableConfig))
 
@@ -149,17 +169,23 @@ class Bands:
         self.buy_bands = list(map(BuyBand, config['buyBands']))
         self.sell_bands = list(map(SellBand, config['sellBands']))
 
-        if self.bands_overlap(self.buy_bands) or self.bands_overlap(self.sell_bands):
+        if self._bands_overlap(self.buy_bands) or self._bands_overlap(self.sell_bands):
             raise Exception(f"Bands in the config file overlap")
 
     def excessive_sell_orders(self, our_sell_orders: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
+        assert(isinstance(our_sell_orders, list))
+        assert(isinstance(target_price, Wad))
+
         for band in self.sell_bands:
             for order in band.excessive_orders(our_sell_orders, target_price):
                 yield order
 
     def excessive_buy_orders(self, our_buy_orders: list, target_price: Wad):
         """Return buy orders which need to be cancelled to bring total amounts within all buy bands below maximums."""
+        assert(isinstance(our_buy_orders, list))
+        assert(isinstance(target_price, Wad))
+
         for band in self.buy_bands:
             for order in band.excessive_orders(our_buy_orders, target_price):
                 yield order
@@ -174,8 +200,50 @@ class Bands:
         return itertools.chain(outside_any_band_orders(our_buy_orders, self.buy_bands),
                                outside_any_band_orders(our_sell_orders, self.sell_bands))
 
+    def new_sell_orders(self, our_sell_orders: list, our_sell_balance: Wad, target_price: Wad):
+        """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
+        assert(isinstance(our_sell_orders, list))
+        assert(isinstance(our_sell_balance, Wad))
+        assert(isinstance(target_price, Wad))
+
+        for band in self.sell_bands:
+            orders = [order for order in our_sell_orders if band.includes(order, target_price)]
+            total_amount = self._total_amount(orders)
+            if total_amount < band.min_amount:
+                price = band.avg_price(target_price)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance)
+                buy_amount = pay_amount * price
+                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.logger.debug(f"Using price {price} for new sell order")
+
+                    our_sell_balance = our_sell_balance - buy_amount
+                    yield NewOrder(is_sell=True, price=price, pay_amount=pay_amount, buy_amount=buy_amount)
+
+    def new_buy_orders(self, our_buy_orders: list, our_buy_balance: Wad, target_price: Wad):
+        """Return buy orders which need to be placed to bring total amounts within all buy bands above minimums."""
+        assert(isinstance(our_buy_orders, list))
+        assert(isinstance(our_buy_balance, Wad))
+        assert(isinstance(target_price, Wad))
+
+        for band in self.buy_bands:
+            orders = [order for order in our_buy_orders if band.includes(order, target_price)]
+            total_amount = self._total_amount(orders)
+            if total_amount < band.min_amount:
+                price = band.avg_price(target_price)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance)
+                buy_amount = pay_amount / price
+                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.logger.debug(f"Using price {price} for new buy order")
+
+                    our_buy_balance = our_buy_balance - pay_amount
+                    yield NewOrder(is_sell=False, price=price, pay_amount=pay_amount, buy_amount=buy_amount)
+
     @staticmethod
-    def bands_overlap(bands: list):
+    def _total_amount(orders):
+        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
+
+    @staticmethod
+    def _bands_overlap(bands: list):
         def two_bands_overlap(band1, band2):
             return band1.min_margin < band2.max_margin and band2.min_margin < band1.max_margin
 
