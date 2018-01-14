@@ -90,8 +90,8 @@ class OKCoinApi:
         assert(isinstance(pair, str))
         return self._http_get("/api/v1/trades.do", f"symbol={pair}")
     
-    def user_info(self):
-        return self._http_post("/api/v1/userinfo.do", {})
+    def get_balances(self) -> dict:
+        return self._http_post("/api/v1/userinfo.do", {})["info"]["funds"]
 
     def get_orders(self, pair: str) -> List[Order]:
         assert(isinstance(pair, str))
@@ -161,7 +161,7 @@ class OKCoinApi:
         assert(isinstance(resource, str))
         assert(isinstance(params, str))
 
-        return self._result(requests.get(url=f"https://{self.api_server}{resource}?{params}",
+        return self._result(requests.get(url=f"{self.api_server}{resource}?{params}",
                                          timeout=self.timeout))
 
     def _http_post(self, resource: str, params: dict):
@@ -171,7 +171,7 @@ class OKCoinApi:
         params['api_key'] = self.api_key
         params['sign'] = self._create_signature(params)
 
-        return self._result(requests.post(url=f"https://{self.api_server}{resource}",
+        return self._result(requests.post(url=f"{self.api_server}{resource}",
                                           data=urllib.parse.urlencode(params),
                                           headers={"Content-Type": "application/x-www-form-urlencoded"},
                                           timeout=self.timeout))
