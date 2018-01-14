@@ -129,8 +129,8 @@ class BiboxMarketMakerKeeper:
             self.cancel_orders(our_orders)
             self.bibox_order_book_manager.wait_for_order_cancellation()
 
-    def our_balance(self, our_balances: list, symbol: str) -> dict:
-        return next(filter(lambda coin: coin['symbol'] == symbol, our_balances))
+    def our_balance(self, our_balances: list, symbol: str) -> Wad:
+        return Wad.from_number(next(filter(lambda coin: coin['symbol'] == symbol, our_balances))['balance'])
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -171,7 +171,7 @@ class BiboxMarketMakerKeeper:
 
     def top_up_sell_bands(self, our_orders: list, our_balances: list, sell_bands: list, target_price: Wad):
         """Ensure our ETH engagement is not below minimum in all sell bands. Place new orders if necessary."""
-        our_available_balance = Wad.from_number(self.our_balance(our_balances, 'ETH')['balance'])
+        our_available_balance = self.our_balance(our_balances, 'ETH')
         for band in sell_bands:
             orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
@@ -189,7 +189,7 @@ class BiboxMarketMakerKeeper:
 
     def top_up_buy_bands(self, our_orders: list, our_balances: list, buy_bands: list, target_price: Wad):
         """Ensure our SAI engagement is not below minimum in all buy bands. Place new orders if necessary."""
-        our_available_balance = Wad.from_number(self.our_balance(our_balances, 'DAI')['balance'])
+        our_available_balance = self.our_balance(our_balances, 'DAI')
         for band in buy_bands:
             orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
