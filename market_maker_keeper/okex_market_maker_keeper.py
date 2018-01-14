@@ -16,25 +16,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import itertools
 import logging
 import operator
 import sys
 from functools import reduce
 
-import itertools
-from typing import Tuple, List
-
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
-from market_maker_keeper.bibox_order_book import BiboxOrderBookManager
 from market_maker_keeper.okcoin import OKCoinApi
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from pymaker import Address, Wad
-from pymaker.bibox import BiboxApi, Order
 from pymaker.lifecycle import Web3Lifecycle
-from pymaker.sai import Tub, Vox
+from pymaker.numeric import Wad
 
 
 class OkexMarketMakerKeeper:
@@ -99,9 +94,7 @@ class OkexMarketMakerKeeper:
 
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:
-            self.lifecycle = lifecycle
             lifecycle.wait_for_sync(False)
-            lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
@@ -121,8 +114,6 @@ class OkexMarketMakerKeeper:
         return self.arguments.pair[4:7]
 
     def our_balance(self, our_balances: dict, symbol: str) -> Wad:
-        print(our_balances['free']['eth'])
-        print(our_balances['freezed']['eth'])
         return Wad.from_number(our_balances['free'][symbol])
 
     def our_sell_orders(self, our_orders: list) -> list:
@@ -134,7 +125,7 @@ class OkexMarketMakerKeeper:
     def synchronize_orders(self):
         bands = Bands(self.bands_config)
         our_balances = self.okex_api.get_balances()
-        our_orders = self.okex_api.get_orders(self.arguments.pair)  # order_book = self.bibox_order_book_manager.get_order_book()
+        our_orders = self.okex_api.get_orders(self.arguments.pair)
         target_price = self.price_feed.get_price()
 
         if target_price is None:
@@ -149,15 +140,11 @@ class OkexMarketMakerKeeper:
         if len(orders_to_cancel) > 0:
             self.cancel_orders(orders_to_cancel)
         else:
-            # if not order_book.in_progress:
             self.top_up_bands(our_orders, our_balances, bands.buy_bands, bands.sell_bands, target_price)
-            # else:
-            #     self.logger.debug("Order book is in progress, not placing new orders")
 
     def cancel_orders(self, orders):
         for order in orders:
             self.okex_api.cancel_order(self.arguments.pair, order.order_id)
-            # self.bibox_order_book_manager.cancel_order(order.order_id, retry=True)
 
     def top_up_bands(self, our_orders: list, our_balances: dict, buy_bands: list, sell_bands: list, target_price: Wad):
         """Create new buy and sell orders in all send and buy bands if necessary."""
@@ -177,9 +164,7 @@ class OkexMarketMakerKeeper:
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new sell order")
 
-                    self.bibox_order_book_manager.place_order(is_sell=True,
-                                                              amount=pay_amount, amount_symbol='ETH',
-                                                              money=buy_amount, money_symbol='DAI')
+                    self.okex_api.place_order(pair=self.arguments.pair, is_sell=True, price=price, amount=pay_amount)
                     our_available_balance = our_available_balance - buy_amount
 
     def top_up_buy_bands(self, our_orders: list, our_balances: dict, buy_bands: list, target_price: Wad):
@@ -199,7 +184,7 @@ class OkexMarketMakerKeeper:
                     our_available_balance = our_available_balance - pay_amount
 
     def total_amount(self, orders):
-        return reduce(operator.add, map(lambda order: order.amount if order.is_sell else order.money, orders), Wad(0))
+        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
 
 
 if __name__ == '__main__':

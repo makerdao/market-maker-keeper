@@ -44,6 +44,18 @@ class Order:
         self.amount = amount
         self.deal_amount = deal_amount
 
+    @property
+    def sell_to_buy_price(self) -> Wad:
+        return self.price
+
+    @property
+    def buy_to_sell_price(self) -> Wad:
+        return self.price
+
+    @property
+    def remaining_sell_amount(self) -> Wad:
+        return (self.amount - self.deal_amount) if self.is_sell else (self.amount - self.deal_amount)*self.price
+
     def __eq__(self, other):
         assert(isinstance(other, Order))
 
