@@ -186,19 +186,28 @@ class GdaxPriceFeed(PriceFeed):
 
 class PriceFeedFactory:
     @staticmethod
-    def create_price_feed(price_feed_argument: str, price_feed_expiry_argument: int, tub: Tub, vox: Vox) -> PriceFeed:
+    def create_price_feed(price_feed_argument: str,
+                          price_feed_expiry_argument: int,
+                          tub: Tub = None,
+                          vox: Vox = None) -> PriceFeed:
         assert(isinstance(price_feed_argument, str) or price_feed_argument is None)
         assert(isinstance(price_feed_expiry_argument, int))
+        assert(isinstance(tub, Tub) or tub is None)
+        assert(isinstance(vox, Vox) or vox is None)
 
         if price_feed_argument is not None:
             if price_feed_argument.lower() == 'gdax-websocket':
                 price_feed = GdaxPriceFeed("wss://ws-feed.gdax.com", expiry=price_feed_expiry_argument)
             else:
                 price_feed = SetzerPriceFeed(price_feed_argument, expiry=price_feed_expiry_argument)
-        else:
+        elif tub is not None:
             price_feed = TubPriceFeed(tub)
+        else:
+            raise Exception("'--price-feed' not specified, but no 'Tub' available to default to")
 
         # Optimization.
-        # Ultimately we should do: return ApplyTargetPrice(price_feed, vox)
+        # Ultimately we should do:
+        # if vox is not None:
+        #     return ApplyTargetPrice(price_feed, vox)
 
         return price_feed
