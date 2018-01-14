@@ -34,6 +34,19 @@ class PriceFeed(object):
         raise NotImplementedError("Please implement this method")
 
 
+class FixedPriceFeed(PriceFeed):
+    logger = logging.getLogger()
+
+    def __init__(self, fixed_price: Wad):
+        assert(isinstance(fixed_price, Wad))
+        self.fixed_price = fixed_price
+
+        self.logger.info(f"Using fixed price '{self.fixed_price}' as the price feed")
+
+    def get_price(self) -> Optional[Wad]:
+        return self.fixed_price
+
+
 class TubPriceFeed(PriceFeed):
     def __init__(self, tub: Tub):
         assert(isinstance(tub, Tub))
@@ -198,6 +211,8 @@ class PriceFeedFactory:
         if price_feed_argument is not None:
             if price_feed_argument.lower() == 'gdax-websocket':
                 price_feed = GdaxPriceFeed("wss://ws-feed.gdax.com", expiry=price_feed_expiry_argument)
+            elif price_feed_argument.startswith("fixed:"):
+                price_feed = FixedPriceFeed(Wad.from_number(price_feed_argument[6:]))
             else:
                 price_feed = SetzerPriceFeed(price_feed_argument, expiry=price_feed_expiry_argument)
         elif tub is not None:
