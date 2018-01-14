@@ -206,7 +206,7 @@ class BiboxMarketMakerKeeper:
                     our_available_balance = our_available_balance - pay_amount
 
     def total_amount(self, orders):
-        return reduce(operator.add, map(lambda order: order.amount if order.is_sell else order.money, orders), Wad(0))
+        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
 
 
 if __name__ == '__main__':

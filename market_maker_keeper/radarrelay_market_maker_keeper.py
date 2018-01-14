@@ -249,8 +249,7 @@ class RadarRelayMarketMakerKeeper:
                     self.place_order(order, our_orders)
 
     def total_amount(self, orders):
-        pay_amount_available = lambda order: order.pay_amount - (self.radar_relay.get_unavailable_buy_amount(order) * order.pay_amount / order.buy_amount)
-        return reduce(operator.add, map(pay_amount_available, orders), Wad(0))
+        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
 
 
 if __name__ == '__main__':

@@ -357,8 +357,7 @@ class EtherDeltaMarketMakerKeeper:
             return False
 
     def total_amount(self, orders):
-        pay_available = lambda order: order.pay_amount - (self.etherdelta.amount_filled(order) * order.pay_amount / order.buy_amount)
-        return reduce(operator.add, map(pay_available, orders), Wad(0))
+        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
 
     @staticmethod
     def fix_amount(amount: Wad) -> Wad:
