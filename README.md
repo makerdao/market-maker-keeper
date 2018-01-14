@@ -7,7 +7,7 @@ The _DAI Stablecoin System_ incentivizes external agents, called _keepers_,
 to automate certain operations around the Ethereum blockchain.
 
 `market-maker-keeper` is actually a set of keepers that facilitate DAI/W-ETH and DAI/ETH
-market making of the following exchanges:
+market making on the following exchanges:
 * OasisDEX (`oasis-market-maker-keeper`),
 * EtherDelta (`etherdelta-market-maker-keeper`),
 * RadarRelay (`radarrelay-market-maker-keeper`),
