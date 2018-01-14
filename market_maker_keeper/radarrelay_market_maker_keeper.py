@@ -160,12 +160,6 @@ class RadarRelayMarketMakerKeeper:
         """Approve 0x to access our 0x-WETH and SAI, so we can sell it on the exchange."""
         self.radar_relay.approve([self.ether_token, self.sai], directly(gas_price=self.gas_price))
 
-    def place_order(self, order: Order, our_orders: list):
-        order = self.radar_relay_api.calculate_fees(order)
-        order = self.radar_relay.sign_order(order)
-        self.radar_relay_api.submit_order(order)
-        our_orders.append(order)
-
     def our_orders(self) -> list:
         our_orders = self.radar_relay_api.get_orders_by_maker(self.our_address)
         current_timestamp = int(time.time())
@@ -201,55 +195,29 @@ class RadarRelayMarketMakerKeeper:
         self.cancel_orders(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(our_orders), target_price),
                                            bands.excessive_sell_orders(self.our_sell_orders(our_orders), target_price),
                                            bands.outside_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)))
-        self.top_up_bands(our_orders, bands.buy_bands, bands.sell_bands, target_price)
+
+        self.create_orders(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
+                                           bands.new_sell_orders(self.our_sell_orders(our_orders), self.ether_token.balance_of(self.our_address), target_price)))
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
         synchronize([self.radar_relay.cancel_order(order).transact_async(gas_price=self.gas_price) for order in orders])
 
-    def top_up_bands(self, our_orders: list, buy_bands: list, sell_bands: list, target_price: Wad):
-        """Create new buy and sell orders in all send and buy bands if necessary."""
-        self.top_up_buy_bands(our_orders, buy_bands, target_price)
-        self.top_up_sell_bands(our_orders, sell_bands, target_price)
+    def create_orders(self, new_orders):
+        """Create and submit orders synchronously."""
+        for new_order in new_orders:
+            if new_order.is_sell:
+                order = self.radar_relay.create_order(pay_token=self.ether_token.address, pay_amount=new_order.pay_amount,
+                                                      buy_token=self.sai.address, buy_amount=new_order.buy_amount,
+                                                      expiration=int(time.time()) + self.arguments.order_expiry)
+            else:
+                order = self.radar_relay.create_order(pay_token=self.sai.address, pay_amount=new_order.pay_amount,
+                                                      buy_token=self.ether_token.address, buy_amount=new_order.buy_amount,
+                                                      expiration=int(time.time()) + self.arguments.order_expiry)
 
-    def top_up_sell_bands(self, our_orders: list, sell_bands: list, target_price: Wad):
-        """Ensure our WETH engagement is not below minimum in all sell bands. Place new orders if necessary."""
-        our_balance = self.ether_token.balance_of(self.our_address)
-        for band in sell_bands:
-            orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_sell_orders(our_orders)))
-                buy_amount = pay_amount * price
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new sell order")
-
-                    order = self.radar_relay.create_order(pay_token=self.ether_token.address, pay_amount=pay_amount,
-                                                          buy_token=self.sai.address, buy_amount=buy_amount,
-                                                          expiration=int(time.time()) + self.arguments.order_expiry)
-                    self.place_order(order, our_orders)
-
-    def top_up_buy_bands(self, our_orders: list, buy_bands: list, target_price: Wad):
-        """Ensure our SAI engagement is not below minimum in all buy bands. Place new orders if necessary."""
-        our_balance = self.sai.balance_of(self.our_address)
-        for band in buy_bands:
-            orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_buy_orders(our_orders)))
-                buy_amount = pay_amount / price
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new buy order")
-
-                    order = self.radar_relay.create_order(pay_token=self.sai.address, pay_amount=pay_amount,
-                                                          buy_token=self.ether_token.address, buy_amount=buy_amount,
-                                                          expiration=int(time.time()) + self.arguments.order_expiry)
-                    self.place_order(order, our_orders)
-
-    def total_amount(self, orders):
-        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
+            order = self.radar_relay_api.calculate_fees(order)
+            order = self.radar_relay.sign_order(order)
+            self.radar_relay_api.submit_order(order)
 
 
 if __name__ == '__main__':
