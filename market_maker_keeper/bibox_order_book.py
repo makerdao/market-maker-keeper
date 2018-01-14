@@ -75,6 +75,12 @@ class BiboxOrderBookManager:
                               f" orders already cancelled: {[order_id for order_id in self._order_ids_cancelled]}")
             self.logger.debug(f"Orders placed: {[order.order_id for order in self._orders_placed]}")
 
+            # TODO: below we remove orders which are being or have been cancelled, and orders
+            # which have been placed, but we to not update the balances accordingly. it will
+            # work correctly as long as the market maker keeper has enough balance available.
+            # when it will get low on balance, order placement may fail or too tiny replacement
+            # orders may get created for a while.
+
             # Remove orders being cancelled and already cancelled.
             orders = list(filter(lambda order: order.order_id not in self._order_ids_cancelling and
                                                order.order_id not in self._order_ids_cancelled, self._state.orders))
