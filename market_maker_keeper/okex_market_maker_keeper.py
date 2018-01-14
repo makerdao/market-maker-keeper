@@ -112,18 +112,7 @@ class OkexMarketMakerKeeper:
         self.logger.info(f"Keeper configured to work on the '{self.arguments.pair}' pair")
 
     def shutdown(self):
-        pass
-        # while True:
-        #     try:
-        #         our_orders = self.bibox_api.get_orders(self.bibox_order_book_manager.pair, retry=True)
-        #     except:
-        #         continue
-        #
-        #     if len(our_orders) == 0:
-        #         break
-        #
-        #     self.cancel_orders(our_orders)
-        #     self.bibox_order_book_manager.wait_for_order_cancellation()
+        self.cancel_orders(self.okex_api.get_orders(self.arguments.pair))
 
     def token_sell(self) -> str:
         return self.arguments.pair[0:3]
