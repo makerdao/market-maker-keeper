@@ -69,7 +69,7 @@ class Order:
         return pformat(vars(self))
 
 
-class OKCoinApi:
+class OKEXApi:
     """OKCoin and OKEX API interface.
 
     Developed according to the following manual:

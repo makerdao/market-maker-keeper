@@ -25,7 +25,7 @@ from functools import reduce
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
-from market_maker_keeper.okcoin import OKCoinApi
+from market_maker_keeper.okex_api import OKEXApi
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker.lifecycle import Web3Lifecycle
@@ -87,10 +87,10 @@ class OkexMarketMakerKeeper:
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.arguments.price_feed_expiry)
 
-        self.okex_api = OKCoinApi(api_server=self.arguments.okex_api_server,
-                                  api_key=self.arguments.okex_api_key,
-                                  secret_key=self.arguments.okex_secret_key,
-                                  timeout=9.5)
+        self.okex_api = OKEXApi(api_server=self.arguments.okex_api_server,
+                                api_key=self.arguments.okex_api_key,
+                                secret_key=self.arguments.okex_secret_key,
+                                timeout=9.5)
 
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:
