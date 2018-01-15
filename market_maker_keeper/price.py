@@ -24,6 +24,7 @@ from typing import Optional
 import websocket
 
 from market_maker_keeper.setzer import Setzer
+from pymaker.bibox import BiboxApi
 from pymaker.feed import DSValue
 from pymaker.numeric import Wad
 from pymaker.sai import Tub, Vox
@@ -195,6 +196,48 @@ class GdaxPriceFeed(PriceFeed):
 
     def _process_heartbeat(self):
         self._last_timestamp = time.time()
+
+
+class BiboxPriceFeed:
+    logger = logging.getLogger()
+
+    def __init__(self, bibox_api: BiboxApi, pair: str, expiry: int):
+        assert(isinstance(bibox_api, BiboxApi))
+        assert(isinstance(pair, str))
+        assert(isinstance(expiry, int))
+
+        self.bibox_api = bibox_api
+        self.pair = pair
+        self.expiry = expiry
+        self._last_price = None
+        self._last_timestamp = 0
+        self._expired = True
+        threading.Thread(target=self._background_run, daemon=True).start()
+
+    def _background_run(self):
+        while True:
+            try:
+                result = self.bibox_api.ticker(self.pair)
+                self._last_price = Wad.from_number((float(result['buy']) + float(result['sell']))/2)
+                self._last_timestamp = time.time()
+
+                self.logger.debug(f"Price feed from Bibox ticker is {self._last_price}")
+                if self._expired:
+                    self.logger.info(f"Price feed from Bibox ticker became available")
+                    self._expired = False
+            except Exception as e:
+                self.logger.warning(f"Failed to fetch ticker from Bibox: {e}")
+
+            time.sleep(5)
+
+    def get_price(self) -> Optional[Wad]:
+        if time.time() - self._last_timestamp > self.expiry:
+            if not self._expired:
+                self.logger.warning(f"Price feed from Bibox ticker has expired")
+                self._expired = True
+            return None
+        else:
+            return self._last_price
 
 
 class PriceFeedFactory:
