@@ -100,9 +100,9 @@ class BuyBand(Band):
         super().__init__(min_margin=dictionary['minMargin'],
                          avg_margin=dictionary['avgMargin'],
                          max_margin=dictionary['maxMargin'],
-                         min_amount=Wad.from_number(dictionary['minSaiAmount']),
-                         avg_amount=Wad.from_number(dictionary['avgSaiAmount']),
-                         max_amount=Wad.from_number(dictionary['maxSaiAmount']),
+                         min_amount=Wad.from_number(dictionary['minSaiAmount']) if 'minSaiAmount' in dictionary else Wad.from_number(dictionary['minAmount']),
+                         avg_amount=Wad.from_number(dictionary['avgSaiAmount']) if 'avgSaiAmount' in dictionary else Wad.from_number(dictionary['avgAmount']),
+                         max_amount=Wad.from_number(dictionary['maxSaiAmount']) if 'maxSaiAmount' in dictionary else Wad.from_number(dictionary['maxAmount']),
                          dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
 
     def includes(self, order, target_price: Wad) -> bool:
@@ -124,9 +124,9 @@ class SellBand(Band):
         super().__init__(min_margin=dictionary['minMargin'],
                          avg_margin=dictionary['avgMargin'],
                          max_margin=dictionary['maxMargin'],
-                         min_amount=Wad.from_number(dictionary['minWEthAmount']),
-                         avg_amount=Wad.from_number(dictionary['avgWEthAmount']),
-                         max_amount=Wad.from_number(dictionary['maxWEthAmount']),
+                         min_amount=Wad.from_number(dictionary['minWEthAmount']) if 'minWEthAmount' in dictionary else Wad.from_number(dictionary['minAmount']),
+                         avg_amount=Wad.from_number(dictionary['avgWEthAmount']) if 'avgWEthAmount' in dictionary else Wad.from_number(dictionary['avgAmount']),
+                         max_amount=Wad.from_number(dictionary['maxWEthAmount']) if 'maxWEthAmount' in dictionary else Wad.from_number(dictionary['maxAmount']),
                          dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
 
     def includes(self, order, target_price: Wad) -> bool:
