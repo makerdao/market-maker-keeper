@@ -21,8 +21,8 @@ from typing import List
 
 import time
 
-from market_maker_keeper.bibox_api import BiboxApi, Order
 from pymaker import Wad
+from pymaker.bibox import BiboxApi, Order
 
 
 class BiboxOrderBook:
