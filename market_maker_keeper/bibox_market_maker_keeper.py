@@ -16,24 +16,21 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import itertools
 import logging
 import operator
 import sys
 from functools import reduce
 
-import itertools
-from typing import Tuple, List
-
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.bibox_order_book import BiboxOrderBookManager
-from market_maker_keeper.price import PriceFeedFactory
+from market_maker_keeper.price import PriceFeedFactory, BiboxPriceFeed
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from pymaker import Address, Wad
-from pymaker.bibox import BiboxApi, Order
+from pymaker.bibox import BiboxApi
 from pymaker.lifecycle import Web3Lifecycle
-from pymaker.sai import Tub, Vox
+from pymaker.numeric import Wad
 
 
 class BiboxMarketMakerKeeper:
@@ -92,14 +89,18 @@ class BiboxMarketMakerKeeper:
         logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
         logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.INFO)
 
-        self.bands_config = ReloadableConfig(self.arguments.config)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry, self.tub, self.vox)
-
         self.bibox_api = BiboxApi(api_server=self.arguments.bibox_api_server,
                                   api_key=self.arguments.bibox_api_key,
                                   secret=self.arguments.bibox_secret,
                                   timeout=9.5)
+
+        self.bands_config = ReloadableConfig(self.arguments.config)
+        if self.arguments.price_feed == 'ticker':
+            self.price_feed = BiboxPriceFeed(self.bibox_api, self.arguments.pair.upper(),
+                                             self.arguments.price_feed_expiry)
+        else:
+            self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
+                                                                   self.arguments.price_feed_expiry, self.tub, self.vox)
 
         self.bibox_order_book_manager = BiboxOrderBookManager(bibox_api=self.bibox_api,
                                                               pair=self.arguments.pair.upper(),
