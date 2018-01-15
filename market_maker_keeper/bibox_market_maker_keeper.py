@@ -37,7 +37,7 @@ from pymaker.sai import Tub, Vox
 
 
 class BiboxMarketMakerKeeper:
-    """Keeper acting as a market maker on Bibox, on the ETH/DAI pair."""
+    """Keeper acting as a market maker on Bibox."""
 
     logger = logging.getLogger()
 
@@ -64,6 +64,9 @@ class BiboxMarketMakerKeeper:
 
         parser.add_argument("--bibox-secret", type=str, required=True,
                             help="Secret for the Bibox API")
+
+        parser.add_argument("--pair", type=str, required=True,
+                            help="Token pair on which the keeper should operate")
 
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
@@ -98,7 +101,8 @@ class BiboxMarketMakerKeeper:
                                   secret=self.arguments.bibox_secret,
                                   timeout=9.5)
 
-        self.bibox_order_book_manager = BiboxOrderBookManager(bibox_api=self.bibox_api, pair='ETH_DAI',
+        self.bibox_order_book_manager = BiboxOrderBookManager(bibox_api=self.bibox_api,
+                                                              pair=self.arguments.pair.upper(),
                                                               refresh_frequency=3)
 
     def main(self):
@@ -128,6 +132,12 @@ class BiboxMarketMakerKeeper:
 
             self.cancel_orders(our_orders)
             self.bibox_order_book_manager.wait_for_order_cancellation()
+
+    def token_sell(self) -> str:
+        return self.arguments.pair[0:3].upper()
+
+    def token_buy(self) -> str:
+        return self.arguments.pair[4:7].upper()
 
     def our_balance(self, our_balances: list, symbol: str) -> Wad:
         return Wad.from_number(next(filter(lambda coin: coin['symbol'] == symbol, our_balances))['balance'])
@@ -170,8 +180,8 @@ class BiboxMarketMakerKeeper:
         self.top_up_sell_bands(our_orders, our_balances, sell_bands, target_price)
 
     def top_up_sell_bands(self, our_orders: list, our_balances: list, sell_bands: list, target_price: Wad):
-        """Ensure our ETH engagement is not below minimum in all sell bands. Place new orders if necessary."""
-        our_available_balance = self.our_balance(our_balances, 'ETH')
+        """Ensure our sell engagement is not below minimum in all sell bands. Place new orders if necessary."""
+        our_available_balance = self.our_balance(our_balances, self.token_sell())
         for band in sell_bands:
             orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
@@ -183,13 +193,13 @@ class BiboxMarketMakerKeeper:
                     self.logger.debug(f"Using price {price} for new sell order")
 
                     self.bibox_order_book_manager.place_order(is_sell=True,
-                                                              amount=pay_amount, amount_symbol='ETH',
-                                                              money=buy_amount, money_symbol='DAI')
+                                                              amount=pay_amount, amount_symbol=self.token_sell(),
+                                                              money=buy_amount, money_symbol=self.token_buy())
                     our_available_balance = our_available_balance - buy_amount
 
     def top_up_buy_bands(self, our_orders: list, our_balances: list, buy_bands: list, target_price: Wad):
-        """Ensure our SAI engagement is not below minimum in all buy bands. Place new orders if necessary."""
-        our_available_balance = self.our_balance(our_balances, 'DAI')
+        """Ensure our buy engagement is not below minimum in all buy bands. Place new orders if necessary."""
+        our_available_balance = self.our_balance(our_balances, self.token_buy())
         for band in buy_bands:
             orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
@@ -201,8 +211,8 @@ class BiboxMarketMakerKeeper:
                     self.logger.debug(f"Using price {price} for new buy order")
 
                     self.bibox_order_book_manager.place_order(is_sell=False,
-                                                              amount=buy_amount, amount_symbol='ETH',
-                                                              money=pay_amount, money_symbol='DAI')
+                                                              amount=buy_amount, amount_symbol=self.token_sell(),
+                                                              money=pay_amount, money_symbol=self.token_buy())
                     our_available_balance = our_available_balance - pay_amount
 
     def total_amount(self, orders):
