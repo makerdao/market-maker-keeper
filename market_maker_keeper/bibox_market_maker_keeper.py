@@ -16,24 +16,21 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import itertools
 import logging
 import operator
 import sys
 from functools import reduce
 
-import itertools
-from typing import Tuple, List
-
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
+from market_maker_keeper.bibox_api import BiboxApi
 from market_maker_keeper.bibox_order_book import BiboxOrderBookManager
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from pymaker import Address, Wad
-from pymaker.bibox import BiboxApi, Order
 from pymaker.lifecycle import Web3Lifecycle
-from pymaker.sai import Tub, Vox
+from pymaker.numeric import Wad
 
 
 class BiboxMarketMakerKeeper:
