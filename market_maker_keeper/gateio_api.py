@@ -9,7 +9,6 @@ import hmac
 
 
 class GateIOApi:
-
     def __init__(self,api_server: str, api_key: str, secret_key: str, timeout: float):
         assert(isinstance(api_server, str))
         assert(isinstance(api_key, str))
@@ -22,46 +21,40 @@ class GateIOApi:
         self.timeout = timeout
 
     def pairs(self):
-        URL = "/api2/1/pairs"
-        return self._http_get(URL, '')
+        return self._http_get("/api2/1/pairs", '')
 
     def marketinfo(self):
-        URL = "/api2/1/marketinfo"
-        return self._http_get(URL, '')
+        return self._http_get("/api2/1/marketinfo", '')
 
     def marketlist(self):
-        URL = "/api2/1/marketlist"
-        return self._http_get(URL, '')
+        return self._http_get("/api2/1/marketlist", '')
 
     def tickers(self):
-        URL = "/api2/1/tickers"
-        return self._http_get(URL, '')
+        return self._http_get("/api2/1/tickers", '')
 
     def ticker(self, pair: str):
         assert(isinstance(pair, str))
+        return self._http_get("/api2/1/ticker", pair)
 
-        URL = "/api2/1/ticker"
-        return self._http_get(URL, pair)
-
-    def orderBooks(self):
-        URL = "/api2/1/orderBooks"
-        return self._http_get(URL, '')
-
-    def orderBook(self, pair: str):
+    def order_book(self, pair: str):
         assert(isinstance(pair, str))
+        return self._http_get("/api2/1/orderBook", pair)
 
-        URL = "/api2/1/orderBook"
-        return self._http_get(URL, pair)
-
-    def tradeHistory(self, pair):
+    def all_trade_history(self, pair: str):
         assert(isinstance(pair, str))
+        return self._http_get("/api2/1/tradeHistory", pair)
 
-        URL = "/api2/1/tradeHistory"
-        return self._http_get(URL, pair)
+    def get_balances(self):
+        return self._http_post("/api2/1/private/balances", {})
 
-    def balances(self):
-        URL = "/api2/1/private/balances"
-        return self._http_post(URL, {})
+    def get_orders(self):
+        URL = "/api2/1/private/openOrders"
+        params = {}
+        return self._http_post(URL, params)
+
+    def get_order(self, orderNumber, currencyPair):
+        URL = "/api2/1/private/getOrder"
+        return self._http_post(URL, params)
 
     def buy(self, currencyPair, rate, amount):
         URL = "/api2/1/private/buy"
@@ -73,29 +66,18 @@ class GateIOApi:
         params = {'currencyPair': currencyPair, 'rate': rate, 'amount': amount}
         return self._http_post(URL, params)
 
-    def cancelOrder(self, orderNumber, currencyPair):
-        URL = "/api2/1/private/cancelOrder"
-        params = {'orderNumber': orderNumber, 'currencyPair': currencyPair}
-        return self._http_post(URL, params)
+    def cancel_order(self, pair: str, order_id: int):
+        assert(isinstance(pair, str))
+        assert(isinstance(order_id, int))
+        return self._http_post("/api2/1/private/cancelOrder", {'orderNumber': order_id, 'currencyPair': pair})
 
-    def cancelAllOrders(self, type, currencyPair):
-        URL = "/api2/1/private/cancelAllOrders"
-        params = {'type': type, 'currencyPair': currencyPair}
-        return self._http_post(URL, params)
+    def cancel_all_orders(self, pair: str):
+        assert(isinstance(pair, str))
+        return self._http_post("/api2/1/private/cancelAllOrders", {'type': -1, 'currencyPair': pair})
 
-    def getOrder(self, orderNumber, currencyPair):
-        URL = "/api2/1/private/getOrder"
-        return self._http_post(URL, params)
-
-    def openOrders(self):
-        URL = "/api2/1/private/openOrders"
-        params = {}
-        return self._http_post(URL, params)
-
-    def mytradeHistory(self, currencyPair, orderNumber):
-        URL = "/api2/1/private/tradeHistory"
-        params = {'currencyPair': currencyPair, 'orderNumber': orderNumber}
-        return self._http_post(URL, params)
+    def get_trade_history(self, pair):
+        assert(isinstance(pair, str))
+        return self._http_post("/api2/1/private/tradeHistory", {'currencyPair': pair})
 
     def _http_get(self, resource: str, params: str):
         assert(isinstance(resource, str))
