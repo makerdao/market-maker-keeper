@@ -1,11 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import http.client
+import hashlib
 import urllib
-import json
-from hashlib import sha512
 import hmac
+
+import requests
 
 
 class GateIOApi:
@@ -75,7 +75,7 @@ class GateIOApi:
         assert(isinstance(pair, str))
         return self._http_post("/api2/1/private/cancelAllOrders", {'type': -1, 'currencyPair': pair})
 
-    def get_trade_history(self, pair):
+    def get_trade_history(self, pair: str):
         assert(isinstance(pair, str))
         return self._http_post("/api2/1/private/tradeHistory", {'currencyPair': pair})
 
@@ -83,11 +83,7 @@ class GateIOApi:
         assert(isinstance(resource, str))
         assert(isinstance(params, str))
 
-        conn = http.client.HTTPSConnection(self.api_server, timeout=self.timeout)
-        conn.request("GET", resource + '/' + params)
-        response = conn.getresponse()
-        data = response.read().decode('utf-8')
-        return json.loads(data)
+        return requests.get(url=f"{self.api_server}{resource}/{params}", timeout=self.timeout).json()
 
     def _create_signature(self, params):
         assert(isinstance(params, dict))
@@ -96,25 +92,18 @@ class GateIOApi:
         for key in (params.keys()):
             sign += key + '=' + str(params[key]) + '&'
         sign = sign[:-1]
-        return hmac.new(bytes(self.secret_key, encoding='utf8'), bytes(sign, encoding='utf8'), sha512).hexdigest()
+
+        return hmac.new(key=bytes(self.secret_key, encoding='utf8'),
+                        msg=bytes(sign, encoding='utf8'),
+                        digestmod=hashlib.sha512).hexdigest()
 
     def _http_post(self, resource: str, params: dict):
         assert(isinstance(resource, str))
         assert(isinstance(params, dict))
 
-        headers = {
-            "Content-type": "application/x-www-form-urlencoded",
-            "KEY": self.api_key,
-            "SIGN": self._create_signature(params)
-        }
-        conn = http.client.HTTPSConnection(self.api_server, timeout=self.timeout)
-        if params:
-            temp_params = urllib.parse.urlencode(params)
-        else:
-            temp_params = ''
-        conn.request("POST", resource, temp_params, headers)
-        response = conn.getresponse()
-        data = response.read().decode('utf-8')
-        params.clear()
-        conn.close()
-        return data
+        return requests.post(url=f"{self.api_server}{resource}",
+                             data=urllib.parse.urlencode(params),
+                             headers={"Content-Type": "application/x-www-form-urlencoded",
+                                      "KEY": self.api_key,
+                                      "SIGN": self._create_signature(params)},
+                             timeout=self.timeout).json()
