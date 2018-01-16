@@ -113,7 +113,7 @@ class BiboxOrderBookManager:
                                                            money=money,
                                                            money_symbol=money_symbol)).start()
 
-    def cancel_order(self, order_id: int, retry: bool = True):
+    def cancel_order(self, order_id: int, retry: bool = False):
         assert(isinstance(order_id, int))
         assert(isinstance(retry, bool))
 
