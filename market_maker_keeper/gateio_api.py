@@ -41,7 +41,7 @@ class GateIOApi:
         params=''
         return self._http_get(URL, params)
 
-    def ticker(self,param):
+    def ticker(self, param):
         URL = "/api2/1/ticker"
         return self._http_get(URL, param)
 
@@ -50,7 +50,7 @@ class GateIOApi:
         param=''
         return self._http_get(URL, param)
 
-    def orderBook(self,param):
+    def orderBook(self, param):
         URL = "/api2/1/orderBook"
         return self._http_get(URL, param)
 
@@ -63,17 +63,17 @@ class GateIOApi:
         param = {}
         return self._http_post(URL, param, self.api_key, self.secret_key)
 
-    def depositAddres(self,param):
+    def depositAddres(self, param):
         URL = "/api2/1/private/depositAddress"
         params = {'currency':param}
         return self._http_post(URL, params, self.api_key, self.secret_key)
 
-    def depositsWithdrawals(self, start,end):
+    def depositsWithdrawals(self, start, end):
         URL = "/api2/1/private/depositsWithdrawals"
         params = {'start': start,'end':end}
         return self._http_post(URL, params, self.api_key, self.secret_key)
 
-    def buy(self, currencyPair,rate, amount):
+    def buy(self, currencyPair, rate, amount):
         URL = "/api2/1/private/buy"
         params = {'currencyPair': currencyPair,'rate':rate,'amount':amount}
         return self._http_post(URL, params, self.api_key, self.secret_key)
@@ -102,12 +102,12 @@ class GateIOApi:
         params = {}
         return self._http_post(URL, params, self.api_key, self.secret_key)
 
-    def mytradeHistory(self,currencyPair,orderNumber):
+    def mytradeHistory(self, currencyPair, orderNumber):
         URL = "/api2/1/private/tradeHistory"
         params = {'currencyPair': currencyPair, 'orderNumber': orderNumber}
         return self._http_post(URL, params, self.api_key, self.secret_key)
 
-    def withdraw(self,currency,amount,address):
+    def withdraw(self, currency, amount, address):
         URL = "/api2/1/private/withdraw"
         params = {'currency': currency, 'amount': amount,'address':address}
         return self._http_post(URL, params, self.api_key, self.secret_key)
@@ -122,16 +122,16 @@ class GateIOApi:
     def _create_signature(self, params, secretKey):
         sign = ''
         for key in (params.keys()):
-            sign += key + '=' + str(params[key]) +'&'
+            sign += key + '=' + str(params[key]) + '&'
         sign = sign[:-1]
-        my_sign = hmac.new( bytes(secretKey,encoding='utf8'),bytes(sign,encoding='utf8'), sha512).hexdigest()
+        my_sign = hmac.new(bytes(secretKey, encoding='utf8'), bytes(sign, encoding='utf8'), sha512).hexdigest()
         return my_sign
 
     def _http_post(self, resource, params, apikey, secretkey):
         headers = {
-            "Content-type" : "application/x-www-form-urlencoded",
-            "KEY":apikey,
-            "SIGN":self._create_signature(params, secretkey)
+            "Content-type": "application/x-www-form-urlencoded",
+            "KEY": apikey,
+            "SIGN": self._create_signature(params, secretkey)
         }
         conn = http.client.HTTPSConnection(self.api_server, timeout=10)
         if params:
