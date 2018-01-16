@@ -24,96 +24,96 @@ class GateIOApi:
     def pairs(self):
         URL = "/api2/1/pairs"
         params=''
-        return self._http_get(self.api_server, URL, params)
+        return self._http_get(URL, params)
 
     def marketinfo(self):
         URL = "/api2/1/marketinfo"
         params=''
-        return self._http_get(self.api_server, URL, params)
+        return self._http_get(URL, params)
 
     def marketlist(self):
         URL = "/api2/1/marketlist"
         params=''
-        return self._http_get(self.api_server, URL, params)
+        return self._http_get(URL, params)
 
     def tickers(self):
         URL = "/api2/1/tickers"
         params=''
-        return self._http_get(self.api_server, URL, params)
+        return self._http_get(URL, params)
 
     def ticker(self,param):
         URL = "/api2/1/ticker"
-        return self._http_get(self.api_server, URL, param)
+        return self._http_get(URL, param)
 
     def orderBooks(self):
         URL = "/api2/1/orderBooks"
         param=''
-        return self._http_get(self.api_server, URL, param)
+        return self._http_get(URL, param)
 
     def orderBook(self,param):
         URL = "/api2/1/orderBook"
-        return self._http_get(self.api_server, URL, param)
+        return self._http_get(URL, param)
 
     def tradeHistory(self, param):
         URL = "/api2/1/tradeHistory"
-        return self._http_get(self.api_server, URL, param)
+        return self._http_get(URL, param)
 
     def balances(self):
         URL = "/api2/1/private/balances"
         param = {}
-        return self._http_post(self.api_server, URL, param, self.api_key, self.secret_key)
+        return self._http_post(URL, param, self.api_key, self.secret_key)
 
     def depositAddres(self,param):
         URL = "/api2/1/private/depositAddress"
         params = {'currency':param}
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def depositsWithdrawals(self, start,end):
         URL = "/api2/1/private/depositsWithdrawals"
         params = {'start': start,'end':end}
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def buy(self, currencyPair,rate, amount):
         URL = "/api2/1/private/buy"
         params = {'currencyPair': currencyPair,'rate':rate,'amount':amount}
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def sell(self, currencyPair, rate, amount):
         URL = "/api2/1/private/sell"
         params = {'currencyPair': currencyPair, 'rate': rate, 'amount': amount}
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def cancelOrder(self, orderNumber, currencyPair):
         URL = "/api2/1/private/cancelOrder"
         params = {'orderNumber': orderNumber, 'currencyPair': currencyPair}
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def cancelAllOrders(self, type, currencyPair):
         URL = "/api2/1/private/cancelAllOrders"
         params = {'type': type, 'currencyPair': currencyPair}
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def getOrder(self, orderNumber, currencyPair):
         URL = "/api2/1/private/getOrder"
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def openOrders(self):
         URL = "/api2/1/private/openOrders"
         params = {}
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def mytradeHistory(self,currencyPair,orderNumber):
         URL = "/api2/1/private/tradeHistory"
         params = {'currencyPair': currencyPair, 'orderNumber': orderNumber}
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def withdraw(self,currency,amount,address):
         URL = "/api2/1/private/withdraw"
         params = {'currency': currency, 'amount': amount,'address':address}
-        return self._http_post(self.api_server, URL, params, self.api_key, self.secret_key)
+        return self._http_post(URL, params, self.api_key, self.secret_key)
 
-    def _http_get(self, url, resource, params=''):
-        conn = http.client.HTTPSConnection(url, timeout=10)
+    def _http_get(self, resource, params=''):
+        conn = http.client.HTTPSConnection(self.api_server, timeout=10)
         conn.request("GET",resource + '/' + params )
         response = conn.getresponse()
         data = response.read().decode('utf-8')
@@ -127,13 +127,13 @@ class GateIOApi:
         my_sign = hmac.new( bytes(secretKey,encoding='utf8'),bytes(sign,encoding='utf8'), sha512).hexdigest()
         return my_sign
 
-    def _http_post(self, url, resource, params, apikey, secretkey):
+    def _http_post(self, resource, params, apikey, secretkey):
         headers = {
             "Content-type" : "application/x-www-form-urlencoded",
             "KEY":apikey,
             "SIGN":self._create_signature(params, secretkey)
         }
-        conn = http.client.HTTPSConnection(url, timeout=10)
+        conn = http.client.HTTPSConnection(self.api_server, timeout=10)
         if params:
             temp_params = urllib.parse.urlencode(params)
         else:
