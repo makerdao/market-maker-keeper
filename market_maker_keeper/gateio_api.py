@@ -130,7 +130,6 @@ class GateIOApi:
             temp_params = urllib.parse.urlencode(params)
         else:
             temp_params = ''
-        print(temp_params)
         conn.request("POST", resource, temp_params, headers)
         response = conn.getresponse()
         data = response.read().decode('utf-8')
