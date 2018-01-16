@@ -63,16 +63,6 @@ class GateIOApi:
         URL = "/api2/1/private/balances"
         return self._http_post(URL, {}, self.api_key, self.secret_key)
 
-    def depositAddres(self, param):
-        URL = "/api2/1/private/depositAddress"
-        params = {'currency': param}
-        return self._http_post(URL, params, self.api_key, self.secret_key)
-
-    def depositsWithdrawals(self, start, end):
-        URL = "/api2/1/private/depositsWithdrawals"
-        params = {'start': start, 'end':end}
-        return self._http_post(URL, params, self.api_key, self.secret_key)
-
     def buy(self, currencyPair, rate, amount):
         URL = "/api2/1/private/buy"
         params = {'currencyPair': currencyPair, 'rate':rate, 'amount':amount}
@@ -105,11 +95,6 @@ class GateIOApi:
     def mytradeHistory(self, currencyPair, orderNumber):
         URL = "/api2/1/private/tradeHistory"
         params = {'currencyPair': currencyPair, 'orderNumber': orderNumber}
-        return self._http_post(URL, params, self.api_key, self.secret_key)
-
-    def withdraw(self, currency, amount, address):
-        URL = "/api2/1/private/withdraw"
-        params = {'currency': currency, 'amount': amount, 'address':address}
         return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def _http_get(self, resource: str, params: str):
