@@ -173,7 +173,7 @@ class BiboxMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.bibox_order_book_manager.cancel_order(order.order_id, retry=True)
+            self.bibox_order_book_manager.cancel_order(order.order_id)
 
     def top_up_bands(self, our_orders: list, our_balances: list, buy_bands: list, sell_bands: list, target_price: Wad):
         """Create new buy and sell orders in all send and buy bands if necessary."""
