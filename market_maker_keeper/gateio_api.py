@@ -26,9 +26,18 @@ from pymaker import Wad
 
 
 class GateIOApi:
+    """Gate.io API interface.
+
+    Developed according to the following manual:
+    <https://gate.io/api2>.
+
+    Inspired by the following example:
+    <https://github.com/gateio/rest/tree/master/python>.
+    """
+
     logger = logging.getLogger()
 
-    def __init__(self,api_server: str, api_key: str, secret_key: str, timeout: float):
+    def __init__(self, api_server: str, api_key: str, secret_key: str, timeout: float):
         assert(isinstance(api_server, str))
         assert(isinstance(api_key, str))
         assert(isinstance(secret_key, str))
