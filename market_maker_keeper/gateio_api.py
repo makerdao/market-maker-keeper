@@ -23,59 +23,59 @@ class GateIOApi:
 
     def pairs(self):
         URL = "/api2/1/pairs"
-        params=''
-        return self._http_get(URL, params)
+        return self._http_get(URL, '')
 
     def marketinfo(self):
         URL = "/api2/1/marketinfo"
-        params=''
-        return self._http_get(URL, params)
+        return self._http_get(URL, '')
 
     def marketlist(self):
         URL = "/api2/1/marketlist"
-        params=''
-        return self._http_get(URL, params)
+        return self._http_get(URL, '')
 
     def tickers(self):
         URL = "/api2/1/tickers"
-        params=''
-        return self._http_get(URL, params)
+        return self._http_get(URL, '')
 
-    def ticker(self, param):
+    def ticker(self, pair: str):
+        assert(isinstance(pair, str))
+
         URL = "/api2/1/ticker"
-        return self._http_get(URL, param)
+        return self._http_get(URL, pair)
 
     def orderBooks(self):
         URL = "/api2/1/orderBooks"
-        param=''
-        return self._http_get(URL, param)
+        return self._http_get(URL, '')
 
-    def orderBook(self, param):
+    def orderBook(self, pair: str):
+        assert(isinstance(pair, str))
+
         URL = "/api2/1/orderBook"
-        return self._http_get(URL, param)
+        return self._http_get(URL, pair)
 
-    def tradeHistory(self, param):
+    def tradeHistory(self, pair):
+        assert(isinstance(pair, str))
+
         URL = "/api2/1/tradeHistory"
-        return self._http_get(URL, param)
+        return self._http_get(URL, pair)
 
     def balances(self):
         URL = "/api2/1/private/balances"
-        param = {}
-        return self._http_post(URL, param, self.api_key, self.secret_key)
+        return self._http_post(URL, {}, self.api_key, self.secret_key)
 
     def depositAddres(self, param):
         URL = "/api2/1/private/depositAddress"
-        params = {'currency':param}
+        params = {'currency': param}
         return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def depositsWithdrawals(self, start, end):
         URL = "/api2/1/private/depositsWithdrawals"
-        params = {'start': start,'end':end}
+        params = {'start': start, 'end':end}
         return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def buy(self, currencyPair, rate, amount):
         URL = "/api2/1/private/buy"
-        params = {'currencyPair': currencyPair,'rate':rate,'amount':amount}
+        params = {'currencyPair': currencyPair, 'rate':rate, 'amount':amount}
         return self._http_post(URL, params, self.api_key, self.secret_key)
 
     def sell(self, currencyPair, rate, amount):
@@ -109,12 +109,15 @@ class GateIOApi:
 
     def withdraw(self, currency, amount, address):
         URL = "/api2/1/private/withdraw"
-        params = {'currency': currency, 'amount': amount,'address':address}
+        params = {'currency': currency, 'amount': amount, 'address':address}
         return self._http_post(URL, params, self.api_key, self.secret_key)
 
-    def _http_get(self, resource, params=''):
-        conn = http.client.HTTPSConnection(self.api_server, timeout=10)
-        conn.request("GET",resource + '/' + params )
+    def _http_get(self, resource: str, params: str):
+        assert(isinstance(resource, str))
+        assert(isinstance(params, str))
+
+        conn = http.client.HTTPSConnection(self.api_server, timeout=self.timeout)
+        conn.request("GET", resource + '/' + params)
         response = conn.getresponse()
         data = response.read().decode('utf-8')
         return json.loads(data)
@@ -127,13 +130,16 @@ class GateIOApi:
         my_sign = hmac.new(bytes(secretKey, encoding='utf8'), bytes(sign, encoding='utf8'), sha512).hexdigest()
         return my_sign
 
-    def _http_post(self, resource, params, apikey, secretkey):
+    def _http_post(self, resource: str, params: dict, apikey, secretkey):
+        assert(isinstance(resource, str))
+        assert(isinstance(params, dict))
+
         headers = {
             "Content-type": "application/x-www-form-urlencoded",
             "KEY": apikey,
             "SIGN": self._create_signature(params, secretkey)
         }
-        conn = http.client.HTTPSConnection(self.api_server, timeout=10)
+        conn = http.client.HTTPSConnection(self.api_server, timeout=self.timeout)
         if params:
             temp_params = urllib.parse.urlencode(params)
         else:
