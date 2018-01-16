@@ -73,13 +73,12 @@ class GateIOApi:
         return self._http_post("/api2/1/private/balances", {})
 
     def get_orders(self):
-        URL = "/api2/1/private/openOrders"
-        params = {}
-        return self._http_post(URL, params)
+        return self._http_post("/api2/1/private/openOrders", {})
 
-    def get_order(self, orderNumber, currencyPair):
-        URL = "/api2/1/private/getOrder"
-        return self._http_post(URL, params)
+    def get_order(self, pair: str, order_id: int):
+        assert(isinstance(pair, str))
+        assert(isinstance(order_id, int))
+        return self._http_post("/api2/1/private/getOrder", {'orderNumber': order_id, 'currencyPair': pair})
 
     def place_order(self, pair: str, is_sell: bool, price: Wad, amount: Wad):
         assert(isinstance(pair, str))
