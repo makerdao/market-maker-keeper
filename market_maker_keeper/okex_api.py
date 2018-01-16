@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import urllib
 import hashlib
 from pprint import pformat
@@ -79,6 +80,8 @@ class OKEXApi:
     <https://github.com/OKCoin/rest>, <https://github.com/OKCoin/rest/tree/master/python>.
     """
 
+    logger = logging.getLogger()
+
     def __init__(self, api_server: str, api_key: str, secret_key: str, timeout: float):
         assert(isinstance(api_server, str))
         assert(isinstance(api_key, str))
@@ -128,25 +131,40 @@ class OKEXApi:
         assert(isinstance(price, Wad))
         assert(isinstance(amount, Wad))
 
+        self.logger.info(f"Placing order ({'SELL' if is_sell else 'BUY'}, amount {amount} of {pair},"
+                         f" price {price})...")
+
         result = self._http_post("/api/v1/trade.do", {
             'symbol': pair,
             'type': 'sell' if is_sell else 'buy',
             'price': float(price),
             'amount': float(amount)
         })
+        order_id = int(result['order_id'])
 
-        return int(result['order_id'])
+        self.logger.info(f"Placed order ({'SELL' if is_sell else 'BUY'}, amount {amount} of {pair},"
+                         f" price {price}) as #{order_id}")
+
+        return order_id
 
     def cancel_order(self, pair: str, order_id: int) -> bool:
         assert(isinstance(pair, str))
         assert(isinstance(order_id, int))
 
+        self.logger.info(f"Cancelling order #{order_id}...")
+
         result = self._http_post("/api/v1/cancel_order.do", {
             'symbol': pair,
             'order_id': order_id
         })
+        success = int(result['order_id']) == order_id
 
-        return int(result['order_id']) == order_id
+        if success:
+            self.logger.info(f"Cancelled order #{order_id}...")
+        else:
+            self.logger.info(f"Failed to cancel order #{order_id}...")
+
+        return success
 
     def _create_signature(self, params: dict):
         assert(isinstance(params, dict))
