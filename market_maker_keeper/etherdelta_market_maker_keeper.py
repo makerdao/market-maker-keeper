@@ -238,9 +238,7 @@ class EtherDeltaMarketMakerKeeper:
             return
 
         self.remove_expired_orders(block_number)
-        self.cancel_orders(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(), target_price),
-                                           bands.excessive_sell_orders(self.our_sell_orders(), target_price),
-                                           bands.outside_orders(self.our_buy_orders(), self.our_sell_orders(), target_price)), block_number)
+        self.cancel_orders(bands.cancellable_orders(self.our_buy_orders(), self.our_sell_orders(), target_price), block_number)
         self.top_up_bands(bands.buy_bands, bands.sell_bands, target_price)
 
     @staticmethod
