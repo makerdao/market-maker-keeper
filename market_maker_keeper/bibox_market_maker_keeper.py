@@ -133,6 +133,9 @@ class BiboxMarketMakerKeeper:
             self.cancel_orders(our_orders)
             self.bibox_order_book_manager.wait_for_order_cancellation()
 
+    def price(self) -> Wad:
+        return self.price_feed.get_price()
+
     def token_sell(self) -> str:
         return self.arguments.pair[0:3].upper()
 
@@ -151,24 +154,20 @@ class BiboxMarketMakerKeeper:
     def synchronize_orders(self):
         bands = Bands(self.bands_config)
         order_book = self.bibox_order_book_manager.get_order_book()
-        target_price = self.price_feed.get_price()
 
-        if target_price is None:
+        if self.price() is None:
             self.logger.warning("Cancelling all orders as no price feed available.")
             self.cancel_orders(order_book.orders)
             return
 
         # Cancel orders
-        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                                      our_sell_orders=self.our_sell_orders(order_book.orders),
-                                                      target_price=target_price)
-        if len(cancellable_orders) > 0:
-            self.cancel_orders(cancellable_orders)
-            return
-
+        self.cancel_orders(bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                    our_sell_orders=self.our_sell_orders(order_book.orders),
+                                                    target_price=self.price()))
         # Place new orders
         if not order_book.in_progress:
-            self.top_up_bands(order_book.orders, order_book.balances, bands.buy_bands, bands.sell_bands, target_price)
+            self.create_orders(list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(order_book.orders), self.our_balance(order_book.balances, self.token_buy()), self.price()),
+                                                    bands.new_sell_orders(self.our_sell_orders(order_book.orders), self.our_balance(order_book.balances, self.token_sell()), self.price()))))
         else:
             self.logger.debug("Order book is in progress, not placing new orders")
 
@@ -176,49 +175,16 @@ class BiboxMarketMakerKeeper:
         for order in orders:
             self.bibox_order_book_manager.cancel_order(order.order_id)
 
-    def top_up_bands(self, our_orders: list, our_balances: list, buy_bands: list, sell_bands: list, target_price: Wad):
-        """Create new buy and sell orders in all send and buy bands if necessary."""
-        self.top_up_buy_bands(our_orders, our_balances, buy_bands, target_price)
-        self.top_up_sell_bands(our_orders, our_balances, sell_bands, target_price)
-
-    def top_up_sell_bands(self, our_orders: list, our_balances: list, sell_bands: list, target_price: Wad):
-        """Ensure our sell engagement is not below minimum in all sell bands. Place new orders if necessary."""
-        our_available_balance = self.our_balance(our_balances, self.token_sell())
-        for band in sell_bands:
-            orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_available_balance)
-                buy_amount = pay_amount * price
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new sell order")
-
-                    self.bibox_order_book_manager.place_order(is_sell=True,
-                                                              amount=pay_amount, amount_symbol=self.token_sell(),
-                                                              money=buy_amount, money_symbol=self.token_buy())
-                    our_available_balance = our_available_balance - buy_amount
-
-    def top_up_buy_bands(self, our_orders: list, our_balances: list, buy_bands: list, target_price: Wad):
-        """Ensure our buy engagement is not below minimum in all buy bands. Place new orders if necessary."""
-        our_available_balance = self.our_balance(our_balances, self.token_buy())
-        for band in buy_bands:
-            orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_available_balance)
-                buy_amount = pay_amount / price
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new buy order")
-
-                    self.bibox_order_book_manager.place_order(is_sell=False,
-                                                              amount=buy_amount, amount_symbol=self.token_sell(),
-                                                              money=pay_amount, money_symbol=self.token_buy())
-                    our_available_balance = our_available_balance - pay_amount
-
-    def total_amount(self, orders):
-        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
+    def create_orders(self, orders):
+        for order in orders:
+            if order.is_sell:
+                self.bibox_order_book_manager.place_order(is_sell=True,
+                                                          amount=order.pay_amount, amount_symbol=self.token_sell(),
+                                                          money=order.buy_amount, money_symbol=self.token_buy())
+            else:
+                self.bibox_order_book_manager.place_order(is_sell=False,
+                                                          amount=order.buy_amount, amount_symbol=self.token_sell(),
+                                                          money=order.pay_amount, money_symbol=self.token_buy())
 
 
 if __name__ == '__main__':

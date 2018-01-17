@@ -151,6 +151,9 @@ class OasisMarketMakerKeeper:
         """Approve OasisDEX to access our balances, so we can place orders."""
         self.otc.approve([self.gem, self.sai], directly(gas_price=self.gas_price))
 
+    def price(self) -> Wad:
+        return self.price_feed.get_price()
+
     def our_orders(self):
         return self.otc.get_orders_by_maker(self.our_address)
 
@@ -179,11 +182,10 @@ class OasisMarketMakerKeeper:
 
         bands = Bands(self.bands_config)
         our_orders = self.our_orders()
-        target_price = self.price_feed.get_price()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
         # The moment the price feed comes back, the keeper will resume placing orders.
-        if target_price is None:
+        if self.price() is None:
             self.logger.warning("No price feed available. Cancelling all orders.")
             self.cancel_all_orders()
             return
@@ -192,14 +194,11 @@ class OasisMarketMakerKeeper:
         # bands until the next block. This way we would create new orders based on the most recent price and
         # order book state. We could theoretically retrieve both (`target_price` and `our_orders`) again here,
         # but it just seems cleaner to do it in one place instead of in two.
-        orders_to_cancel = bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)
-        if len(orders_to_cancel) > 0:
-            self.cancel_orders(orders_to_cancel)
-            return
+        self.cancel_orders(bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), self.price()))
 
         # If there are any new orders to be created, create them.
-        new_orders = list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
-                                          bands.new_sell_orders(self.our_sell_orders(our_orders), self.gem.balance_of(self.our_address), target_price)))
+        new_orders = list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), self.price()),
+                                          bands.new_sell_orders(self.our_sell_orders(our_orders), self.gem.balance_of(self.our_address), self.price())))
 
         if len(new_orders) > 0:
             self.create_orders(new_orders)

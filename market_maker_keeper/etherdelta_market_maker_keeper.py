@@ -208,6 +208,9 @@ class EtherDeltaMarketMakerKeeper:
         self.our_orders.append(order)
         self.etherdelta_api.publish_order(order)
 
+    def price(self) -> Wad:
+        return self.price_feed.get_price()
+
     def our_sell_orders(self):
         return list(filter(lambda order: order.buy_token == self.sai.address and
                                          order.pay_token == EtherDelta.ETH_TOKEN, self.our_orders))
@@ -227,11 +230,10 @@ class EtherDeltaMarketMakerKeeper:
 
         bands = Bands(self.bands_config)
         block_number = self.web3.eth.blockNumber
-        target_price = self.price_feed.get_price()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
         # The moment the price feed comes back, the keeper will resume placing orders.
-        if target_price is None:
+        if self.price() is None:
             self.logger.warning("Cancelling all orders as no price feed available.")
             self.cancel_all_orders()
             return
@@ -240,13 +242,10 @@ class EtherDeltaMarketMakerKeeper:
         self.remove_expired_orders(block_number)
 
         # Cancel orders
-        orders_to_cancel = bands.cancellable_orders(self.our_buy_orders(), self.our_sell_orders(), target_price)
-        if len(orders_to_cancel) > 0:
-            self.cancel_orders(orders_to_cancel, block_number)
-            return
+        self.cancel_orders(bands.cancellable_orders(self.our_buy_orders(), self.our_sell_orders(), self.price()), block_number)
 
         # Place new orders
-        self.top_up_bands(bands.buy_bands, bands.sell_bands, target_price)
+        self.top_up_bands(bands.buy_bands, bands.sell_bands, self.price())
 
     @staticmethod
     def is_order_age_above_threshold(order: Order, block_number: int, threshold: int):

@@ -159,6 +159,9 @@ class RadarRelayMarketMakerKeeper:
         """Approve 0x to access our 0x-WETH and SAI, so we can sell it on the exchange."""
         self.radar_relay.approve([self.ether_token, self.sai], directly(gas_price=self.gas_price))
 
+    def price(self) -> Wad:
+        return self.price_feed.get_price()
+
     def our_orders(self) -> list:
         our_orders = self.radar_relay_api.get_orders_by_maker(self.our_address)
         current_timestamp = int(time.time())
@@ -184,23 +187,18 @@ class RadarRelayMarketMakerKeeper:
 
         bands = Bands(self.bands_config)
         our_orders = self.our_orders()
-        target_price = self.price_feed.get_price()
 
-        if target_price is None:
+        if self.price() is None:
             self.logger.warning("Cancelling all orders as no price feed available.")
             self.cancel_orders(our_orders)
             return
 
         # Cancel orders
-        orders_to_cancel = bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)
-        if len(orders_to_cancel) > 0:
-            self.cancel_orders(orders_to_cancel)
-            return
+        self.cancel_orders(bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), self.price()))
 
         # Place new orders
-        new_orders = itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
-                                     bands.new_sell_orders(self.our_sell_orders(our_orders), self.ether_token.balance_of(self.our_address), target_price))
-        self.create_orders(new_orders)
+        self.create_orders(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), self.price()),
+                                           bands.new_sell_orders(self.our_sell_orders(our_orders), self.ether_token.balance_of(self.our_address), self.price())))
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
