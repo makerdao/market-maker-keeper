@@ -158,17 +158,19 @@ class BiboxMarketMakerKeeper:
             self.cancel_orders(order_book.orders)
             return
 
-        orders_to_cancel = list(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(order_book.orders), target_price),
-                                                bands.excessive_sell_orders(self.our_sell_orders(order_book.orders), target_price),
-                                                bands.outside_orders(self.our_buy_orders(order_book.orders),
-                                                                     self.our_sell_orders(order_book.orders), target_price)))
-        if len(orders_to_cancel) > 0:
-            self.cancel_orders(orders_to_cancel)
+        # Cancel orders
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                      our_sell_orders=self.our_sell_orders(order_book.orders),
+                                                      target_price=target_price)
+        if len(cancellable_orders) > 0:
+            self.cancel_orders(cancellable_orders)
+            return
+
+        # Place new orders
+        if not order_book.in_progress:
+            self.top_up_bands(order_book.orders, order_book.balances, bands.buy_bands, bands.sell_bands, target_price)
         else:
-            if not order_book.in_progress:
-                self.top_up_bands(order_book.orders, order_book.balances, bands.buy_bands, bands.sell_bands, target_price)
-            else:
-                self.logger.debug("Order book is in progress, not placing new orders")
+            self.logger.debug("Order book is in progress, not placing new orders")
 
     def cancel_orders(self, orders):
         for order in orders:
