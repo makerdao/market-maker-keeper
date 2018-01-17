@@ -201,8 +201,11 @@ class EtherDeltaMarketMakerKeeper:
             self.withdraw_everything()
 
     def approve(self):
-        """Approve EtherDelta to access our SAI, so we can deposit it with the exchange"""
-        self.etherdelta.approve([self.sai], directly(gas_price=self.gas_price))
+        """Approve EtherDelta to access our tokens, so we can deposit them with the exchange"""
+        token_addresses = filter(lambda address: address != EtherDelta.ETH_TOKEN, [self.token_sell(), self.token_buy()])
+        tokens = list(map(lambda address: ERC20Token(web3=self.web3, address=address), token_addresses))
+
+        self.etherdelta.approve(tokens, directly(gas_price=self.gas_price))
 
     def place_order(self, order: Order):
         self.our_orders.append(order)
@@ -211,13 +214,25 @@ class EtherDeltaMarketMakerKeeper:
     def price(self) -> Wad:
         return self.price_feed.get_price()
 
+    def token_sell(self) -> Address:
+        return EtherDelta.ETH_TOKEN
+
+    def token_buy(self) -> Address:
+        return self.sai.address
+
+    def our_balance(self, token: Address) -> Wad:
+        if token == EtherDelta.ETH_TOKEN:
+            return self.etherdelta.balance_of(self.our_address)
+        else:
+            return self.etherdelta.balance_of_token(token, self.our_address)
+
     def our_sell_orders(self):
-        return list(filter(lambda order: order.buy_token == self.sai.address and
-                                         order.pay_token == EtherDelta.ETH_TOKEN, self.our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_buy() and
+                                         order.pay_token == self.token_sell(), self.our_orders))
 
     def our_buy_orders(self):
-        return list(filter(lambda order: order.buy_token == EtherDelta.ETH_TOKEN and
-                                         order.pay_token == self.sai.address, self.our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_sell() and
+                                         order.pay_token == self.token_buy(), self.our_orders))
 
     def synchronize_orders(self):
         # If keeper balance is below `--min-eth-balance`, cancel all orders but do not terminate
@@ -291,8 +306,8 @@ class EtherDeltaMarketMakerKeeper:
         self.top_up_sell_bands(sell_bands, target_price)
 
     def top_up_sell_bands(self, sell_bands: list, target_price: Wad):
-        """Ensure our WETH engagement is not below minimum in all sell bands. Place new orders if necessary."""
-        our_balance = self.etherdelta.balance_of(self.our_address)
+        """Ensure our sell engagement is not below minimum in all sell bands. Place new orders if necessary."""
+        our_balance = self.our_balance(self.token_sell())
         for band in sell_bands:
             orders = [order for order in self.our_sell_orders() if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
@@ -306,16 +321,16 @@ class EtherDeltaMarketMakerKeeper:
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new sell order")
 
-                    order = self.etherdelta.create_order(pay_token=EtherDelta.ETH_TOKEN,
+                    order = self.etherdelta.create_order(pay_token=self.token_sell(),
                                                          pay_amount=pay_amount,
-                                                         buy_token=self.sai.address,
+                                                         buy_token=self.token_buy(),
                                                          buy_amount=buy_amount,
                                                          expires=self.web3.eth.blockNumber + self.arguments.order_age)
                     self.place_order(order)
 
     def top_up_buy_bands(self, buy_bands: list, target_price: Wad):
-        """Ensure our SAI engagement is not below minimum in all buy bands. Place new orders if necessary."""
-        our_balance = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
+        """Ensure our buy engagement is not below minimum in all buy bands. Place new orders if necessary."""
+        our_balance = self.our_balance(self.token_buy())
         for band in buy_bands:
             orders = [order for order in self.our_buy_orders() if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
@@ -329,36 +344,40 @@ class EtherDeltaMarketMakerKeeper:
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new buy order")
 
-                    order = self.etherdelta.create_order(pay_token=self.sai.address,
+                    order = self.etherdelta.create_order(pay_token=self.token_buy(),
                                                          pay_amount=pay_amount,
-                                                         buy_token=EtherDelta.ETH_TOKEN,
+                                                         buy_token=self.token_sell(),
                                                          buy_amount=buy_amount,
                                                          expires=self.web3.eth.blockNumber + self.arguments.order_age)
                     self.place_order(order)
 
+    def depositable_balance(self, token: Address) -> Wad:
+        if token == EtherDelta.ETH_TOKEN:
+            return Wad.max(eth_balance(self.web3, self.our_address) - self.eth_reserve, Wad(0))
+        else:
+            return ERC20Token(web3=self.web3, address=token).balance_of(self.our_address)
+
     def deposit_for_sell_order_if_needed(self, desired_order_pay_amount: Wad):
-        currently_deposited = self.etherdelta.balance_of(self.our_address)
-        if currently_deposited < desired_order_pay_amount:
+        if self.our_balance(self.token_sell()) < desired_order_pay_amount:
             return self.deposit_for_sell_order()
         else:
             return False
 
     def deposit_for_sell_order(self):
-        depositable_eth = Wad.max(eth_balance(self.web3, self.our_address) - self.eth_reserve, Wad(0))
+        depositable_eth = self.depositable_balance(self.token_sell())
         if depositable_eth > self.min_eth_deposit:
             return self.etherdelta.deposit(depositable_eth).transact(gas_price=self.gas_price).successful
         else:
             return False
 
     def deposit_for_buy_order_if_needed(self, desired_order_pay_amount: Wad):
-        currently_deposited = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
-        if currently_deposited < desired_order_pay_amount:
+        if self.our_balance(self.token_buy()) < desired_order_pay_amount:
             return self.deposit_for_buy_order()
         else:
             return False
 
     def deposit_for_buy_order(self):
-        depositable_sai = self.sai.balance_of(self.our_address)
+        depositable_sai = self.depositable_balance(self.token_buy())
         if depositable_sai > self.min_sai_deposit:
             return self.etherdelta.deposit_token(self.sai.address, depositable_sai).transact(gas_price=self.gas_price).successful
         else:
