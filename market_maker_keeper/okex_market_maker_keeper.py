@@ -102,16 +102,19 @@ class OkexMarketMakerKeeper:
     def startup(self):
         self.our_orders()
         self.logger.info(f"OKEX API key seems to be valid")
-        self.logger.info(f"Keeper configured to work on the '{self.arguments.pair}' pair")
+        self.logger.info(f"Keeper configured to work on the '{self.pair()}' pair")
 
     def shutdown(self):
         self.cancel_orders(self.our_orders())
 
+    def pair(self):
+        return self.arguments.pair.lower()
+
     def token_sell(self) -> str:
-        return self.arguments.split('_')[0].upper()
+        return self.arguments.pair.split('_')[0].upper()
 
     def token_buy(self) -> str:
-        return self.arguments.split('_')[1].upper()
+        return self.arguments.pair.split('_')[1].upper()
 
     def our_balances(self) -> dict:
         return self.okex_api.get_balances()
@@ -120,7 +123,7 @@ class OkexMarketMakerKeeper:
         return Wad.from_number(our_balances['free'][token])
 
     def our_orders(self) -> list:
-        return self.okex_api.get_orders(self.arguments.pair)
+        return self.okex_api.get_orders(self.pair())
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -156,12 +159,12 @@ class OkexMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.okex_api.cancel_order(self.arguments.pair, order.order_id)
+            self.okex_api.cancel_order(self.pair(), order.order_id)
 
     def create_orders(self, orders):
         for order in orders:
             amount = order.pay_amount if order.is_sell else order.buy_amount
-            self.okex_api.place_order(pair=self.arguments.pair, is_sell=order.is_sell, price=order.price, amount=amount)
+            self.okex_api.place_order(pair=self.pair(), is_sell=order.is_sell, price=order.price, amount=amount)
 
 
 if __name__ == '__main__':

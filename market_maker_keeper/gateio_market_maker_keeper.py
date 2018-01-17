@@ -104,16 +104,19 @@ class GateIOMarketMakerKeeper:
         self.our_orders()
         self.our_balances()
         self.logger.info(f"Gate.io API key seems to be valid")
-        self.logger.info(f"Keeper configured to work on the '{self.arguments.pair}' pair")
+        self.logger.info(f"Keeper configured to work on the '{self.pair()}' pair")
 
     def shutdown(self):
         self.cancel_orders(self.our_orders())
 
+    def pair(self):
+        return self.arguments.pair.lower()
+
     def token_sell(self) -> str:
-        return self.arguments.split('_')[0].upper()
+        return self.arguments.pair.split('_')[0].upper()
 
     def token_buy(self) -> str:
-        return self.arguments.split('_')[1].upper()
+        return self.arguments.pair.split('_')[1].upper()
 
     def our_balances(self) -> dict:
         return self.gateio_api.get_balances()
@@ -126,7 +129,7 @@ class GateIOMarketMakerKeeper:
 
     def our_orders(self) -> list:
         # TODO IMPLEMENT FILTERING IN THE API
-        return self.gateio_api.get_orders(self.arguments.pair)
+        return self.gateio_api.get_orders(self.pair())
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -162,7 +165,7 @@ class GateIOMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.gateio_api.cancel_order(self.arguments.pair, order.order_id)
+            self.gateio_api.cancel_order(self.pair(), order.order_id)
 
     def create_orders(self, orders):
         for order in orders:

@@ -70,6 +70,7 @@ class GateIOApi:
         return self._http_post("/api2/1/private/balances", {})['available']
 
     def get_orders(self):
+        #TODO add order parsing
         return self._http_post("/api2/1/private/openOrders", {})
 
     def get_order(self, pair: str, order_id: int):
@@ -107,6 +108,7 @@ class GateIOApi:
         return self._http_post("/api2/1/private/cancelAllOrders", {'type': -1, 'currencyPair': pair})
 
     def get_trade_history(self, pair: str):
+        #TODO add trade parsing
         assert(isinstance(pair, str))
         return self._http_post("/api2/1/private/tradeHistory", {'currencyPair': pair})
 

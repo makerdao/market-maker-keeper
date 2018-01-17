@@ -96,14 +96,14 @@ class BiboxMarketMakerKeeper:
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         if self.arguments.price_feed == 'ticker':
-            self.price_feed = BiboxPriceFeed(self.bibox_api, self.arguments.pair.upper(),
+            self.price_feed = BiboxPriceFeed(self.bibox_api, self.pair(),
                                              self.arguments.price_feed_expiry)
         else:
             self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
                                                                    self.arguments.price_feed_expiry, self.tub, self.vox)
 
         self.bibox_order_book_manager = BiboxOrderBookManager(bibox_api=self.bibox_api,
-                                                              pair=self.arguments.pair.upper(),
+                                                              pair=self.pair(),
                                                               refresh_frequency=3)
 
     def main(self):
@@ -136,11 +136,14 @@ class BiboxMarketMakerKeeper:
     def price(self) -> Wad:
         return self.price_feed.get_price()
 
+    def pair(self):
+        return self.arguments.pair.upper()
+
     def token_sell(self) -> str:
-        return self.arguments.split('_')[0].upper()
+        return self.arguments.pair.split('_')[0].upper()
 
     def token_buy(self) -> str:
-        return self.arguments.split('_')[1].upper()
+        return self.arguments.pair.split('_')[1].upper()
 
     def our_balance(self, our_balances: list, token: str) -> Wad:
         return Wad.from_number(next(filter(lambda coin: coin['symbol'] == token, our_balances))['balance'])
