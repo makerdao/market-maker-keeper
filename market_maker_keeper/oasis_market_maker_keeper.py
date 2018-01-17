@@ -18,11 +18,8 @@
 import argparse
 import itertools
 import logging
-import operator
 import sys
 import time
-from functools import reduce
-from typing import List
 
 from retry import retry
 from web3 import Web3, HTTPProvider
@@ -149,21 +146,30 @@ class OasisMarketMakerKeeper:
 
     def approve(self):
         """Approve OasisDEX to access our balances, so we can place orders."""
-        self.otc.approve([self.gem, self.sai], directly(gas_price=self.gas_price))
+        self.otc.approve([self.token_sell(), self.token_buy()], directly(gas_price=self.gas_price))
 
     def price(self) -> Wad:
         return self.price_feed.get_price()
+
+    def token_sell(self) -> ERC20Token:
+        return self.gem
+
+    def token_buy(self) -> ERC20Token:
+        return self.sai
+
+    def our_balance(self, token: ERC20Token) -> Wad:
+        return token.balance_of(self.our_address)
 
     def our_orders(self):
         return self.otc.get_orders_by_maker(self.our_address)
 
     def our_sell_orders(self, our_orders: list):
-        return list(filter(lambda order: order.buy_token == self.sai.address and
-                                         order.pay_token == self.gem.address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_buy().address and
+                                         order.pay_token == self.token_sell().address, our_orders))
 
     def our_buy_orders(self, our_orders: list):
-        return list(filter(lambda order: order.buy_token == self.gem.address and
-                                         order.pay_token == self.sai.address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_sell().address and
+                                         order.pay_token == self.token_buy().address, our_orders))
 
     def synchronize_orders(self):
         # If market is closed, cancel all orders but do not terminate the keeper.
@@ -203,8 +209,8 @@ class OasisMarketMakerKeeper:
             return
 
         # If there are any new orders to be created, create them.
-        new_orders = list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
-                                          bands.new_sell_orders(self.our_sell_orders(our_orders), self.gem.balance_of(self.our_address), target_price)))
+        new_orders = list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.our_balance(self.token_buy()), target_price),
+                                          bands.new_sell_orders(self.our_sell_orders(our_orders), self.our_balance(self.token_sell()), target_price)))
 
         if len(new_orders) > 0:
             self.create_orders(new_orders)
@@ -234,11 +240,11 @@ class OasisMarketMakerKeeper:
             assert(isinstance(new_order, NewOrder))
 
             if new_order.is_sell:
-                return self.otc.make(pay_token=self.gem.address, pay_amount=new_order.pay_amount,
-                                     buy_token=self.sai.address, buy_amount=new_order.buy_amount)
+                return self.otc.make(pay_token=self.token_sell().address, pay_amount=new_order.pay_amount,
+                                     buy_token=self.token_buy().address, buy_amount=new_order.buy_amount)
             else:
-                return self.otc.make(pay_token=self.sai.address, pay_amount=new_order.pay_amount,
-                                     buy_token=self.gem.address, buy_amount=new_order.buy_amount)
+                return self.otc.make(pay_token=self.token_buy().address, pay_amount=new_order.pay_amount,
+                                     buy_token=self.token_sell().address, buy_amount=new_order.buy_amount)
 
         synchronize([transaction.transact_async(gas_price=self.gas_price)
                      for transaction in map(to_transaction, new_orders)])
