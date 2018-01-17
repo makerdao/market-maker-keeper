@@ -193,9 +193,7 @@ class OasisMarketMakerKeeper:
         # bands until the next block. This way we would create new orders based on the most recent price and
         # order book state. We could theoretically retrieve both (`target_price` and `our_orders`) again here,
         # but it just seems cleaner to do it in one place instead of in two.
-        orders_to_cancel = list(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(our_orders), target_price),
-                                                bands.excessive_sell_orders(self.our_sell_orders(our_orders), target_price),
-                                                bands.outside_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)))
+        orders_to_cancel = bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)
         if len(orders_to_cancel) > 0:
             self.cancel_orders(orders_to_cancel)
             return

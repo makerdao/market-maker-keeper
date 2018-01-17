@@ -200,6 +200,15 @@ class Bands:
         return itertools.chain(outside_any_band_orders(our_buy_orders, self.buy_bands),
                                outside_any_band_orders(our_sell_orders, self.sell_bands))
 
+    def cancellable_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Wad) -> list:
+        assert(isinstance(our_buy_orders, list))
+        assert(isinstance(our_sell_orders, list))
+        assert(isinstance(target_price, Wad))
+
+        return list(itertools.chain(self.excessive_buy_orders(our_buy_orders, target_price),
+                                    self.excessive_sell_orders(our_sell_orders, target_price),
+                                    self.outside_orders(our_buy_orders, our_sell_orders, target_price)))
+
     def new_sell_orders(self, our_sell_orders: list, our_sell_balance: Wad, target_price: Wad):
         """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
         assert(isinstance(our_sell_orders, list))
