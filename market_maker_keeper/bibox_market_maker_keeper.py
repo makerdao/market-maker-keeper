@@ -137,10 +137,10 @@ class BiboxMarketMakerKeeper:
         return self.price_feed.get_price()
 
     def token_sell(self) -> str:
-        return self.arguments.pair[0:3].upper()
+        return self.arguments.split('_')[0].upper()
 
     def token_buy(self) -> str:
-        return self.arguments.pair[4:7].upper()
+        return self.arguments.split('_')[1].upper()
 
     def our_balance(self, our_balances: list, token: str) -> Wad:
         return Wad.from_number(next(filter(lambda coin: coin['symbol'] == token, our_balances))['balance'])

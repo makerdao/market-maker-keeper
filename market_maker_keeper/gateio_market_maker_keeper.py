@@ -25,6 +25,7 @@ from functools import reduce
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
+from market_maker_keeper.gateio_api import GateIOApi
 from market_maker_keeper.okex_api import OKEXApi
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -32,13 +33,13 @@ from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 
 
-class OkexMarketMakerKeeper:
-    """Keeper acting as a market maker on OKEX."""
+class GateIOMarketMakerKeeper:
+    """Keeper acting as a market maker on Gate.io."""
 
     logger = logging.getLogger()
 
     def __init__(self, args: list, **kwargs):
-        parser = argparse.ArgumentParser(prog='okex-market-maker-keeper')
+        parser = argparse.ArgumentParser(prog='gateio-market-maker-keeper')
 
         parser.add_argument("--rpc-host", type=str, default="localhost",
                             help="JSON-RPC host (default: `localhost')")
@@ -49,14 +50,14 @@ class OkexMarketMakerKeeper:
         parser.add_argument("--rpc-timeout", type=int, default=10,
                             help="JSON-RPC timeout (in seconds, default: 10)")
 
-        parser.add_argument("--okex-api-server", type=str, default="https://www.okex.com",
-                            help="Address of the OKEX API server (default: 'https://www.okex.com')")
+        parser.add_argument("--gateio-api-server", type=str, default="https://data.gate.io",
+                            help="Address of the Gate.io API server (default: 'https://data.gate.io')")
 
-        parser.add_argument("--okex-api-key", type=str, required=True,
-                            help="API key for the OKEX API")
+        parser.add_argument("--gateio-api-key", type=str, required=True,
+                            help="API key for the Gate.io API")
 
-        parser.add_argument("--okex-secret-key", type=str, required=True,
-                            help="Secret key for the OKEX API")
+        parser.add_argument("--gateio-secret-key", type=str, required=True,
+                            help="Secret key for the Gate.io API")
 
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair on which the keeper should operate")
@@ -87,10 +88,10 @@ class OkexMarketMakerKeeper:
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.arguments.price_feed_expiry)
 
-        self.okex_api = OKEXApi(api_server=self.arguments.okex_api_server,
-                                api_key=self.arguments.okex_api_key,
-                                secret_key=self.arguments.okex_secret_key,
-                                timeout=9.5)
+        self.gateio_api = GateIOApi(api_server=self.arguments.gateio_api_server,
+                                    api_key=self.arguments.gateio_api_key,
+                                    secret_key=self.arguments.gateio_secret_key,
+                                    timeout=9.5)
 
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:
@@ -101,7 +102,8 @@ class OkexMarketMakerKeeper:
 
     def startup(self):
         self.our_orders()
-        self.logger.info(f"OKEX API key seems to be valid")
+        self.our_balances()
+        self.logger.info(f"Gate.io API key seems to be valid")
         self.logger.info(f"Keeper configured to work on the '{self.arguments.pair}' pair")
 
     def shutdown(self):
@@ -114,13 +116,17 @@ class OkexMarketMakerKeeper:
         return self.arguments.split('_')[1].upper()
 
     def our_balances(self) -> dict:
-        return self.okex_api.get_balances()
+        return self.gateio_api.get_balances()
 
     def our_balance(self, our_balances: dict, token: str) -> Wad:
-        return Wad.from_number(our_balances['free'][token])
+        try:
+            return Wad.from_number(our_balances[token])
+        except KeyError:
+            return Wad(0)
 
     def our_orders(self) -> list:
-        return self.okex_api.get_orders(self.arguments.pair)
+        # TODO IMPLEMENT FILTERING IN THE API
+        return self.gateio_api.get_orders(self.arguments.pair)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -156,13 +162,13 @@ class OkexMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.okex_api.cancel_order(self.arguments.pair, order.order_id)
+            self.gateio_api.cancel_order(self.arguments.pair, order.order_id)
 
     def create_orders(self, orders):
         for order in orders:
-            amount = order.pay_amount if order.is_sell else order.buy_amount
-            self.okex_api.place_order(pair=self.arguments.pair, is_sell=order.is_sell, price=order.price, amount=amount)
+            # TODO implement placing orders
+            pass
 
 
 if __name__ == '__main__':
-    OkexMarketMakerKeeper(sys.argv[1:]).main()
+    GateIOMarketMakerKeeper(sys.argv[1:]).main()

@@ -54,9 +54,6 @@ class GateIOApi:
     def marketlist(self):
         return self._http_get("/api2/1/marketlist", '')
 
-    def tickers(self):
-        return self._http_get("/api2/1/tickers", '')
-
     def ticker(self, pair: str):
         assert(isinstance(pair, str))
         return self._http_get("/api2/1/ticker", pair)
@@ -70,7 +67,7 @@ class GateIOApi:
         return self._http_get("/api2/1/tradeHistory", pair)
 
     def get_balances(self):
-        return self._http_post("/api2/1/private/balances", {})
+        return self._http_post("/api2/1/private/balances", {})['available']
 
     def get_orders(self):
         return self._http_post("/api2/1/private/openOrders", {})
