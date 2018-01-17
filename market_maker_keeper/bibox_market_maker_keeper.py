@@ -142,8 +142,8 @@ class BiboxMarketMakerKeeper:
     def token_buy(self) -> str:
         return self.arguments.pair[4:7].upper()
 
-    def our_balance(self, our_balances: list, symbol: str) -> Wad:
-        return Wad.from_number(next(filter(lambda coin: coin['symbol'] == symbol, our_balances))['balance'])
+    def our_balance(self, our_balances: list, token: str) -> Wad:
+        return Wad.from_number(next(filter(lambda coin: coin['symbol'] == token, our_balances))['balance'])
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -175,8 +175,11 @@ class BiboxMarketMakerKeeper:
             return
 
         # Place new orders
-        self.create_orders(list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(order_book.orders), self.our_balance(order_book.balances, self.token_buy()), target_price),
-                                                bands.new_sell_orders(self.our_sell_orders(order_book.orders), self.our_balance(order_book.balances, self.token_sell()), target_price))))
+        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                            our_sell_orders=self.our_sell_orders(order_book.orders),
+                                            our_buy_balance=self.our_balance(order_book.balances, self.token_buy()),
+                                            our_sell_balance=self.our_balance(order_book.balances, self.token_sell()),
+                                            target_price=target_price))
 
     def cancel_orders(self, orders):
         for order in orders:
@@ -184,14 +187,12 @@ class BiboxMarketMakerKeeper:
 
     def create_orders(self, orders):
         for order in orders:
-            if order.is_sell:
-                self.bibox_order_book_manager.place_order(is_sell=True,
-                                                          amount=order.pay_amount, amount_symbol=self.token_sell(),
-                                                          money=order.buy_amount, money_symbol=self.token_buy())
-            else:
-                self.bibox_order_book_manager.place_order(is_sell=False,
-                                                          amount=order.buy_amount, amount_symbol=self.token_sell(),
-                                                          money=order.pay_amount, money_symbol=self.token_buy())
+            amount = order.pay_amount if order.is_sell else order.buy_amount
+            money = order.buy_amount if order.is_sell else order.pay_amount
+
+            self.bibox_order_book_manager.place_order(is_sell=order.is_sell,
+                                                      amount=amount, amount_symbol=self.token_sell(),
+                                                      money=money, money_symbol=self.token_buy())
 
 
 if __name__ == '__main__':

@@ -204,13 +204,17 @@ class OasisMarketMakerKeeper:
         cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
                                                       our_sell_orders=self.our_sell_orders(our_orders),
                                                       target_price=target_price)
+
         if len(cancellable_orders) > 0:
             self.cancel_orders(cancellable_orders)
             return
 
         # If there are any new orders to be created, create them.
-        new_orders = list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.our_balance(self.token_buy()), target_price),
-                                          bands.new_sell_orders(self.our_sell_orders(our_orders), self.our_balance(self.token_sell()), target_price)))
+        new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                      our_sell_orders=self.our_sell_orders(our_orders),
+                                      our_buy_balance=self.our_balance(self.token_buy()),
+                                      our_sell_balance=self.our_balance(self.token_sell()),
+                                      target_price=target_price)
 
         if len(new_orders) > 0:
             self.create_orders(new_orders)

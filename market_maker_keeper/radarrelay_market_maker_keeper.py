@@ -156,11 +156,20 @@ class RadarRelayMarketMakerKeeper:
             self.cancel_orders(self.our_orders())
 
     def approve(self):
-        """Approve 0x to access our 0x-WETH and SAI, so we can sell it on the exchange."""
-        self.radar_relay.approve([self.ether_token, self.sai], directly(gas_price=self.gas_price))
+        """Approve 0x to access our tokens, so we can sell it on the exchange."""
+        self.radar_relay.approve([self.token_sell(), self.token_buy()], directly(gas_price=self.gas_price))
 
     def price(self) -> Wad:
         return self.price_feed.get_price()
+
+    def token_sell(self) -> ERC20Token:
+        return self.ether_token
+
+    def token_buy(self) -> ERC20Token:
+        return self.sai
+
+    def our_balance(self, token: ERC20Token) -> Wad:
+        return token.balance_of(self.our_address)
 
     def our_orders(self) -> list:
         our_orders = self.radar_relay_api.get_orders_by_maker(self.our_address)
@@ -171,12 +180,12 @@ class RadarRelayMarketMakerKeeper:
         return our_orders
 
     def our_sell_orders(self, our_orders: list) -> list:
-        return list(filter(lambda order: order.buy_token == self.sai.address and
-                                         order.pay_token == self.ether_token.address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_buy().address and
+                                         order.pay_token == self.token_sell().address, our_orders))
 
     def our_buy_orders(self, our_orders: list) -> list:
-        return list(filter(lambda order: order.buy_token == self.ether_token.address and
-                                         order.pay_token == self.sai.address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_sell().address and
+                                         order.pay_token == self.token_buy().address, our_orders))
 
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
@@ -203,24 +212,25 @@ class RadarRelayMarketMakerKeeper:
             return
 
         # Place new orders
-        self.create_orders(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
-                                           bands.new_sell_orders(self.our_sell_orders(our_orders), self.ether_token.balance_of(self.our_address), target_price)))
+        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                            our_sell_orders=self.our_sell_orders(our_orders),
+                                            our_buy_balance=self.our_balance(self.token_buy()),
+                                            our_sell_balance=self.our_balance(self.token_sell()),
+                                            target_price=target_price))
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
         synchronize([self.radar_relay.cancel_order(order).transact_async(gas_price=self.gas_price) for order in orders])
 
-    def create_orders(self, new_orders):
+    def create_orders(self, orders):
         """Create and submit orders synchronously."""
-        for new_order in new_orders:
-            if new_order.is_sell:
-                order = self.radar_relay.create_order(pay_token=self.ether_token.address, pay_amount=new_order.pay_amount,
-                                                      buy_token=self.sai.address, buy_amount=new_order.buy_amount,
-                                                      expiration=int(time.time()) + self.arguments.order_expiry)
-            else:
-                order = self.radar_relay.create_order(pay_token=self.sai.address, pay_amount=new_order.pay_amount,
-                                                      buy_token=self.ether_token.address, buy_amount=new_order.buy_amount,
-                                                      expiration=int(time.time()) + self.arguments.order_expiry)
+        for order in orders:
+            pay_token = self.token_sell() if order.is_sell else self.token_buy()
+            buy_token = self.token_buy() if order.is_sell else self.token_sell()
+
+            order = self.radar_relay.create_order(pay_token=pay_token.address, pay_amount=order.pay_amount,
+                                                  buy_token=buy_token.address, buy_amount=order.buy_amount,
+                                                  expiration=int(time.time()) + self.arguments.order_expiry)
 
             order = self.radar_relay_api.calculate_fees(order)
             order = self.radar_relay.sign_order(order)

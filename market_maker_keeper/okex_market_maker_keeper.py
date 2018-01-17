@@ -100,12 +100,12 @@ class OkexMarketMakerKeeper:
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
-        self.okex_api.get_orders(self.arguments.pair)
+        self.our_orders()
         self.logger.info(f"OKEX API key seems to be valid")
         self.logger.info(f"Keeper configured to work on the '{self.arguments.pair}' pair")
 
     def shutdown(self):
-        self.cancel_orders(self.okex_api.get_orders(self.arguments.pair))
+        self.cancel_orders(self.our_orders())
 
     def token_sell(self) -> str:
         return self.arguments.pair[0:3]
@@ -113,8 +113,14 @@ class OkexMarketMakerKeeper:
     def token_buy(self) -> str:
         return self.arguments.pair[4:7]
 
-    def our_balance(self, our_balances: dict, symbol: str) -> Wad:
-        return Wad.from_number(our_balances['free'][symbol])
+    def our_balances(self) -> dict:
+        return self.okex_api.get_balances()
+
+    def our_balance(self, our_balances: dict, token: str) -> Wad:
+        return Wad.from_number(our_balances['free'][token])
+
+    def our_orders(self) -> list:
+        return self.okex_api.get_orders(self.arguments.pair)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -124,8 +130,8 @@ class OkexMarketMakerKeeper:
 
     def synchronize_orders(self):
         bands = Bands(self.bands_config)
-        our_balances = self.okex_api.get_balances()
-        our_orders = self.okex_api.get_orders(self.arguments.pair)
+        our_balances = self.our_balances()
+        our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 
         if target_price is None:
@@ -133,58 +139,29 @@ class OkexMarketMakerKeeper:
             self.cancel_orders(our_orders)
             return
 
-        orders_to_cancel = list(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(our_orders), target_price),
-                                                bands.excessive_sell_orders(self.our_sell_orders(our_orders), target_price),
-                                                bands.outside_orders(self.our_buy_orders(our_orders),
-                                                                     self.our_sell_orders(our_orders), target_price)))
-        if len(orders_to_cancel) > 0:
-            self.cancel_orders(orders_to_cancel)
-        else:
-            self.top_up_bands(our_orders, our_balances, bands.buy_bands, bands.sell_bands, target_price)
+        # Cancel orders
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                                      our_sell_orders=self.our_sell_orders(our_orders),
+                                                      target_price=target_price)
+        if len(cancellable_orders) > 0:
+            self.cancel_orders(cancellable_orders)
+            return
+
+        # Place new orders
+        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                            our_sell_orders=self.our_sell_orders(our_orders),
+                                            our_buy_balance=self.our_balance(our_balances, self.token_buy()),
+                                            our_sell_balance=self.our_balance(our_balances, self.token_sell()),
+                                            target_price=target_price))
 
     def cancel_orders(self, orders):
         for order in orders:
             self.okex_api.cancel_order(self.arguments.pair, order.order_id)
 
-    def top_up_bands(self, our_orders: list, our_balances: dict, buy_bands: list, sell_bands: list, target_price: Wad):
-        """Create new buy and sell orders in all send and buy bands if necessary."""
-        self.top_up_buy_bands(our_orders, our_balances, buy_bands, target_price)
-        self.top_up_sell_bands(our_orders, our_balances, sell_bands, target_price)
-
-    def top_up_sell_bands(self, our_orders: list, our_balances: dict, sell_bands: list, target_price: Wad):
-        """Ensure our sell engagement is not below minimum in all sell bands. Place new orders if necessary."""
-        our_available_balance = self.our_balance(our_balances, self.token_sell())
-        for band in sell_bands:
-            orders = [order for order in self.our_sell_orders(our_orders) if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_available_balance)
-                buy_amount = pay_amount * price
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new sell order")
-
-                    self.okex_api.place_order(pair=self.arguments.pair, is_sell=True, price=price, amount=pay_amount)
-                    our_available_balance = our_available_balance - buy_amount
-
-    def top_up_buy_bands(self, our_orders: list, our_balances: dict, buy_bands: list, target_price: Wad):
-        """Ensure our buy engagement is not below minimum in all buy bands. Place new orders if necessary."""
-        our_available_balance = self.our_balance(our_balances, self.token_buy())
-        for band in buy_bands:
-            orders = [order for order in self.our_buy_orders(our_orders) if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_available_balance)
-                buy_amount = pay_amount / price
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new buy order")
-
-                    self.okex_api.place_order(pair=self.arguments.pair, is_sell=False, price=price, amount=buy_amount)
-                    our_available_balance = our_available_balance - pay_amount
-
-    def total_amount(self, orders):
-        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
+    def create_orders(self, orders):
+        for order in orders:
+            amount = order.pay_amount if order.is_sell else order.buy_amount
+            self.okex_api.place_order(pair=self.arguments.pair, is_sell=order.is_sell, price=order.price, amount=amount)
 
 
 if __name__ == '__main__':

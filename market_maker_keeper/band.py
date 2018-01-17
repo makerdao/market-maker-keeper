@@ -172,7 +172,7 @@ class Bands:
         if self._bands_overlap(self.buy_bands) or self._bands_overlap(self.sell_bands):
             raise Exception(f"Bands in the config file overlap")
 
-    def excessive_sell_orders(self, our_sell_orders: list, target_price: Wad):
+    def _excessive_sell_orders(self, our_sell_orders: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
         assert(isinstance(our_sell_orders, list))
         assert(isinstance(target_price, Wad))
@@ -181,7 +181,7 @@ class Bands:
             for order in band.excessive_orders(our_sell_orders, target_price):
                 yield order
 
-    def excessive_buy_orders(self, our_buy_orders: list, target_price: Wad):
+    def _excessive_buy_orders(self, our_buy_orders: list, target_price: Wad):
         """Return buy orders which need to be cancelled to bring total amounts within all buy bands below maximums."""
         assert(isinstance(our_buy_orders, list))
         assert(isinstance(target_price, Wad))
@@ -190,7 +190,7 @@ class Bands:
             for order in band.excessive_orders(our_buy_orders, target_price):
                 yield order
 
-    def outside_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Wad):
+    def _outside_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Wad):
         """Return orders which do not fall into any buy or sell band."""
         def outside_any_band_orders(orders: list, bands: list):
             for order in orders:
@@ -205,11 +205,21 @@ class Bands:
         assert(isinstance(our_sell_orders, list))
         assert(isinstance(target_price, Wad))
 
-        return list(itertools.chain(self.excessive_buy_orders(our_buy_orders, target_price),
-                                    self.excessive_sell_orders(our_sell_orders, target_price),
-                                    self.outside_orders(our_buy_orders, our_sell_orders, target_price)))
+        return list(itertools.chain(self._excessive_buy_orders(our_buy_orders, target_price),
+                                    self._excessive_sell_orders(our_sell_orders, target_price),
+                                    self._outside_orders(our_buy_orders, our_sell_orders, target_price)))
 
-    def new_sell_orders(self, our_sell_orders: list, our_sell_balance: Wad, target_price: Wad):
+    def new_orders(self, our_buy_orders: list, our_sell_orders: list, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Wad) -> list:
+        assert(isinstance(our_buy_orders, list))
+        assert(isinstance(our_sell_orders, list))
+        assert(isinstance(our_buy_balance, Wad))
+        assert(isinstance(our_sell_balance, Wad))
+        assert(isinstance(target_price, Wad))
+
+        return list(itertools.chain(self._new_buy_orders(our_buy_orders, our_buy_balance, target_price),
+                                    self._new_sell_orders(our_sell_orders, our_sell_balance, target_price)))
+
+    def _new_sell_orders(self, our_sell_orders: list, our_sell_balance: Wad, target_price: Wad):
         """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
         assert(isinstance(our_sell_orders, list))
         assert(isinstance(our_sell_balance, Wad))
@@ -228,7 +238,7 @@ class Bands:
                     our_sell_balance = our_sell_balance - buy_amount
                     yield NewOrder(is_sell=True, price=price, pay_amount=pay_amount, buy_amount=buy_amount)
 
-    def new_buy_orders(self, our_buy_orders: list, our_buy_balance: Wad, target_price: Wad):
+    def _new_buy_orders(self, our_buy_orders: list, our_buy_balance: Wad, target_price: Wad):
         """Return buy orders which need to be placed to bring total amounts within all buy bands above minimums."""
         assert(isinstance(our_buy_orders, list))
         assert(isinstance(our_buy_balance, Wad))
