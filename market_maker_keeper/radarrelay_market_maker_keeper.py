@@ -191,9 +191,7 @@ class RadarRelayMarketMakerKeeper:
             self.cancel_orders(our_orders)
             return
 
-        self.cancel_orders(itertools.chain(bands.excessive_buy_orders(self.our_buy_orders(our_orders), target_price),
-                                           bands.excessive_sell_orders(self.our_sell_orders(our_orders), target_price),
-                                           bands.outside_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)))
+        self.cancel_orders(bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price))
 
         self.create_orders(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
                                            bands.new_sell_orders(self.our_sell_orders(our_orders), self.ether_token.balance_of(self.our_address), target_price)))
