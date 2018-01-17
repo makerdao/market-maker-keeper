@@ -236,8 +236,16 @@ class EtherDeltaMarketMakerKeeper:
             self.cancel_all_orders()
             return
 
+        # Remove expired orders from the local order list
         self.remove_expired_orders(block_number)
-        self.cancel_orders(bands.cancellable_orders(self.our_buy_orders(), self.our_sell_orders(), target_price), block_number)
+
+        # Cancel orders
+        orders_to_cancel = bands.cancellable_orders(self.our_buy_orders(), self.our_sell_orders(), target_price)
+        if len(orders_to_cancel) > 0:
+            self.cancel_orders(orders_to_cancel, block_number)
+            return
+
+        # Place new orders
         self.top_up_bands(bands.buy_bands, bands.sell_bands, target_price)
 
     @staticmethod

@@ -191,10 +191,16 @@ class RadarRelayMarketMakerKeeper:
             self.cancel_orders(our_orders)
             return
 
-        self.cancel_orders(bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price))
+        # Cancel orders
+        orders_to_cancel = bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), target_price)
+        if len(orders_to_cancel) > 0:
+            self.cancel_orders(orders_to_cancel)
+            return
 
-        self.create_orders(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
-                                           bands.new_sell_orders(self.our_sell_orders(our_orders), self.ether_token.balance_of(self.our_address), target_price)))
+        # Place new orders
+        new_orders = itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
+                                     bands.new_sell_orders(self.our_sell_orders(our_orders), self.ether_token.balance_of(self.our_address), target_price))
+        self.create_orders(new_orders)
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
