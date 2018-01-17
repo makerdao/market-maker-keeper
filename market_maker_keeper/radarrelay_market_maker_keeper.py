@@ -142,7 +142,6 @@ class RadarRelayMarketMakerKeeper:
 
     def main(self):
         with Web3Lifecycle(self.web3) as lifecycle:
-            self.lifecycle = lifecycle
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.every(15, self.synchronize_orders)
