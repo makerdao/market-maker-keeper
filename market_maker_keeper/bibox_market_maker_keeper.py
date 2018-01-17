@@ -154,22 +154,29 @@ class BiboxMarketMakerKeeper:
     def synchronize_orders(self):
         bands = Bands(self.bands_config)
         order_book = self.bibox_order_book_manager.get_order_book()
+        target_price = self.price()
 
-        if self.price() is None:
+        if target_price is None:
             self.logger.warning("Cancelling all orders as no price feed available.")
             self.cancel_orders(order_book.orders)
             return
 
         # Cancel orders
-        self.cancel_orders(bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                                    our_sell_orders=self.our_sell_orders(order_book.orders),
-                                                    target_price=self.price()))
-        # Place new orders
-        if not order_book.in_progress:
-            self.create_orders(list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(order_book.orders), self.our_balance(order_book.balances, self.token_buy()), self.price()),
-                                                    bands.new_sell_orders(self.our_sell_orders(order_book.orders), self.our_balance(order_book.balances, self.token_sell()), self.price()))))
-        else:
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                      our_sell_orders=self.our_sell_orders(order_book.orders),
+                                                      target_price=target_price)
+        if len(cancellable_orders) > 0:
+            self.cancel_orders(cancellable_orders)
+            return
+
+        # Do not place new orders if order book state is not confirmed
+        if order_book.in_progress:
             self.logger.debug("Order book is in progress, not placing new orders")
+            return
+
+        # Place new orders
+        self.create_orders(list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(order_book.orders), self.our_balance(order_book.balances, self.token_buy()), target_price),
+                                                bands.new_sell_orders(self.our_sell_orders(order_book.orders), self.our_balance(order_book.balances, self.token_sell()), target_price))))
 
     def cancel_orders(self, orders):
         for order in orders:

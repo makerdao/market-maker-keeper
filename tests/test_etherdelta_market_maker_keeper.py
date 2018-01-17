@@ -445,8 +445,9 @@ class TestEtherDeltaMarketMakerKeeper:
                                                                     1000000))
 
         # when
-        keeper.synchronize_orders()  # ... first call is so it can made deposits
-        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        keeper.synchronize_orders()  # ... first call is so it can cancel the order
+        keeper.synchronize_orders()  # ... second call is so it can made deposits
+        keeper.synchronize_orders()  # ... third call is so the actual orders can get placed
 
         # then
         # [the artificial order gets cancelled, a new one gets created instead]
@@ -543,8 +544,9 @@ class TestEtherDeltaMarketMakerKeeper:
                                                                     1000000))
 
         # when
-        keeper.synchronize_orders()  # ... first call is so it can made deposits
-        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        keeper.synchronize_orders()  # ... first call is so it can cancel the order
+        keeper.synchronize_orders()  # ... second call is so it can made deposits
+        keeper.synchronize_orders()  # ... third call is so the actual orders can get placed
 
         # then
         # [the artificial order gets cancelled, a new one gets created instead]

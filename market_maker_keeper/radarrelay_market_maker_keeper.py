@@ -187,18 +187,24 @@ class RadarRelayMarketMakerKeeper:
 
         bands = Bands(self.bands_config)
         our_orders = self.our_orders()
+        target_price = self.price()
 
-        if self.price() is None:
+        if target_price is None:
             self.logger.warning("Cancelling all orders as no price feed available.")
             self.cancel_orders(our_orders)
             return
 
         # Cancel orders
-        self.cancel_orders(bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), self.price()))
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                                      our_sell_orders=self.our_sell_orders(our_orders),
+                                                      target_price=target_price)
+        if len(cancellable_orders) > 0:
+            self.cancel_orders(cancellable_orders)
+            return
 
         # Place new orders
-        self.create_orders(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), self.price()),
-                                           bands.new_sell_orders(self.our_sell_orders(our_orders), self.ether_token.balance_of(self.our_address), self.price())))
+        self.create_orders(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
+                                           bands.new_sell_orders(self.our_sell_orders(our_orders), self.ether_token.balance_of(self.our_address), target_price)))
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""

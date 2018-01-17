@@ -182,10 +182,11 @@ class OasisMarketMakerKeeper:
 
         bands = Bands(self.bands_config)
         our_orders = self.our_orders()
+        target_price = self.price()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
         # The moment the price feed comes back, the keeper will resume placing orders.
-        if self.price() is None:
+        if target_price is None:
             self.logger.warning("No price feed available. Cancelling all orders.")
             self.cancel_all_orders()
             return
@@ -194,11 +195,16 @@ class OasisMarketMakerKeeper:
         # bands until the next block. This way we would create new orders based on the most recent price and
         # order book state. We could theoretically retrieve both (`target_price` and `our_orders`) again here,
         # but it just seems cleaner to do it in one place instead of in two.
-        self.cancel_orders(bands.cancellable_orders(self.our_buy_orders(our_orders), self.our_sell_orders(our_orders), self.price()))
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                                      our_sell_orders=self.our_sell_orders(our_orders),
+                                                      target_price=target_price)
+        if len(cancellable_orders) > 0:
+            self.cancel_orders(cancellable_orders)
+            return
 
         # If there are any new orders to be created, create them.
-        new_orders = list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), self.price()),
-                                          bands.new_sell_orders(self.our_sell_orders(our_orders), self.gem.balance_of(self.our_address), self.price())))
+        new_orders = list(itertools.chain(bands.new_buy_orders(self.our_buy_orders(our_orders), self.sai.balance_of(self.our_address), target_price),
+                                          bands.new_sell_orders(self.our_sell_orders(our_orders), self.gem.balance_of(self.our_address), target_price)))
 
         if len(new_orders) > 0:
             self.create_orders(new_orders)
