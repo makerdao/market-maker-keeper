@@ -175,11 +175,13 @@ class SetzerPriceFeed(PriceFeed):
 class GdaxPriceFeed(PriceFeed):
     logger = logging.getLogger()
 
-    def __init__(self, ws_url: str, expiry: int):
+    def __init__(self, ws_url: str, product_id: str, expiry: int):
         assert(isinstance(ws_url, str))
+        assert(isinstance(product_id, str))
         assert(isinstance(expiry, int))
 
         self.ws_url = ws_url
+        self.product_id = product_id
         self.expiry = expiry
         self._last_price = None
         self._last_timestamp = 0
@@ -201,9 +203,9 @@ class GdaxPriceFeed(PriceFeed):
         ws.send("""{
             "type": "subscribe",
             "channels": [
-                { "name": "ticker", "product_ids": ["ETH-USD"] },
-                { "name": "heartbeat", "product_ids": ["ETH-USD"] }
-            ]}""")
+                { "name": "ticker", "product_ids": ["%s"] },
+                { "name": "heartbeat", "product_ids": ["%s"] }
+            ]}""" % (self.product_id, self.product_id))
 
     def _on_close(self, ws):
         self.logger.info(f"GDAX WebSocket disconnected")
@@ -303,7 +305,9 @@ class PriceFeedFactory:
 
         if price_feed_argument is not None:
             if price_feed_argument.lower() == 'gdax-websocket':
-                price_feed = GdaxPriceFeed("wss://ws-feed.gdax.com", expiry=price_feed_expiry_argument)
+                price_feed = GdaxPriceFeed(ws_url="wss://ws-feed.gdax.com",
+                                           product_id="ETH-USD",
+                                           expiry=price_feed_expiry_argument)
             elif price_feed_argument.startswith("fixed:"):
                 price_feed = FixedPriceFeed(Wad.from_number(price_feed_argument[6:]))
             elif price_feed_argument.startswith("file:"):
