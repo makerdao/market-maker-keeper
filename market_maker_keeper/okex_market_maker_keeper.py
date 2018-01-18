@@ -25,9 +25,9 @@ from functools import reduce
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
-from market_maker_keeper.okex_api import OKEXApi
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
+from pyexchange.okex import OKEXApi
 from pymaker.lifecycle import Web3Lifecycle
 from pymaker.numeric import Wad
 
