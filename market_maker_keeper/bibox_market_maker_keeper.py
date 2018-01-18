@@ -16,11 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import itertools
 import logging
-import operator
 import sys
-from functools import reduce
 
 from web3 import Web3, HTTPProvider
 
@@ -28,8 +25,8 @@ from market_maker_keeper.band import Bands
 from market_maker_keeper.bibox_order_book import BiboxOrderBookManager
 from market_maker_keeper.price import PriceFeedFactory, BiboxPriceFeed
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from pymaker.bibox import BiboxApi
-from pymaker.lifecycle import Web3Lifecycle
+from pyexchange.bibox import BiboxApi
+from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 
 
@@ -107,7 +104,7 @@ class BiboxMarketMakerKeeper:
                                                               refresh_frequency=3)
 
     def main(self):
-        with Web3Lifecycle(self.web3) as lifecycle:
+        with Lifecycle(self.web3) as lifecycle:
             lifecycle.wait_for_sync(False)
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)

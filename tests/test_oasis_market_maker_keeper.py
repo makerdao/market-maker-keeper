@@ -23,7 +23,7 @@ import pytest
 from market_maker_keeper.oasis_market_maker_keeper import OasisMarketMakerKeeper
 from pymaker.deployment import Deployment
 from pymaker.feed import DSValue
-from pymaker.lifecycle import Web3Lifecycle
+from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.token import DSToken, ERC20Token
 from tests.band_config import BandConfig
@@ -63,7 +63,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "  
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -100,7 +100,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -127,7 +127,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -157,7 +157,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -190,7 +190,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -213,7 +213,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -260,7 +260,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -304,7 +304,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                              web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -339,7 +339,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -383,7 +383,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -418,7 +418,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -450,7 +450,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -487,7 +487,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -549,7 +549,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--config {config_file} "
                                                   f"--gas-price 70000000000"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -579,7 +579,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--config {config_file} "
                                                   f"--min-eth-balance 100.0"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -614,7 +614,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--config {config_file} "
                                                   f"--min-eth-balance 100.0"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)
@@ -642,7 +642,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
-        keeper.lifecycle = Web3Lifecycle(web3=keeper.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
 
         # and
         self.mint_tokens(deployment)

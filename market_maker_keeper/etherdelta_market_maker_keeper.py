@@ -32,7 +32,7 @@ from market_maker_keeper.gas import GasPriceFactory
 from pymaker import Address, synchronize
 from pymaker.approval import directly
 from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
-from pymaker.lifecycle import Web3Lifecycle
+from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from market_maker_keeper.band import Bands
 from market_maker_keeper.price import PriceFeedFactory
@@ -183,7 +183,7 @@ class EtherDeltaMarketMakerKeeper:
         self.our_orders = list()
 
     def main(self):
-        with Web3Lifecycle(self.web3) as lifecycle:
+        with Lifecycle(self.web3) as lifecycle:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.on_block(self.synchronize_orders)

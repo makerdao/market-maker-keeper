@@ -16,7 +16,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import itertools
 import logging
 import sys
 import time
@@ -30,7 +29,7 @@ from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker import Address
 from pymaker.approval import directly
-from pymaker.lifecycle import Web3Lifecycle
+from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.oasis import Order, MatchingMarket
 from pymaker.sai import Tub, Vox
@@ -125,7 +124,7 @@ class OasisMarketMakerKeeper:
                                                                self.arguments.price_feed_expiry, self.tub, self.vox)
 
     def main(self):
-        with Web3Lifecycle(self.web3) as lifecycle:
+        with Lifecycle(self.web3) as lifecycle:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.on_block(self.on_block)

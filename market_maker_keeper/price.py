@@ -25,7 +25,7 @@ import os
 import websocket
 
 from market_maker_keeper.setzer import Setzer
-from pymaker.bibox import BiboxApi
+from pyexchange.bibox import BiboxApi
 from pymaker.feed import DSValue
 from pymaker.numeric import Wad
 from pymaker.sai import Tub, Vox

@@ -32,7 +32,7 @@ from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.price import PriceFeedFactory
 from pymaker import Address, synchronize
 from pymaker.approval import directly
-from pymaker.lifecycle import Web3Lifecycle
+from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.sai import Tub, Vox
 from pymaker.token import ERC20Token
@@ -141,7 +141,7 @@ class RadarRelayMarketMakerKeeper:
         self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay, api_server=self.arguments.relayer_api_server)
 
     def main(self):
-        with Web3Lifecycle(self.web3) as lifecycle:
+        with Lifecycle(self.web3) as lifecycle:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.every(15, self.synchronize_orders)

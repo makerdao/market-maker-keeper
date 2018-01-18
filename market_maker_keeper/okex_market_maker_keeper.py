@@ -19,13 +19,11 @@ import argparse
 import logging
 import sys
 
-from web3 import Web3, HTTPProvider
-
 from market_maker_keeper.band import Bands
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pyexchange.okex import OKEXApi
-from pymaker.lifecycle import Web3Lifecycle
+from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 
 
@@ -36,15 +34,6 @@ class OkexMarketMakerKeeper:
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='okex-market-maker-keeper')
-
-        parser.add_argument("--rpc-host", type=str, default="localhost",
-                            help="JSON-RPC host (default: `localhost')")
-
-        parser.add_argument("--rpc-port", type=int, default=8545,
-                            help="JSON-RPC port (default: `8545')")
-
-        parser.add_argument("--rpc-timeout", type=int, default=10,
-                            help="JSON-RPC timeout (in seconds, default: 10)")
 
         parser.add_argument("--okex-api-server", type=str, default="https://www.okex.com",
                             help="Address of the OKEX API server (default: 'https://www.okex.com')")
@@ -72,10 +61,6 @@ class OkexMarketMakerKeeper:
 
         self.arguments = parser.parse_args(args)
 
-        # TODO web3 connection exists only so the `Web3Lifecycle` works
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
-                                                                              request_kwargs={"timeout": self.arguments.rpc_timeout}))
-
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
                             level=(logging.DEBUG if self.arguments.debug else logging.INFO))
         logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
@@ -90,8 +75,7 @@ class OkexMarketMakerKeeper:
                                 timeout=9.5)
 
     def main(self):
-        with Web3Lifecycle(self.web3) as lifecycle:
-            lifecycle.wait_for_sync(False)
+        with Lifecycle() as lifecycle:
             lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
