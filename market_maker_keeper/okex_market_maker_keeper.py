@@ -111,10 +111,10 @@ class OkexMarketMakerKeeper:
         return self.arguments.pair.lower()
 
     def token_sell(self) -> str:
-        return self.arguments.pair.split('_')[0].upper()
+        return self.arguments.pair.split('_')[0].lower()
 
     def token_buy(self) -> str:
-        return self.arguments.pair.split('_')[1].upper()
+        return self.arguments.pair.split('_')[1].lower()
 
     def our_balances(self) -> dict:
         return self.okex_api.get_balances()
