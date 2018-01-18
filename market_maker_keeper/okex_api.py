@@ -70,6 +70,49 @@ class Order:
         return pformat(vars(self))
 
 
+class Trade:
+    def __init__(self,
+                 trade_id: id,
+                 timestamp: int,
+                 is_sell: bool,
+                 price: Wad,
+                 amount: Wad,
+                 amount_symbol: str):
+        assert(isinstance(trade_id, int))
+        assert(isinstance(timestamp, int))
+        assert(isinstance(is_sell, bool))
+        assert(isinstance(price, Wad))
+        assert(isinstance(amount, Wad))
+        assert(isinstance(amount_symbol, str))
+
+        self.trade_id = trade_id
+        self.timestamp = timestamp
+        self.is_sell = is_sell
+        self.price = price
+        self.amount = amount
+        self.amount_symbol = amount_symbol
+
+    def __eq__(self, other):
+        assert(isinstance(other, Trade))
+        return self.trade_id == other.trade_id and \
+               self.timestamp == other.timestamp and \
+               self.is_sell == other.is_sell and \
+               self.price == other.price and \
+               self.amount == other.amount and \
+               self.amount_symbol == other.amount_symbol
+
+    def __hash__(self):
+        return hash((self.trade_id,
+                     self.timestamp,
+                     self.is_sell,
+                     self.price,
+                     self.amount,
+                     self.amount_symbol))
+
+    def __repr__(self):
+        return pformat(vars(self))
+
+
 class OKEXApi:
     """OKCoin and OKEX API interface.
 
@@ -101,9 +144,16 @@ class OKEXApi:
         assert(isinstance(pair, str))
         return self._http_get("/api/v1/depth.do", f"symbol={pair}")
 
-    def trades(self, pair: str):
+    def trades(self, pair: str) -> List[Trade]:
         assert(isinstance(pair, str))
-        return self._http_get("/api/v1/trades.do", f"symbol={pair}")
+
+        result = self._http_get("/api/v1/trades.do", f"symbol={pair}", False)
+        return list(map(lambda item: Trade(trade_id=item['tid'],
+                                           timestamp=item['date'],
+                                           is_sell=item['type'] == 'sell',
+                                           price=Wad.from_number(item['price']),
+                                           amount=Wad.from_number(item['amount']),
+                                           amount_symbol=pair.split('_')[0].lower()), result))
     
     def get_balances(self) -> dict:
         return self._http_post("/api/v1/userinfo.do", {})["info"]["funds"]
@@ -176,23 +226,27 @@ class OKEXApi:
         return hashlib.md5(data.encode("utf8")).hexdigest().upper()
 
     @staticmethod
-    def _result(result) -> dict:
+    def _result(result, check_result: bool) -> dict:
+        assert(isinstance(check_result, bool))
+
         data = result.json()
 
-        if 'error_code' in data:
-            raise Exception(f"OKCoin API error: {data['error_code']}")
+        if check_result:
+            if 'error_code' in data:
+                raise Exception(f"OKCoin API error: {data['error_code']}")
 
-        if 'result' not in data or data['result'] is not True:
-            raise Exception(f"Negative OKCoin response: {data}")
+            if 'result' not in data or data['result'] is not True:
+                raise Exception(f"Negative OKCoin response: {data}")
 
         return data
 
-    def _http_get(self, resource: str, params: str):
+    def _http_get(self, resource: str, params: str, check_result: bool = True):
         assert(isinstance(resource, str))
         assert(isinstance(params, str))
+        assert(isinstance(check_result, bool))
 
         return self._result(requests.get(url=f"{self.api_server}{resource}?{params}",
-                                         timeout=self.timeout))
+                                         timeout=self.timeout), check_result)
 
     def _http_post(self, resource: str, params: dict):
         assert(isinstance(resource, str))
@@ -204,4 +258,4 @@ class OKEXApi:
         return self._result(requests.post(url=f"{self.api_server}{resource}",
                                           data=urllib.parse.urlencode(params),
                                           headers={"Content-Type": "application/x-www-form-urlencoded"},
-                                          timeout=self.timeout))
+                                          timeout=self.timeout), True)
