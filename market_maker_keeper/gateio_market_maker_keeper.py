@@ -39,6 +39,8 @@ class GateIOMarketMakerKeeper:
     logger = logging.getLogger()
 
     def __init__(self, args: list, **kwargs):
+        raise Exception("This keeper is not finished yet")
+
         parser = argparse.ArgumentParser(prog='gateio-market-maker-keeper')
 
         parser.add_argument("--rpc-host", type=str, default="localhost",
