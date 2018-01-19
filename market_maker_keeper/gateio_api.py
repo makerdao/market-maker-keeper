@@ -66,8 +66,9 @@ class GateIOApi:
         assert(isinstance(pair, str))
         return self._http_get("/api2/1/tradeHistory", pair)
 
+    # output is: {'result': 'true', 'available': {'AAA': '0.0064128', 'BBB': '0.02'}, 'locked': {'AAA': '0.0135872'}}
     def get_balances(self):
-        return self._http_post("/api2/1/private/balances", {})['available']
+        return self._http_post("/api2/1/private/balances", {})
 
     def get_orders(self):
         #TODO add order parsing
