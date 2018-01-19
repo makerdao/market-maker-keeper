@@ -92,12 +92,8 @@ class BiboxMarketMakerKeeper:
                                   timeout=9.5)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
-        if self.arguments.price_feed == 'ticker':
-            self.price_feed = BiboxPriceFeed(self.bibox_api, self.pair(),
-                                             self.arguments.price_feed_expiry)
-        else:
-            self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                                   self.arguments.price_feed_expiry, self.tub, self.vox)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
+                                                               self.arguments.price_feed_expiry, self.tub, self.vox)
 
         self.bibox_order_book_manager = BiboxOrderBookManager(bibox_api=self.bibox_api,
                                                               pair=self.pair(),
