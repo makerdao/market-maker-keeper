@@ -59,6 +59,9 @@ class BiboxMarketMakerKeeper:
         parser.add_argument("--bibox-secret", type=str, required=True,
                             help="Secret for the Bibox API")
 
+        parser.add_argument("--bibox-timeout", type=float, default=9.5,
+                            help="Timeout for accessing the Bibox API (in seconds, default: 9.5)")
+
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair on which the keeper should operate")
 
@@ -89,7 +92,7 @@ class BiboxMarketMakerKeeper:
         self.bibox_api = BiboxApi(api_server=self.arguments.bibox_api_server,
                                   api_key=self.arguments.bibox_api_key,
                                   secret=self.arguments.bibox_secret,
-                                  timeout=9.5)
+                                  timeout=self.arguments.bibox_timeout)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,

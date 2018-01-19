@@ -46,6 +46,9 @@ class GateIOMarketMakerKeeper:
         parser.add_argument("--gateio-secret-key", type=str, required=True,
                             help="Secret key for the Gate.io API")
 
+        parser.add_argument("--gateio-timeout", type=float, default=9.5,
+                            help="Timeout for accessing the Gate.io API (in seconds, default: 9.5)")
+
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair on which the keeper should operate")
 
@@ -74,7 +77,7 @@ class GateIOMarketMakerKeeper:
         self.gateio_api = GateIOApi(api_server=self.arguments.gateio_api_server,
                                     api_key=self.arguments.gateio_api_key,
                                     secret_key=self.arguments.gateio_secret_key,
-                                    timeout=9.5)
+                                    timeout=self.arguments.gateio_timeout)
 
     def main(self):
         with Lifecycle() as lifecycle:

@@ -44,6 +44,9 @@ class OkexMarketMakerKeeper:
         parser.add_argument("--okex-secret-key", type=str, required=True,
                             help="Secret key for the OKEX API")
 
+        parser.add_argument("--okex-timeout", type=float, default=9.5,
+                            help="Timeout for accessing the OKEX API (in seconds, default: 9.5)")
+
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair on which the keeper should operate")
 
@@ -72,7 +75,7 @@ class OkexMarketMakerKeeper:
         self.okex_api = OKEXApi(api_server=self.arguments.okex_api_server,
                                 api_key=self.arguments.okex_api_key,
                                 secret_key=self.arguments.okex_secret_key,
-                                timeout=9.5)
+                                timeout=self.arguments.okex_timeout)
 
     def main(self):
         with Lifecycle() as lifecycle:
