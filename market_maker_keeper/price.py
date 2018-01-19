@@ -199,7 +199,7 @@ class GdaxPriceFeed(PriceFeed):
             time.sleep(1)
 
     def _on_open(self, ws):
-        self.logger.info(f"GDAX WebSocket connected")
+        self.logger.info(f"GDAX {self.product_id} WebSocket connected")
         ws.send("""{
             "type": "subscribe",
             "channels": [
@@ -208,7 +208,7 @@ class GdaxPriceFeed(PriceFeed):
             ]}""" % (self.product_id, self.product_id))
 
     def _on_close(self, ws):
-        self.logger.info(f"GDAX WebSocket disconnected")
+        self.logger.info(f"GDAX {self.product_id} WebSocket disconnected")
 
     def _on_message(self, ws, message):
         try:
@@ -220,17 +220,17 @@ class GdaxPriceFeed(PriceFeed):
             elif message_obj['type'] == 'heartbeat':
                 self._process_heartbeat()
             else:
-                self.logger.warning(f"GDAX WebSocket received unknown message type: '{message}'")
+                self.logger.warning(f"GDAX {self.product_id} WebSocket received unknown message type: '{message}'")
         except:
-            self.logger.warning(f"GDAX WebSocket received invalid message: '{message}'")
+            self.logger.warning(f"GDAX {self.product_id} WebSocket received invalid message: '{message}'")
 
     def _on_error(self, ws, error):
-        self.logger.info(f"GDAX WebSocket error: '{error}'")
+        self.logger.info(f"GDAX {self.product_id} WebSocket error: '{error}'")
 
     def get_price(self) -> Optional[Wad]:
         if time.time() - self._last_timestamp > self.expiry:
             if not self._expired:
-                self.logger.warning(f"Price feed from GDAX has expired")
+                self.logger.warning(f"Price feed from GDAX ({self.product_id}) has expired")
                 self._expired = True
             return None
         else:
@@ -240,10 +240,10 @@ class GdaxPriceFeed(PriceFeed):
         self._last_price = Wad.from_number(message_obj['price'])
         self._last_timestamp = time.time()
 
-        self.logger.debug(f"Price feed from GDAX is {self._last_price}")
+        self.logger.debug(f"Price feed from GDAX is {self._last_price} ({self.product_id})")
 
         if self._expired:
-            self.logger.info(f"Price feed from GDAX became available")
+            self.logger.info(f"Price feed from GDAX ({self.product_id}) became available")
             self._expired = False
 
     def _process_heartbeat(self):
