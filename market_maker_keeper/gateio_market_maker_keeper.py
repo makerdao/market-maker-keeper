@@ -20,9 +20,9 @@ import logging
 import sys
 
 from market_maker_keeper.band import Bands
-from market_maker_keeper.gateio_api import GateIOApi
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
+from pyexchange.gateio import GateIOApi
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 
