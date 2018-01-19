@@ -11,7 +11,9 @@ market making on the following exchanges:
 * OasisDEX (`oasis-market-maker-keeper`),
 * EtherDelta (`etherdelta-market-maker-keeper`),
 * RadarRelay (`radarrelay-market-maker-keeper`),
-* Bibox (`bibox-market-maker-keeper`).
+* Bibox (`bibox-market-maker-keeper`),
+* OKEX (`okex-market-maker-keeper`),
+* gate.io (`gateio-market-maker-keeper`) - work is still in progress.
 
 All these three keepers share some logic and operate in a similar way. They create
 a series of orders in so called _bands_, which are configured with a JSON file
