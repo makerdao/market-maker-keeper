@@ -235,7 +235,7 @@ class Bands:
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new sell order")
 
-                    our_sell_balance = our_sell_balance - buy_amount
+                    our_sell_balance = our_sell_balance - pay_amount
                     yield NewOrder(is_sell=True, price=price, pay_amount=pay_amount, buy_amount=buy_amount)
 
     def _new_buy_orders(self, our_buy_orders: list, our_buy_balance: Wad, target_price: Wad):
