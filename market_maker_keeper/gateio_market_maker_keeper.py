@@ -18,11 +18,14 @@
 import argparse
 import logging
 import sys
+from typing import List
 
-from market_maker_keeper.band import Bands
+import time
+
+from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from pyexchange.gateio import GateIOApi
+from pyexchange.gateio import GateIOApi, Order
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 
@@ -139,20 +142,31 @@ class GateIOMarketMakerKeeper:
             return
 
         # Place new orders
-        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                            our_sell_orders=self.our_sell_orders(our_orders),
-                                            our_buy_balance=self.our_balance(our_balances, self.token_buy()),
-                                            our_sell_balance=self.our_balance(our_balances, self.token_sell()),
-                                            target_price=target_price))
+        new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                      our_sell_orders=self.our_sell_orders(our_orders),
+                                      our_buy_balance=self.our_balance(our_balances, self.token_buy()),
+                                      our_sell_balance=self.our_balance(our_balances, self.token_sell()),
+                                      target_price=target_price)
 
-    def cancel_orders(self, orders):
+        if len(new_orders) > 0:
+            self.create_orders(new_orders)
+
+            # Unfortunately the gate.io API does not immediately reflect the fact that our orders have
+            # been placed. In order to avoid placing orders twice we explicitly wait some time here.
+            #
+            # The 3s time has been arbitrarily chosen. If it turns out to be too short, the keeper will
+            # end up placing the order twice but then might immediately try cancelling the duplicates,
+            # depending on the actual 'maxAmount' values in the bands configuration file.
+            time.sleep(3)
+
+    def cancel_orders(self, orders: List[Order]):
         for order in orders:
             self.gateio_api.cancel_order(self.pair(), order.order_id)
 
-    def create_orders(self, orders):
+    def create_orders(self, orders: List[NewOrder]):
         for order in orders:
-            # TODO implement placing orders
-            pass
+            amount = order.pay_amount if order.is_sell else order.buy_amount
+            self.gateio_api.place_order(self.pair(), order.is_sell, order.price, amount)
 
 
 if __name__ == '__main__':
