@@ -33,8 +33,6 @@ class GateIOMarketMakerKeeper:
     logger = logging.getLogger()
 
     def __init__(self, args: list, **kwargs):
-        raise Exception("This keeper is not finished yet")
-
         parser = argparse.ArgumentParser(prog='gateio-market-maker-keeper')
 
         parser.add_argument("--gateio-api-server", type=str, default="https://data.gate.io",
@@ -108,12 +106,11 @@ class GateIOMarketMakerKeeper:
 
     def our_balance(self, our_balances: dict, token: str) -> Wad:
         try:
-            return Wad.from_number(our_balances[token])
+            return Wad.from_number(our_balances['available'][token])
         except KeyError:
             return Wad(0)
 
     def our_orders(self) -> list:
-        # TODO IMPLEMENT FILTERING IN THE API
         return self.gateio_api.get_orders(self.pair())
 
     def our_sell_orders(self, our_orders: list) -> list:
