@@ -80,6 +80,8 @@ class GateIOMarketMakerKeeper:
                                     secret_key=self.arguments.gateio_secret_key,
                                     timeout=self.arguments.gateio_timeout)
 
+        self._last_order_creation = 0
+
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.on_startup(self.startup)
@@ -149,15 +151,19 @@ class GateIOMarketMakerKeeper:
                                       target_price=target_price)
 
         if len(new_orders) > 0:
-            self.create_orders(new_orders)
+            if self.can_create_orders():
+                self.create_orders(new_orders)
+                self.register_order_creation()
+            else:
+                self.logger.info("Too little time elapsed from last order creation, waiting...")
 
-            # Unfortunately the gate.io API does not immediately reflect the fact that our orders have
-            # been placed. In order to avoid placing orders twice we explicitly wait some time here.
-            #
-            # The 3s time has been arbitrarily chosen. If it turns out to be too short, the keeper will
-            # end up placing the order twice but then might immediately try cancelling the duplicates,
-            # depending on the actual 'maxAmount' values in the bands configuration file.
-            time.sleep(3)
+    # Unfortunately the gate.io API does not immediately reflect the fact that our orders have
+    # been placed. In order to avoid placing orders twice we explicitly wait some time here.
+    def can_create_orders(self) -> bool:
+        return time.time() - self._last_order_creation > 15
+
+    def register_order_creation(self):
+        self._last_order_creation = time.time()
 
     def cancel_orders(self, orders: List[Order]):
         for order in orders:
