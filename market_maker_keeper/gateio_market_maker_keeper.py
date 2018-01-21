@@ -95,7 +95,7 @@ class GateIOMarketMakerKeeper:
         self.logger.info(f"Keeper configured to work on the '{self.pair()}' pair")
 
     def shutdown(self):
-        self.cancel_orders(self.our_orders())
+        self.gateio_api.cancel_all_orders(self.pair())
 
     def pair(self):
         return self.arguments.pair.lower()
