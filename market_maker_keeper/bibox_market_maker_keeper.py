@@ -23,7 +23,7 @@ from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.bibox_order_book import BiboxOrderBookManager
-from market_maker_keeper.price import PriceFeedFactory, BiboxPriceFeed
+from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pyexchange.bibox import BiboxApi
 from pymaker.lifecycle import Lifecycle
