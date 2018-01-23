@@ -80,7 +80,7 @@ class OkexMarketMakerKeeper:
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.on_startup(self.startup)
-            lifecycle.every(2, self.synchronize_orders)
+            lifecycle.every(3, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
