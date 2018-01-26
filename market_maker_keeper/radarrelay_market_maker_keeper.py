@@ -66,9 +66,6 @@ class RadarRelayMarketMakerKeeper:
         parser.add_argument("--exchange-address", type=str, required=True,
                             help="Ethereum address of the 0x Exchange contract")
 
-        parser.add_argument("--weth-address", type=str, required=True,
-                            help="Ethereum address of the WETH token")
-
         parser.add_argument("--relayer-api-server", type=str, required=True,
                             help="Address of the 0x Relayer API")
 
@@ -124,7 +121,7 @@ class RadarRelayMarketMakerKeeper:
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
         self.vox = Vox(web3=self.web3, address=self.tub.vox())
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
-        self.ether_token = ERC20Token(web3=self.web3, address=Address(self.arguments.weth_address))
+        self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
                             level=(logging.DEBUG if self.arguments.debug else logging.INFO))
@@ -163,7 +160,7 @@ class RadarRelayMarketMakerKeeper:
         return self.price_feed.get_price()
 
     def token_sell(self) -> ERC20Token:
-        return self.ether_token
+        return self.gem
 
     def token_buy(self) -> ERC20Token:
         return self.sai
