@@ -19,13 +19,12 @@ import json
 import logging
 import threading
 import time
-from typing import Optional
+from typing import Optional, List
 
 import os
 import websocket
 
 from market_maker_keeper.setzer import Setzer
-from pyexchange.bibox import BiboxApi
 from pymaker.feed import DSValue
 from pymaker.numeric import Wad
 from pymaker.sai import Tub, Vox
@@ -248,6 +247,22 @@ class GdaxPriceFeed(PriceFeed):
 
     def _process_heartbeat(self):
         self._last_timestamp = time.time()
+
+
+class BackupPriceFeed(PriceFeed):
+    logger = logging.getLogger()
+
+    def __init__(self, feeds: List[PriceFeed]):
+        assert(isinstance(feeds, list))
+        self.feeds = feeds
+
+    def get_price(self) -> Optional[Wad]:
+        for feed in self.feeds:
+            price = feed.get_price()
+            if price is not None:
+                return price
+
+        return None
 
 
 class PriceFeedFactory:
