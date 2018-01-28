@@ -53,7 +53,7 @@ class OkexMarketMakerKeeper:
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
 
-        parser.add_argument("--price-feed", type=str,
+        parser.add_argument("--price-feed", type=str, required=True,
                             help="Source of price feed")
 
         parser.add_argument("--price-feed-expiry", type=int, default=120,

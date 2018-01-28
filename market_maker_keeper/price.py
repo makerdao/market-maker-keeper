@@ -290,28 +290,49 @@ class PriceFeedFactory:
     @staticmethod
     def create_price_feed(price_feed_argument: str,
                           price_feed_expiry_argument: int,
-                          tub: Tub = None,
-                          vox: Vox = None) -> PriceFeed:
-        assert(isinstance(price_feed_argument, str) or price_feed_argument is None)
+                          tub: Tub = None) -> PriceFeed:
+        assert(isinstance(price_feed_argument, str))
         assert(isinstance(price_feed_expiry_argument, int))
         assert(isinstance(tub, Tub) or tub is None)
-        assert(isinstance(vox, Vox) or vox is None)
 
-        if price_feed_argument is not None:
-            if price_feed_argument.lower() == 'gdax-websocket':
-                price_feed = GdaxPriceFeed(ws_url="wss://ws-feed.gdax.com",
-                                           product_id="ETH-USD",
-                                           expiry=price_feed_expiry_argument)
-            elif price_feed_argument.startswith("fixed:"):
-                price_feed = FixedPriceFeed(Wad.from_number(price_feed_argument[6:]))
-            elif price_feed_argument.startswith("file:"):
-                price_feed = FilePriceFeed(filename=price_feed_argument[5:], expiry=price_feed_expiry_argument)
+        if price_feed_argument in ['gdax', 'gdax-websocket']:
+            logger = logging.getLogger()
+            logger.warning(f"Price feed '{price_feed_argument}' is deprecated, using 'eth_dai' instead")
+            logger.warning(f"Please update your scripts to use '--price-feed eth_dai'.")
+
+            price_feed_argument = 'eth_dai'
+
+        if price_feed_argument == 'eth_dai':
+            # main price feed
+            main_price_feed = GdaxPriceFeed(ws_url="wss://ws-feed.gdax.com",
+                                            product_id="ETH-USD",
+                                            expiry=price_feed_expiry_argument)
+
+            # emergency price feed
+            emergency_price_feed = AveragePriceFeed([SetzerPriceFeed('kraken', expiry=price_feed_expiry_argument),
+                                                     SetzerPriceFeed('gemini', expiry=price_feed_expiry_argument)])
+
+            if tub is not None:
+                # last resort price feed
+                last_resort_price_feed = TubPriceFeed(tub)
+                price_feed = BackupPriceFeed([main_price_feed, emergency_price_feed, last_resort_price_feed])
             else:
-                price_feed = SetzerPriceFeed(price_feed_argument, expiry=price_feed_expiry_argument)
-        elif tub is not None:
-            price_feed = TubPriceFeed(tub)
+                price_feed = BackupPriceFeed([main_price_feed, emergency_price_feed])
+
+        elif price_feed_argument == 'tub':
+            if tub is not None:
+                price_feed = TubPriceFeed(tub)
+            else:
+                raise Exception(f"'--price-feed tub' cannot be used as this keeper does not know about 'Tub'")
+
+        elif price_feed_argument.startswith("fixed:"):
+            price_feed = FixedPriceFeed(Wad.from_number(price_feed_argument[6:]))
+
+        elif price_feed_argument.startswith("file:"):
+            price_feed = FilePriceFeed(filename=price_feed_argument[5:], expiry=price_feed_expiry_argument)
+
         else:
-            raise Exception("'--price-feed' not specified, but no 'Tub' available to default to")
+            raise Exception(f"'--price-feed {price_feed_argument}' unknown")
 
         # Optimization.
         # Ultimately we should do:

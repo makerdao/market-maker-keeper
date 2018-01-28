@@ -64,6 +64,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -110,6 +111,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -145,6 +147,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"
                                                        f" --cancel-on-shutdown"),
@@ -181,6 +184,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"
                                                        f" --cancel-on-shutdown --withdraw-on-shutdown"),
@@ -217,6 +221,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"
                                                        f" --cancel-on-shutdown --withdraw-on-shutdown"),
@@ -252,6 +257,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -290,6 +296,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -316,6 +323,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -369,6 +377,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -426,6 +435,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -468,6 +478,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -525,6 +536,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -567,6 +579,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -604,6 +617,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -645,6 +659,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -711,6 +726,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 300"
                                                        f" --min-eth-balance 100.0"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
@@ -755,6 +771,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 300"
                                                        f" --min-eth-balance 100.0"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
@@ -798,6 +815,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 10"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"
                                                        f" --cancel-on-shutdown"
@@ -833,6 +851,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
                                                        f" --order-age 3600 --eth-reserve 200"
                                                        f" --min-eth-balance 100.0"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
@@ -867,6 +886,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                   f" --tub-address {deployment.tub.address}"
                                                   f" --etherdelta-address {deployment.etherdelta.address}"
                                                   f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                  f" --price-feed tub"
                                                   f" --order-age 3600 --eth-reserve 99.9"
                                                   f" --min-eth-balance 100.0"
                                                   f" --min-eth-deposit 1 --min-sai-deposit 400"),

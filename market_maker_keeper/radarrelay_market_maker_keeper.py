@@ -72,7 +72,7 @@ class RadarRelayMarketMakerKeeper:
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
 
-        parser.add_argument("--price-feed", type=str,
+        parser.add_argument("--price-feed", type=str, required=True,
                             help="Source of price feed. Tub price feed will be used if not specified")
 
         parser.add_argument("--price-feed-expiry", type=int, default=120,
@@ -119,7 +119,6 @@ class RadarRelayMarketMakerKeeper:
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
-        self.vox = Vox(web3=self.web3, address=self.tub.vox())
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
@@ -132,7 +131,7 @@ class RadarRelayMarketMakerKeeper:
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry, self.tub, self.vox)
+                                                               self.arguments.price_feed_expiry, self.tub)
 
         self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay, api_server=self.arguments.relayer_api_server)

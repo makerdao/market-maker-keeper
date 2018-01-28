@@ -26,8 +26,10 @@ from market_maker_keeper.bibox_order_book import BiboxOrderBookManager
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pyexchange.bibox import BiboxApi
+from pymaker import Address
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
+from pymaker.sai import Tub
 
 
 class BiboxMarketMakerKeeper:
@@ -68,7 +70,7 @@ class BiboxMarketMakerKeeper:
         parser.add_argument("--config", type=str, required=True,
                             help="Buy/sell bands configuration file")
 
-        parser.add_argument("--price-feed", type=str,
+        parser.add_argument("--price-feed", type=str, required=True,
                             help="Source of price feed. Tub price feed will be used if not specified")
 
         parser.add_argument("--price-feed-expiry", type=int, default=120,
@@ -81,8 +83,7 @@ class BiboxMarketMakerKeeper:
 
         self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
-        self.tub = None  #Tub(web3=self.web3, address=Address(self.arguments.tub_address))
-        self.vox = None  #Vox(web3=self.web3, address=self.tub.vox())
+        self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
 
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
                             level=(logging.DEBUG if self.arguments.debug else logging.INFO))
@@ -96,7 +97,7 @@ class BiboxMarketMakerKeeper:
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry, self.tub, self.vox)
+                                                               self.arguments.price_feed_expiry, self.tub)
 
         self.bibox_order_book_manager = BiboxOrderBookManager(bibox_api=self.bibox_api,
                                                               pair=self.pair(),

@@ -183,7 +183,7 @@ usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                  [--rpc-timeout RPC_TIMEOUT] --eth-from
                                  ETH_FROM --tub-address TUB_ADDRESS
                                  --oasis-address OASIS_ADDRESS --config CONFIG
-                                 [--price-feed PRICE_FEED]
+                                 --price-feed PRICE_FEED
                                  [--price-feed-expiry PRICE_FEED_EXPIRY]
                                  [--round-places ROUND_PLACES]
                                  [--min-eth-balance MIN_ETH_BALANCE]
@@ -281,8 +281,7 @@ usage: etherdelta-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       [--etherdelta-number-of-attempts ETHERDELTA_NUMBER_OF_ATTEMPTS]
                                       [--etherdelta-retry-interval ETHERDELTA_RETRY_INTERVAL]
                                       [--etherdelta-timeout ETHERDELTA_TIMEOUT]
-                                      --config CONFIG
-                                      [--price-feed PRICE_FEED]
+                                      --config CONFIG --price-feed PRICE_FEED
                                       [--price-feed-expiry PRICE_FEED_EXPIRY]
                                       --order-age ORDER_AGE
                                       [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
@@ -410,10 +409,8 @@ usage: radarrelay-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       [--rpc-timeout RPC_TIMEOUT] --eth-from
                                       ETH_FROM --tub-address TUB_ADDRESS
                                       --exchange-address EXCHANGE_ADDRESS
-                                      --weth-address WETH_ADDRESS
                                       --relayer-api-server RELAYER_API_SERVER
-                                      --config CONFIG
-                                      [--price-feed PRICE_FEED]
+                                      --config CONFIG --price-feed PRICE_FEED
                                       [--price-feed-expiry PRICE_FEED_EXPIRY]
                                       --order-expiry ORDER_EXPIRY
                                       [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
@@ -437,8 +434,6 @@ optional arguments:
                         Ethereum address of the Tub contract
   --exchange-address EXCHANGE_ADDRESS
                         Ethereum address of the 0x Exchange contract
-  --weth-address WETH_ADDRESS
-                        Ethereum address of the WETH token
   --relayer-api-server RELAYER_API_SERVER
                         Address of the 0x Relayer API
   --config CONFIG       Buy/sell bands configuration file
@@ -497,8 +492,9 @@ usage: bibox-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                  TUB_ADDRESS
                                  [--bibox-api-server BIBOX_API_SERVER]
                                  --bibox-api-key BIBOX_API_KEY --bibox-secret
-                                 BIBOX_SECRET --config CONFIG
-                                 [--price-feed PRICE_FEED]
+                                 BIBOX_SECRET [--bibox-timeout BIBOX_TIMEOUT]
+                                 --pair PAIR --config CONFIG --price-feed
+                                 PRICE_FEED
                                  [--price-feed-expiry PRICE_FEED_EXPIRY]
                                  [--debug]
 
@@ -517,6 +513,10 @@ optional arguments:
                         API key for the Bibox API
   --bibox-secret BIBOX_SECRET
                         Secret for the Bibox API
+  --bibox-timeout BIBOX_TIMEOUT
+                        Timeout for accessing the Bibox API (in seconds,
+                        default: 9.5)
+  --pair PAIR           Token pair on which the keeper should operate
   --config CONFIG       Buy/sell bands configuration file
   --price-feed PRICE_FEED
                         Source of price feed. Tub price feed will be used if
