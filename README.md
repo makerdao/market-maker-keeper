@@ -171,6 +171,21 @@ The [Jsonnet](https://github.com/google/jsonnet) data templating language can be
 for the bands config file.
 
 
+## Price feed configuration
+
+Each keeper takes a `--price-feed` commandline argument which determines the price used for market-making.
+As of today there are four possible values of this argument:
+* `eth_dai` - uses a price from the GDAX WebSocket ETH/USD price feed, if it becomes unavailable then uses
+  the average of Kraken and Gemini ETH/USD prices, if both of them become unavailable uses the price feed
+  from `Tub`;
+* `tub` - uses the price feed from `Tub` (only works for keepers being able access an Ethereum node);
+* `fixed:1.56` - uses a fixed price, `1.56` in this example;
+* `file:filename.json` - continuously loads the price from a specified file, which should be a simple
+  JSON document with only a `price` property.
+
+Old `gdax` and `gdax-websocket` modes are now aliases to `eth_dai`.
+
+
 ## `oasis-market-maker-keeper`
 
 This keeper supports market-making on the [OasisDEX](https://oasisdex.com/) exchange.
