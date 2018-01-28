@@ -17,7 +17,7 @@
 
 from typing import Optional
 
-from market_maker_keeper.price import PriceFeed, BackupPriceFeed
+from market_maker_keeper.price import PriceFeed, BackupPriceFeed, AveragePriceFeed
 from pymaker.numeric import Wad
 
 
@@ -30,6 +30,54 @@ class FakePriceFeed(PriceFeed):
 
     def set_price(self, price: Optional[Wad]):
         self.price = price
+
+
+class TestAveragePriceFeed:
+    def test_no_values(self):
+        # given
+        price_feed_1 = FakePriceFeed()
+        price_feed_2 = FakePriceFeed()
+        average_price_feed = AveragePriceFeed([price_feed_1, price_feed_2])
+
+        # expect
+        assert average_price_feed.get_price() is None
+
+    def test_value_1(self):
+        # given
+        price_feed_1 = FakePriceFeed()
+        price_feed_2 = FakePriceFeed()
+        average_price_feed = AveragePriceFeed([price_feed_1, price_feed_2])
+
+        # and
+        price_feed_1.set_price(Wad.from_number(10.5))
+
+        # expect
+        assert average_price_feed.get_price() == Wad.from_number(10.5)
+
+    def test_value_2(self):
+        # given
+        price_feed_1 = FakePriceFeed()
+        price_feed_2 = FakePriceFeed()
+        average_price_feed = AveragePriceFeed([price_feed_1, price_feed_2])
+
+        # and
+        price_feed_2.set_price(Wad.from_number(17.5))
+
+        # expect
+        assert average_price_feed.get_price() == Wad.from_number(17.5)
+
+    def test_two_values(self):
+        # given
+        price_feed_1 = FakePriceFeed()
+        price_feed_2 = FakePriceFeed()
+        average_price_feed = AveragePriceFeed([price_feed_1, price_feed_2])
+
+        # and
+        price_feed_1.set_price(Wad.from_number(10.5))
+        price_feed_2.set_price(Wad.from_number(17.5))
+
+        # expect
+        assert average_price_feed.get_price() == Wad.from_number(14.0)
 
 
 class TestBackupPriceFeed:

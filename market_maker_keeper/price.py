@@ -249,6 +249,27 @@ class GdaxPriceFeed(PriceFeed):
         self._last_timestamp = time.time()
 
 
+class AveragePriceFeed(PriceFeed):
+    def __init__(self, feeds: List[PriceFeed]):
+        assert(isinstance(feeds, list))
+        self.feeds = feeds
+
+    def get_price(self) -> Optional[Wad]:
+        total = Wad.from_number(0)
+        count = 0
+
+        for feed in self.feeds:
+            price = feed.get_price()
+            if price is not None:
+                total += price
+                count += 1
+
+        if count > 0:
+            return total / Wad.from_number(count)
+        else:
+            return None
+
+
 class BackupPriceFeed(PriceFeed):
     logger = logging.getLogger()
 
