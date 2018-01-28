@@ -30,6 +30,7 @@ from pymaker.feed import DSValue
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.token import DSToken
+from pymaker.util import eth_balance
 from tests.band_config import BandConfig
 from tests.helper import args
 
@@ -701,7 +702,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_sorted(self.orders(keeper))[1].buy_amount == Wad.from_number(780)
         assert self.orders_sorted(self.orders(keeper))[1].buy_token == deployment.sai.address
 
-    def test_should_cancel_all_orders_but_not_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_cancel_all_orders_but_not_terminate_if_eth_balance_before_minimum_and_cannot_withdraw(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
 
@@ -710,7 +711,7 @@ class TestEtherDeltaMarketMakerKeeper:
                                                        f" --tub-address {deployment.tub.address}"
                                                        f" --etherdelta-address {deployment.etherdelta.address}"
                                                        f" --etherdelta-socket https://127.0.0.1:99999/"
-                                                       f" --order-age 3600 --eth-reserve 200"
+                                                       f" --order-age 3600 --eth-reserve 300"
                                                        f" --min-eth-balance 100.0"
                                                        f" --min-eth-deposit 1 --min-sai-deposit 400"),
                                              web3=deployment.web3)
@@ -720,6 +721,11 @@ class TestEtherDeltaMarketMakerKeeper:
         # and
         self.mint_tokens(deployment)
         self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        self.leave_only_some_eth(deployment, Wad.from_number(350.0))  # as `--eth-reserve` is 300 ETH, at 50 ETH
+                                                                      # will get deposited and rest will be left in
+                                                                      # the account
 
         # when
         keeper.approve()
@@ -739,6 +745,49 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert len(self.orders(keeper)) == 0
         assert not keeper.lifecycle.terminated_internally
+
+    def test_should_withdraw_and_not_cancel_orders_if_eth_balance_before_minimum_and_can_withdraw(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.two_adjacent_bands_config(tmpdir)
+
+        # and
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --order-age 3600 --eth-reserve 300"
+                                                       f" --min-eth-balance 100.0"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        # (there is a lot ETH in the account, so almost everything will get deposited so if we then go low on ETH)
+        # (then the keeper can and should withdraw some ETH from EtherDelta and do not shut down operation)
+
+        # when
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        assert len(self.orders(keeper)) == 2
+
+        # when
+        self.leave_only_some_eth(deployment, Wad.from_number(10.0))  # there is a 5.0 ETH block reward even in testrpc,
+                                                                     # that's why `--min-eth-balance` is higher than 10
+
+        # and
+        keeper.synchronize_orders()
+
+        # then
+        assert len(self.orders(keeper)) == 2
+        assert eth_balance(deployment.web3, deployment.our_address) > Wad.from_number(290)
 
     def test_should_use_specified_gas_price_for_all_transactions(self, deployment: Deployment, tmpdir: py.path.local):
         # given
