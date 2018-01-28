@@ -56,12 +56,12 @@ This step is not necessary if you only want to use the other keepers from this p
 
 ### Installation of `setzer`
 
-All market maker keepers use `setzer` in order to access price feeds like GDAX, Kraken etc. This interface
+Some market maker keepers use `setzer` in order to access price feeds like Gemini, Kraken etc. This interface
 is built on top of `setzer` so in order for it to work correctly, `setzer` and its dependencies
 must be installed and available to the keepers. Please see: <https://github.com/makerdao/setzer>.
 
-Without `setzer` installed, the `--price-feed` argument can not be used and only the default price feed
-(provided by `Tub`) will be available.
+Without `setzer` installed, the `--price-feed dai_eth` will lack reliability when the main price feed
+(which is currently a GDAX ETH/USD WebSocket) will become unavailable.
 
 
 ## Bands configuration
