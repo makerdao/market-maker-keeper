@@ -102,6 +102,72 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_amount == Wad.from_number(780)
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_token == deployment.sai.address
 
+    def test_should_deposit_if_deposited_amount_less_than_band_avg(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+
+        # and
+        deployment.etherdelta.deposit(Wad.from_number(7)).transact()
+
+        # when
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        assert deployment.etherdelta.balance_of(deployment.our_address) >= Wad.from_number(7.5)
+
+    def test_should_not_deposit_if_deposited_amount_more_than_band_avg(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+
+        # and
+        deployment.etherdelta.deposit(Wad.from_number(8)).transact()
+
+        # when
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        assert deployment.etherdelta.balance_of(deployment.our_address) == Wad.from_number(8)
+
     def test_should_not_cancel_orders_on_shutdown_if_not_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
