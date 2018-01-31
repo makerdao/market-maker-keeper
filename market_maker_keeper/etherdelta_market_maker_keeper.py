@@ -316,8 +316,9 @@ class EtherDeltaMarketMakerKeeper:
             orders = [order for order in self.our_sell_orders() if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
-                if self.deposit_for_sell_order_if_needed(band.avg_amount - total_amount):
-                    return
+                if band.avg_amount - total_amount > our_balance - self.total_amount(self.our_sell_orders()):
+                    if self.deposit_for_sell_order():
+                        break
 
                 price = band.avg_price(target_price)
                 pay_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_sell_orders())))
@@ -339,8 +340,9 @@ class EtherDeltaMarketMakerKeeper:
             orders = [order for order in self.our_buy_orders() if band.includes(order, target_price)]
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
-                if self.deposit_for_buy_order_if_needed(band.avg_amount - total_amount):
-                    return
+                if band.avg_amount - total_amount > our_balance - self.total_amount(self.our_buy_orders()):
+                    if self.deposit_for_buy_order():
+                        return
 
                 price = band.avg_price(target_price)
                 pay_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_buy_orders())))
@@ -361,12 +363,6 @@ class EtherDeltaMarketMakerKeeper:
         else:
             return ERC20Token(web3=self.web3, address=token).balance_of(self.our_address)
 
-    def deposit_for_sell_order_if_needed(self, desired_order_pay_amount: Wad):
-        if self.our_balance(self.token_sell()) < desired_order_pay_amount:
-            return self.deposit_for_sell_order()
-        else:
-            return False
-
     def deposit_for_sell_order(self):
         depositable_eth = self.depositable_balance(self.token_sell())
         if depositable_eth > self.min_eth_deposit:
@@ -374,16 +370,10 @@ class EtherDeltaMarketMakerKeeper:
         else:
             return False
 
-    def deposit_for_buy_order_if_needed(self, desired_order_pay_amount: Wad):
-        if self.our_balance(self.token_buy()) < desired_order_pay_amount:
-            return self.deposit_for_buy_order()
-        else:
-            return False
-
     def deposit_for_buy_order(self):
         depositable_sai = self.depositable_balance(self.token_buy())
         if depositable_sai > self.min_sai_deposit:
-            return self.etherdelta.deposit_token(self.sai.address, depositable_sai).transact(gas_price=self.gas_price).successful
+            return self.etherdelta.deposit_token(self.token_buy(), depositable_sai).transact(gas_price=self.gas_price).successful
         else:
             return False
 
