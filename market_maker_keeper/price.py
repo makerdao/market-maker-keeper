@@ -158,7 +158,7 @@ class SetzerPriceFeed(PriceFeed):
     def _background_run(self):
         while True:
             self._fetch_price()
-            time.sleep(5)
+            time.sleep(60)
 
     def get_price(self) -> Optional[Wad]:
         if time.time() - self._timestamp > self.expiry:
