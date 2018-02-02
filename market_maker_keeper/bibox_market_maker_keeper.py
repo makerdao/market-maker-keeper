@@ -40,18 +40,6 @@ class BiboxMarketMakerKeeper:
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='bibox-market-maker-keeper')
 
-        parser.add_argument("--rpc-host", type=str, default="localhost",
-                            help="JSON-RPC host (default: `localhost')")
-
-        parser.add_argument("--rpc-port", type=int, default=8545,
-                            help="JSON-RPC port (default: `8545')")
-
-        parser.add_argument("--rpc-timeout", type=int, default=10,
-                            help="JSON-RPC timeout (in seconds, default: 10)")
-
-        parser.add_argument("--tub-address", type=str, required=True,
-                            help="Ethereum address of the Tub contract")
-
         parser.add_argument("--bibox-api-server", type=str, default="https://api.bibox.com",
                             help="Address of the Bibox API server (default: 'https://api.bibox.com')")
 
@@ -81,10 +69,6 @@ class BiboxMarketMakerKeeper:
 
         self.arguments = parser.parse_args(args)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
-                                                                              request_kwargs={"timeout": self.arguments.rpc_timeout}))
-        self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
-
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
                             level=(logging.DEBUG if self.arguments.debug else logging.INFO))
         logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
@@ -97,15 +81,14 @@ class BiboxMarketMakerKeeper:
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry, self.tub)
+                                                               self.arguments.price_feed_expiry, None)
 
         self.bibox_order_book_manager = BiboxOrderBookManager(bibox_api=self.bibox_api,
                                                               pair=self.pair(),
                                                               refresh_frequency=3)
 
     def main(self):
-        with Lifecycle(self.web3) as lifecycle:
-            lifecycle.wait_for_sync(False)
+        with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
