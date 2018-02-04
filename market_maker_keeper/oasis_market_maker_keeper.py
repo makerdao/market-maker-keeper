@@ -155,7 +155,7 @@ class OasisMarketMakerKeeper:
     def token_buy(self) -> ERC20Token:
         return self.sai
 
-    def our_balance(self, token: ERC20Token) -> Wad:
+    def our_available_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
     def our_orders(self):
@@ -210,8 +210,8 @@ class OasisMarketMakerKeeper:
         # If there are any new orders to be created, create them.
         new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
                                       our_sell_orders=self.our_sell_orders(our_orders),
-                                      our_buy_balance=self.our_balance(self.token_buy()),
-                                      our_sell_balance=self.our_balance(self.token_sell()),
+                                      our_buy_balance=self.our_available_balance(self.token_buy()),
+                                      our_sell_balance=self.our_available_balance(self.token_sell()),
                                       target_price=target_price)[0]
 
         if len(new_orders) > 0:

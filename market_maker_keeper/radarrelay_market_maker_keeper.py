@@ -164,7 +164,7 @@ class RadarRelayMarketMakerKeeper:
     def token_buy(self) -> ERC20Token:
         return self.sai
 
-    def our_balance(self, token: ERC20Token) -> Wad:
+    def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
     def our_orders(self) -> list:
@@ -210,8 +210,8 @@ class RadarRelayMarketMakerKeeper:
         # Place new orders
         self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
                                             our_sell_orders=self.our_sell_orders(our_orders),
-                                            our_buy_balance=self.our_balance(self.token_buy()),
-                                            our_sell_balance=self.our_balance(self.token_sell()),
+                                            our_buy_balance=self.our_total_balance(self.token_buy()),
+                                            our_sell_balance=self.our_total_balance(self.token_sell()),
                                             target_price=target_price)[0])
 
     def cancel_orders(self, orders):

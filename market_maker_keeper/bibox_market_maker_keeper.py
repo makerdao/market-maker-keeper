@@ -125,7 +125,7 @@ class BiboxMarketMakerKeeper:
     def token_buy(self) -> str:
         return self.arguments.pair.split('_')[1].upper()
 
-    def our_balance(self, our_balances: list, token: str) -> Wad:
+    def our_available_balance(self, our_balances: list, token: str) -> Wad:
         return Wad.from_number(next(filter(lambda coin: coin['symbol'] == token, our_balances))['balance'])
 
     def our_sell_orders(self, our_orders: list) -> list:
@@ -160,8 +160,8 @@ class BiboxMarketMakerKeeper:
         # Place new orders
         self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                             our_sell_orders=self.our_sell_orders(order_book.orders),
-                                            our_buy_balance=self.our_balance(order_book.balances, self.token_buy()),
-                                            our_sell_balance=self.our_balance(order_book.balances, self.token_sell()),
+                                            our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
+                                            our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
                                             target_price=target_price)[0])
 
     def cancel_orders(self, orders):
