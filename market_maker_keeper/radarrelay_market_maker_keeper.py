@@ -207,11 +207,16 @@ class RadarRelayMarketMakerKeeper:
             self.cancel_orders(cancellable_orders)
             return
 
+        # In case of RadarRelay, balances returned by `our_total_balance` still contain amounts "locked"
+        # by currently open orders, so we need to explicitly subtract these amounts.
+        our_buy_balance = self.our_total_balance(self.token_buy()) - Bands.total_amount(self.our_buy_orders(our_orders))
+        our_sell_balance = self.our_total_balance(self.token_sell()) - Bands.total_amount(self.our_sell_orders(our_orders))
+
         # Place new orders
         self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
                                             our_sell_orders=self.our_sell_orders(our_orders),
-                                            our_buy_balance=self.our_total_balance(self.token_buy()),
-                                            our_sell_balance=self.our_total_balance(self.token_sell()),
+                                            our_buy_balance=our_buy_balance,
+                                            our_sell_balance=our_sell_balance,
                                             target_price=target_price)[0])
 
     def cancel_orders(self, orders):
