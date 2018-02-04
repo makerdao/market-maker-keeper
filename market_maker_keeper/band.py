@@ -233,7 +233,7 @@ class Bands:
 
         for band in self.sell_bands:
             orders = [order for order in our_sell_orders if band.includes(order, target_price)]
-            total_amount = self._total_amount(orders)
+            total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
                 price = band.avg_price(target_price)
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance)
@@ -258,7 +258,7 @@ class Bands:
 
         for band in self.buy_bands:
             orders = [order for order in our_buy_orders if band.includes(order, target_price)]
-            total_amount = self._total_amount(orders)
+            total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
                 price = band.avg_price(target_price)
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance)
@@ -273,7 +273,7 @@ class Bands:
         return new_orders, missing_amount
 
     @staticmethod
-    def _total_amount(orders):
+    def total_amount(orders):
         return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
 
     @staticmethod

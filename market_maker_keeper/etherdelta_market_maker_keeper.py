@@ -219,7 +219,7 @@ class EtherDeltaMarketMakerKeeper:
     def token_buy(self) -> Address:
         return self.sai.address
 
-    def our_balance(self, token: Address) -> Wad:
+    def our_total_balance(self, token: Address) -> Wad:
         if token == EtherDelta.ETH_TOKEN:
             return self.etherdelta.balance_of(self.our_address)
         else:
@@ -269,8 +269,34 @@ class EtherDeltaMarketMakerKeeper:
             self.cancel_orders(cancellable_orders, block_number)
             return
 
-        # Place new orders
-        self.top_up_bands(bands.buy_bands, bands.sell_bands, target_price)
+        # In case of EtherDelta, balances returned by `our_total_balance` still contain amounts "locked"
+        # by currently open orders, so we need to explicitly subtract these amounts.
+        our_buy_balance = self.our_total_balance(self.token_buy()) - Bands.total_amount(self.our_buy_orders())
+        our_sell_balance = self.our_total_balance(self.token_sell()) - Bands.total_amount(self.our_sell_orders())
+
+        # Evaluate if we need to create new orders, and how much do we need to deposit
+        new_orders, missing_buy_amount, missing_sell_amount = bands.new_orders(our_buy_orders=self.our_buy_orders(),
+                                                                               our_sell_orders=self.our_sell_orders(),
+                                                                               our_buy_balance=our_buy_balance,
+                                                                               our_sell_balance=our_sell_balance,
+                                                                               target_price=target_price)
+
+        # If deposited amount too low for placing buy orders, try to deposit.
+        # If deposited amount too low for placing sell orders, try to deposit.
+        made_deposit = False
+
+        if missing_buy_amount > Wad(0):
+            if self.deposit_for_buy_order():
+                made_deposit = True
+
+        if missing_sell_amount > Wad(0):
+            if self.deposit_for_sell_order():
+                made_deposit = True
+
+        # If we managed to deposit something, do not do anything so we can reevaluate new orders to be created.
+        # Otherwise, create new orders.
+        if not made_deposit:
+            self.create_orders(new_orders)
 
     @staticmethod
     def is_order_age_above_threshold(order: Order, block_number: int, threshold: int):
@@ -297,6 +323,23 @@ class EtherDeltaMarketMakerKeeper:
         """Cancel all our orders."""
         self.cancel_orders(self.our_orders, self.web3.eth.blockNumber)
 
+    def create_orders(self, new_orders):
+        for new_order in new_orders:
+            if new_order.is_sell:
+                order = self.etherdelta.create_order(pay_token=self.token_sell(),
+                                                     pay_amount=self.fix_amount(new_order.pay_amount),
+                                                     buy_token=self.token_buy(),
+                                                     buy_amount=self.fix_amount(new_order.buy_amount),
+                                                     expires=self.web3.eth.blockNumber + self.arguments.order_age)
+            else:
+                order = self.etherdelta.create_order(pay_token=self.token_buy(),
+                                                     pay_amount=self.fix_amount(new_order.pay_amount),
+                                                     buy_token=self.token_sell(),
+                                                     buy_amount=self.fix_amount(new_order.buy_amount),
+                                                     expires=self.web3.eth.blockNumber + self.arguments.order_age)
+
+            self.place_order(order)
+
     def withdraw_everything(self):
         eth_balance = self.etherdelta.balance_of(self.our_address)
         if eth_balance > Wad(0):
@@ -305,59 +348,6 @@ class EtherDeltaMarketMakerKeeper:
         sai_balance = self.etherdelta.balance_of_token(self.sai.address, self.our_address)
         if sai_balance > Wad(0):
             self.etherdelta.withdraw_token(self.sai.address, sai_balance).transact()
-
-    def top_up_bands(self, buy_bands: list, sell_bands: list, target_price: Wad):
-        """Create new buy and sell orders in all send and buy bands if necessary."""
-        self.top_up_buy_bands(buy_bands, target_price)
-        self.top_up_sell_bands(sell_bands, target_price)
-
-    def top_up_sell_bands(self, sell_bands: list, target_price: Wad):
-        """Ensure our sell engagement is not below minimum in all sell bands. Place new orders if necessary."""
-        our_balance = self.our_balance(self.token_sell())
-        for band in sell_bands:
-            orders = [order for order in self.our_sell_orders() if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                if band.avg_amount - total_amount > our_balance - self.total_amount(self.our_sell_orders()):
-                    if self.deposit_for_sell_order():
-                        break
-
-                price = band.avg_price(target_price)
-                pay_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_sell_orders())))
-                buy_amount = self.fix_amount(pay_amount * price)
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new sell order")
-
-                    order = self.etherdelta.create_order(pay_token=self.token_sell(),
-                                                         pay_amount=pay_amount,
-                                                         buy_token=self.token_buy(),
-                                                         buy_amount=buy_amount,
-                                                         expires=self.web3.eth.blockNumber + self.arguments.order_age)
-                    self.place_order(order)
-
-    def top_up_buy_bands(self, buy_bands: list, target_price: Wad):
-        """Ensure our buy engagement is not below minimum in all buy bands. Place new orders if necessary."""
-        our_balance = self.our_balance(self.token_buy())
-        for band in buy_bands:
-            orders = [order for order in self.our_buy_orders() if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                if band.avg_amount - total_amount > our_balance - self.total_amount(self.our_buy_orders()):
-                    if self.deposit_for_buy_order():
-                        return
-
-                price = band.avg_price(target_price)
-                pay_amount = self.fix_amount(Wad.min(band.avg_amount - total_amount, our_balance - self.total_amount(self.our_buy_orders())))
-                buy_amount = self.fix_amount(pay_amount / price)
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new buy order")
-
-                    order = self.etherdelta.create_order(pay_token=self.token_buy(),
-                                                         pay_amount=pay_amount,
-                                                         buy_token=self.token_sell(),
-                                                         buy_amount=buy_amount,
-                                                         expires=self.web3.eth.blockNumber + self.arguments.order_age)
-                    self.place_order(order)
 
     def depositable_balance(self, token: Address) -> Wad:
         if token == EtherDelta.ETH_TOKEN:
@@ -378,9 +368,6 @@ class EtherDeltaMarketMakerKeeper:
             return self.etherdelta.deposit_token(self.token_buy(), depositable_sai).transact(gas_price=self.gas_price).successful
         else:
             return False
-
-    def total_amount(self, orders):
-        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
 
     @staticmethod
     def fix_amount(amount: Wad) -> Wad:
