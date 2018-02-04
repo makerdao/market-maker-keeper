@@ -63,7 +63,7 @@ class Band:
     def excessive_orders(self, orders: list, target_price: Wad):
         """Return orders which need to be cancelled to bring the total order amount in the band below maximum."""
         orders_in_band = [order for order in orders if self.includes(order, target_price)]
-        if self._total_amount(orders_in_band) > self.max_amount:
+        if Bands.total_amount(orders_in_band) > self.max_amount:
             def calculate_all_subsets():
                 for num in range(0, len(orders_in_band)):
                     for combination in itertools.combinations(orders_in_band, num):
@@ -73,7 +73,7 @@ class Band:
             all_subsets = list(calculate_all_subsets())
 
             # we are only choosing from these subsets which bring us to or below `band.max_amount`
-            candidate_subsets = list(filter(lambda subset: self._total_amount(subset) <= self.max_amount, all_subsets))
+            candidate_subsets = list(filter(lambda subset: Bands.total_amount(subset) <= self.max_amount, all_subsets))
 
             # we calculate the size of the largest subset of these, as this will result in the lowest number
             # of order cancellations i.e. lowest gas consumption for the keeper
@@ -83,17 +83,13 @@ class Band:
             candidate_subsets = filter(lambda subset: len(subset) == highest_cnt, candidate_subsets)
 
             # from the interesting subsets we choose the with the highest total amount
-            found_subset = sorted(candidate_subsets, key=lambda subset: self._total_amount(subset), reverse=True)[0]
+            found_subset = sorted(candidate_subsets, key=lambda subset: Bands.total_amount(subset), reverse=True)[0]
 
             # as we are supposed to return the orders which should be cancelled, we return the complement
             # of the found subset
             return set(orders_in_band) - set(found_subset)
         else:
             return []
-
-    @staticmethod
-    def _total_amount(orders: list):
-        return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
 
 
 class BuyBand(Band):
