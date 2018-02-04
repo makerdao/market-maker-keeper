@@ -212,7 +212,7 @@ class OasisMarketMakerKeeper:
                                       our_sell_orders=self.our_sell_orders(our_orders),
                                       our_buy_balance=self.our_balance(self.token_buy()),
                                       our_sell_balance=self.our_balance(self.token_sell()),
-                                      target_price=target_price)
+                                      target_price=target_price)[0]
 
         if len(new_orders) > 0:
             self.create_orders(new_orders)

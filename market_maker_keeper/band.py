@@ -20,6 +20,7 @@ import logging
 import operator
 from functools import reduce
 from pprint import pformat
+from typing import Tuple
 
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker.numeric import Wad
@@ -209,21 +210,26 @@ class Bands:
                                     self._excessive_sell_orders(our_sell_orders, target_price),
                                     self._outside_orders(our_buy_orders, our_sell_orders, target_price)))
 
-    def new_orders(self, our_buy_orders: list, our_sell_orders: list, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Wad) -> list:
+    def new_orders(self, our_buy_orders: list, our_sell_orders: list, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Wad) -> Tuple[list, Wad, Wad]:
         assert(isinstance(our_buy_orders, list))
         assert(isinstance(our_sell_orders, list))
         assert(isinstance(our_buy_balance, Wad))
         assert(isinstance(our_sell_balance, Wad))
         assert(isinstance(target_price, Wad))
 
-        return list(itertools.chain(self._new_buy_orders(our_buy_orders, our_buy_balance, target_price),
-                                    self._new_sell_orders(our_sell_orders, our_sell_balance, target_price)))
+        new_buy_orders, missing_buy_amount = self._new_buy_orders(our_buy_orders, our_buy_balance, target_price)
+        new_sell_orders, missing_sell_amount = self._new_sell_orders(our_sell_orders, our_sell_balance, target_price)
+
+        return new_buy_orders + new_sell_orders, missing_buy_amount, missing_sell_amount
 
     def _new_sell_orders(self, our_sell_orders: list, our_sell_balance: Wad, target_price: Wad):
         """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
         assert(isinstance(our_sell_orders, list))
         assert(isinstance(our_sell_balance, Wad))
         assert(isinstance(target_price, Wad))
+
+        new_orders = []
+        missing_amount = Wad(0)
 
         for band in self.sell_bands:
             orders = [order for order in our_sell_orders if band.includes(order, target_price)]
@@ -232,17 +238,23 @@ class Bands:
                 price = band.avg_price(target_price)
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance)
                 buy_amount = pay_amount * price
+                missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new sell order")
 
                     our_sell_balance = our_sell_balance - pay_amount
-                    yield NewOrder(is_sell=True, price=price, pay_amount=pay_amount, buy_amount=buy_amount)
+                    new_orders.append(NewOrder(is_sell=True, price=price, pay_amount=pay_amount, buy_amount=buy_amount))
+
+        return new_orders, missing_amount
 
     def _new_buy_orders(self, our_buy_orders: list, our_buy_balance: Wad, target_price: Wad):
         """Return buy orders which need to be placed to bring total amounts within all buy bands above minimums."""
         assert(isinstance(our_buy_orders, list))
         assert(isinstance(our_buy_balance, Wad))
         assert(isinstance(target_price, Wad))
+
+        new_orders = []
+        missing_amount = Wad(0)
 
         for band in self.buy_bands:
             orders = [order for order in our_buy_orders if band.includes(order, target_price)]
@@ -251,11 +263,14 @@ class Bands:
                 price = band.avg_price(target_price)
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance)
                 buy_amount = pay_amount / price
+                missing_amount += Wad.max((band.avg_amount - total_amount) - our_buy_balance, Wad(0))
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new buy order")
 
                     our_buy_balance = our_buy_balance - pay_amount
-                    yield NewOrder(is_sell=False, price=price, pay_amount=pay_amount, buy_amount=buy_amount)
+                    new_orders.append(NewOrder(is_sell=False, price=price, pay_amount=pay_amount, buy_amount=buy_amount))
+
+        return new_orders, missing_amount
 
     @staticmethod
     def _total_amount(orders):

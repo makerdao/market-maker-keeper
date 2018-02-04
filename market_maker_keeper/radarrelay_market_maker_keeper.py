@@ -212,7 +212,7 @@ class RadarRelayMarketMakerKeeper:
                                             our_sell_orders=self.our_sell_orders(our_orders),
                                             our_buy_balance=self.our_balance(self.token_buy()),
                                             our_sell_balance=self.our_balance(self.token_sell()),
-                                            target_price=target_price))
+                                            target_price=target_price)[0])
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""

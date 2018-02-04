@@ -162,7 +162,7 @@ class BiboxMarketMakerKeeper:
                                             our_sell_orders=self.our_sell_orders(order_book.orders),
                                             our_buy_balance=self.our_balance(order_book.balances, self.token_buy()),
                                             our_sell_balance=self.our_balance(order_book.balances, self.token_sell()),
-                                            target_price=target_price))
+                                            target_price=target_price)[0])
 
     def cancel_orders(self, orders):
         for order in orders:
