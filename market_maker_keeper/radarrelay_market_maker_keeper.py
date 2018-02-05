@@ -73,10 +73,10 @@ class RadarRelayMarketMakerKeeper:
                             help="Buy/sell bands configuration file")
 
         parser.add_argument("--price-feed", type=str, required=True,
-                            help="Source of price feed. Tub price feed will be used if not specified")
+                            help="Source of price feed")
 
         parser.add_argument("--price-feed-expiry", type=int, default=120,
-                            help="Maximum age of non-Tub price feed (in seconds, default: 120)")
+                            help="Maximum age of the price feed (in seconds, default: 120)")
 
         parser.add_argument("--order-expiry", type=int, required=True,
                             help="Expiration time of created orders (in seconds)")
