@@ -103,7 +103,7 @@ class OkexMarketMakerKeeper:
     def our_balances(self) -> dict:
         return self.okex_api.get_balances()
 
-    def our_balance(self, our_balances: dict, token: str) -> Wad:
+    def our_available_balance(self, our_balances: dict, token: str) -> Wad:
         return Wad.from_number(our_balances['free'][token])
 
     def our_orders(self) -> list:
@@ -137,8 +137,8 @@ class OkexMarketMakerKeeper:
         # Place new orders
         self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
                                             our_sell_orders=self.our_sell_orders(our_orders),
-                                            our_buy_balance=self.our_balance(our_balances, self.token_buy()),
-                                            our_sell_balance=self.our_balance(our_balances, self.token_sell()),
+                                            our_buy_balance=self.our_available_balance(our_balances, self.token_buy()),
+                                            our_sell_balance=self.our_available_balance(our_balances, self.token_sell()),
                                             target_price=target_price)[0])
 
     def cancel_orders(self, orders):
