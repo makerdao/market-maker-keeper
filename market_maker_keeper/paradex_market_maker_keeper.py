@@ -16,29 +16,24 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import itertools
 import logging
-import operator
 import sys
-import time
-from functools import reduce
 
 from retry import retry
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
-from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.price import PriceFeedFactory
+from market_maker_keeper.reloadable_config import ReloadableConfig
 from pyexchange.paradex import ParadexApi
-from pymaker import Address, synchronize
+from pymaker import Address
 from pymaker.approval import directly
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
-from pymaker.sai import Tub, Vox
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
-from pymaker.zrx import ZrxExchange, ZrxRelayerApi, Order
+from pymaker.zrx import ZrxExchange
 
 
 class ParadexMarketMakerKeeper:
@@ -150,111 +145,99 @@ class ParadexMarketMakerKeeper:
                                       self.arguments.paradex_api_key,
                                       self.arguments.paradex_api_timeout,
                                       self.arguments.eth_key_file,
-                                      self.read_password(self.arguments.eth_key_password))
+                                      self.read_password(self.arguments.eth_password_file))
 
     @staticmethod
     def read_password(filename: str):
         with open(filename) as file:
             return "".join(line.rstrip() for line in file)
 
-    # def main(self):
-    #     with Lifecycle(self.web3) as lifecycle:
-    #         lifecycle.initial_delay(10)
-    #         lifecycle.on_startup(self.startup)
-    #         lifecycle.every(3, self.synchronize_orders)
-    #         lifecycle.on_shutdown(self.shutdown)
-    #
-    # def startup(self):
-    #     self.approve()
-    #
-    # @retry(delay=5, logger=logger)
-    # def shutdown(self):
-    #     self.cancel_orders(self.our_orders())
-    #
-    # def approve(self):
-    #     self.zrx_exchange.approve([self.token_sell(), self.token_buy()], directly(gas_price=self.gas_price))
-    #
-    # def price(self) -> Wad:
-    #     return self.price_feed.get_price()
-    #
-    # def token_sell(self) -> ERC20Token:
-    #     return ERC20Token(web3=self.web3, address=self.arguments.sell_token_address)
-    #
-    # def token_buy(self) -> ERC20Token:
-    #     return ERC20Token(web3=self.web3, address=self.arguments.buy_token_address)
-    #
-    # def our_total_balance(self, token: ERC20Token) -> Wad:
-    #     return token.balance_of(self.our_address)
-    #
-    # def our_orders(self) -> list:
-    #     our_orders = self.radar_relay_api.get_orders_by_maker(self.our_address)
-    #     current_timestamp = int(time.time())
-    #
-    #     our_orders = list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, our_orders))
-    #     our_orders = list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, our_orders))
-    #     return our_orders
-    #
-    # def our_sell_orders(self, our_orders: list) -> list:
-    #     return list(filter(lambda order: order.buy_token == self.token_buy().address and
-    #                                      order.pay_token == self.token_sell().address, our_orders))
-    #
-    # def our_buy_orders(self, our_orders: list) -> list:
-    #     return list(filter(lambda order: order.buy_token == self.token_sell().address and
-    #                                      order.pay_token == self.token_buy().address, our_orders))
-    #
-    # def synchronize_orders(self):
-    #     """Update our positions in the order book to reflect keeper parameters."""
-    #     if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
-    #         self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
-    #         self.cancel_orders(self.our_orders())
-    #         return
-    #
-    #     bands = Bands(self.bands_config)
-    #     our_orders = self.our_orders()
-    #     target_price = self.price()
-    #
-    #     if target_price is None:
-    #         self.logger.warning("Cancelling all orders as no price feed available.")
-    #         self.cancel_orders(our_orders)
-    #         return
-    #
-    #     # Cancel orders
-    #     cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
-    #                                                   our_sell_orders=self.our_sell_orders(our_orders),
-    #                                                   target_price=target_price)
-    #     if len(cancellable_orders) > 0:
-    #         self.cancel_orders(cancellable_orders)
-    #         return
-    #
-    #     # In case of RadarRelay, balances returned by `our_total_balance` still contain amounts "locked"
-    #     # by currently open orders, so we need to explicitly subtract these amounts.
-    #     our_buy_balance = self.our_total_balance(self.token_buy()) - Bands.total_amount(self.our_buy_orders(our_orders))
-    #     our_sell_balance = self.our_total_balance(self.token_sell()) - Bands.total_amount(self.our_sell_orders(our_orders))
-    #
-    #     # Place new orders
-    #     self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
-    #                                         our_sell_orders=self.our_sell_orders(our_orders),
-    #                                         our_buy_balance=our_buy_balance,
-    #                                         our_sell_balance=our_sell_balance,
-    #                                         target_price=target_price)[0])
-    #
-    # def cancel_orders(self, orders):
-    #     """Cancel orders asynchronously."""
-    #     synchronize([self.zrx_exchange.cancel_order(order).transact_async(gas_price=self.gas_price) for order in orders])
-    #
-    # def create_orders(self, orders):
-    #     """Create and submit orders synchronously."""
-    #     for order in orders:
-    #         pay_token = self.token_sell() if order.is_sell else self.token_buy()
-    #         buy_token = self.token_buy() if order.is_sell else self.token_sell()
-    #
-    #         order = self.zrx_exchange.create_order(pay_token=pay_token.address, pay_amount=order.pay_amount,
-    #                                                buy_token=buy_token.address, buy_amount=order.buy_amount,
-    #                                                expiration=int(time.time()) + self.arguments.order_expiry)
-    #
-    #         order = self.radar_relay_api.calculate_fees(order)
-    #         order = self.zrx_exchange.sign_order(order)
-    #         self.radar_relay_api.submit_order(order)
+    def main(self):
+        with Lifecycle(self.web3) as lifecycle:
+            lifecycle.initial_delay(10)
+            lifecycle.on_startup(self.startup)
+            lifecycle.every(3, self.synchronize_orders)
+            lifecycle.on_shutdown(self.shutdown)
+
+    def startup(self):
+        self.approve()
+
+    @retry(delay=5, logger=logger)
+    def shutdown(self):
+        self.cancel_orders(self.our_orders())
+
+    def approve(self):
+        self.zrx_exchange.approve([self.token_sell(), self.token_buy()], directly(gas_price=self.gas_price))
+
+    def price(self) -> Wad:
+        return self.price_feed.get_price()
+
+    def pair(self):
+        return self.arguments.pair.upper()
+
+    def token_sell(self) -> ERC20Token:
+        return ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
+
+    def token_buy(self) -> ERC20Token:
+        return ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
+
+    def our_total_balance(self, token: ERC20Token) -> Wad:
+        return token.balance_of(self.our_address)
+
+    def our_orders(self) -> list:
+        return self.paradex_api.get_orders(self.pair())
+
+    def our_sell_orders(self, our_orders: list) -> list:
+        return list(filter(lambda order: order.is_sell, our_orders))
+
+    def our_buy_orders(self, our_orders: list) -> list:
+        return list(filter(lambda order: not order.is_sell, our_orders))
+
+    def synchronize_orders(self):
+        """Update our positions in the order book to reflect keeper parameters."""
+        if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
+            self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
+            self.cancel_orders(self.our_orders())
+            return
+
+        bands = Bands(self.bands_config)
+        our_orders = self.our_orders()
+        target_price = self.price()
+
+        if target_price is None:
+            self.logger.warning("Cancelling all orders as no price feed available.")
+            self.cancel_orders(our_orders)
+            return
+
+        # Cancel orders
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                                      our_sell_orders=self.our_sell_orders(our_orders),
+                                                      target_price=target_price)
+        if len(cancellable_orders) > 0:
+            self.cancel_orders(cancellable_orders)
+            return
+
+        # In case of Paradex, balances returned by `our_total_balance` still contain amounts "locked"
+        # by currently open orders, so we need to explicitly subtract these amounts.
+        our_buy_balance = self.our_total_balance(self.token_buy()) - Bands.total_amount(self.our_buy_orders(our_orders))
+        our_sell_balance = self.our_total_balance(self.token_sell()) - Bands.total_amount(self.our_sell_orders(our_orders))
+
+        # Place new orders
+        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                            our_sell_orders=self.our_sell_orders(our_orders),
+                                            our_buy_balance=our_buy_balance,
+                                            our_sell_balance=our_sell_balance,
+                                            target_price=target_price)[0])
+
+    def cancel_orders(self, orders):
+        for order in orders:
+            self.paradex_api.cancel_order(order.order_id)
+
+    def create_orders(self, orders):
+        for order in orders:
+            amount = order.pay_amount if order.is_sell else order.buy_amount
+            self.paradex_api.place_order(self.pair(), order.is_sell, order.price, amount, self.arguments.order_expiry)
+            exit(-1)
 
 
 if __name__ == '__main__':
