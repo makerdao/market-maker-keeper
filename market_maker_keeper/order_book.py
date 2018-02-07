@@ -151,8 +151,9 @@ class OrderBookManager:
             try:
                 new_order = place_order_function()
 
-                with self._lock:
-                    self._orders_placed.append(new_order)
+                if new_order is not None:
+                    with self._lock:
+                        self._orders_placed.append(new_order)
             finally:
                 with self._lock:
                     self._currently_placing_orders -= 1

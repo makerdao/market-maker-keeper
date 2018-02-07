@@ -25,6 +25,7 @@ from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker import Address
@@ -122,6 +123,10 @@ class OasisMarketMakerKeeper:
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
                                                                self.arguments.price_feed_expiry, self.tub)
 
+        self.order_book_manager = OrderBookManager(refresh_frequency=3)
+        self.order_book_manager.get_orders_with(lambda: self.our_orders())
+        self.order_book_manager.start()
+
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
             lifecycle.initial_delay(10)
@@ -135,7 +140,15 @@ class OasisMarketMakerKeeper:
 
     @retry(delay=5, logger=logger)
     def shutdown(self):
-        self.cancel_all_orders()
+        # Wait for the order book to stabilize
+        while True:
+            order_book = self.order_book_manager.get_order_book()
+            if not order_book.orders_being_cancelled and not order_book.orders_being_placed:
+                break
+
+        # Cancel all open orders
+        self.cancel_orders(self.order_book_manager.get_order_book().orders)
+        self.order_book_manager.wait_for_order_cancellation()
 
     def on_block(self):
         # This method is present only so the lifecycle binds the new block listener, which makes
@@ -158,13 +171,18 @@ class OasisMarketMakerKeeper:
     def our_available_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
-    def our_sell_orders(self):
+    def our_orders(self):
         return list(filter(lambda order: order.maker == self.our_address,
-                           self.otc.get_orders(self.token_sell().address, self.token_buy().address)))
-
-    def our_buy_orders(self):
-        return list(filter(lambda order: order.maker == self.our_address,
+                           self.otc.get_orders(self.token_sell().address, self.token_buy().address) +
                            self.otc.get_orders(self.token_buy().address, self.token_sell().address)))
+
+    def our_sell_orders(self, our_orders: list):
+        return list(filter(lambda order: order.buy_token == self.token_buy().address and
+                                         order.pay_token == self.token_sell().address, our_orders))
+
+    def our_buy_orders(self, our_orders: list):
+        return list(filter(lambda order: order.buy_token == self.token_sell().address and
+                                         order.pay_token == self.token_buy().address, our_orders))
 
     def synchronize_orders(self):
         # If market is closed, cancel all orders but do not terminate the keeper.
@@ -182,10 +200,7 @@ class OasisMarketMakerKeeper:
             return
 
         bands = Bands(self.bands_config)
-        self.logger.debug("Reading active orders started...")
-        our_buy_orders = self.our_buy_orders()
-        our_sell_orders = self.our_sell_orders()
-        self.logger.debug("Reading active orders finished")
+        order_book = self.order_book_manager.get_order_book()
         target_price = self.price()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
@@ -199,57 +214,58 @@ class OasisMarketMakerKeeper:
         # bands until the next block. This way we would create new orders based on the most recent price and
         # order book state. We could theoretically retrieve both (`target_price` and `our_orders`) again here,
         # but it just seems cleaner to do it in one place instead of in two.
-        cancellable_orders = bands.cancellable_orders(our_buy_orders=our_buy_orders,
-                                                      our_sell_orders=our_sell_orders,
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                      our_sell_orders=self.our_sell_orders(order_book.orders),
                                                       target_price=target_price)
 
         if len(cancellable_orders) > 0:
             self.cancel_orders(cancellable_orders)
             return
 
-        # If there are any new orders to be created, create them.
-        new_orders = bands.new_orders(our_buy_orders=our_buy_orders,
-                                      our_sell_orders=our_sell_orders,
-                                      our_buy_balance=self.our_available_balance(self.token_buy()),
-                                      our_sell_balance=self.our_available_balance(self.token_sell()),
-                                      target_price=target_price)[0]
+        # Do not place new orders if order book state is not confirmed
+        if order_book.orders_being_placed or order_book.orders_being_cancelled:
+            self.logger.debug("Order book is in progress, not placing new orders")
+            return
 
-        if len(new_orders) > 0:
-            self.create_orders(new_orders)
-
-            # We do wait some time after the orders have been created. The reason for that is sometimes
-            # orders that have been just placed were not picked up by the next `our_orders()` call
-            # (one can presume the block hasn't been fully imported into the node yet), which made
-            # the keeper try to place same order(s) again. Of course the second transaction did fail, but it
-            # resulted in wasted gas and significant delay in keeper operation.
-            #
-            # There is no specific reason behind choosing to wait exactly 3s.
-            time.sleep(3)
-
-    def cancel_all_orders(self):
-        """Cancel all orders owned by the keeper."""
-        self.cancel_orders(self.our_buy_orders() + self.our_sell_orders())
+        # Place new orders
+        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                            our_sell_orders=self.our_sell_orders(order_book.orders),
+                                            our_buy_balance=self.our_available_balance(self.token_buy()),
+                                            our_sell_balance=self.our_available_balance(self.token_sell()),
+                                            target_price=target_price)[0])
 
     def cancel_orders(self, orders):
-        """Cancel orders asynchronously."""
-        synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price)
-                     for order in orders])
+        for order in orders:
+            self.order_book_manager.cancel_order(order.order_id, lambda: self.otc.kill(order.order_id).transact(gas_price=self.gas_price).successful)
 
     def create_orders(self, new_orders):
-        """Create orders asynchronously."""
-
-        def to_transaction(new_order: NewOrder):
+        def place_order_function(new_order: NewOrder):
             assert(isinstance(new_order, NewOrder))
 
             if new_order.is_sell:
-                return self.otc.make(pay_token=self.token_sell().address, pay_amount=new_order.pay_amount,
-                                     buy_token=self.token_buy().address, buy_amount=new_order.buy_amount)
+                pay_token = self.token_sell().address
+                buy_token = self.token_buy().address
             else:
-                return self.otc.make(pay_token=self.token_buy().address, pay_amount=new_order.pay_amount,
-                                     buy_token=self.token_sell().address, buy_amount=new_order.buy_amount)
+                pay_token = self.token_buy().address
+                buy_token = self.token_sell().address
 
-        synchronize([transaction.transact_async(gas_price=self.gas_price)
-                     for transaction in map(to_transaction, new_orders)])
+            transact = self.otc.make(pay_token=pay_token, pay_amount=new_order.pay_amount,
+                                     buy_token=buy_token, buy_amount=new_order.buy_amount).transact(gas_price=self.gas_price)
+
+            if transact.successful and transact.result is not None:
+                return Order(market=self.otc,
+                             order_id=transact.result,
+                             maker=self.our_address,
+                             pay_token=pay_token,
+                             pay_amount=new_order.pay_amount,
+                             buy_token=buy_token,
+                             buy_amount=new_order.buy_amount,
+                             timestamp=0)
+            else:
+                return None
+
+        for new_order in new_orders:
+            self.order_book_manager.place_order(lambda: place_order_function(new_order))
 
 
 if __name__ == '__main__':
