@@ -140,15 +140,7 @@ class OasisMarketMakerKeeper:
 
     @retry(delay=5, logger=logger)
     def shutdown(self):
-        # Wait for the order book to stabilize
-        while True:
-            order_book = self.order_book_manager.get_order_book()
-            if not order_book.orders_being_cancelled and not order_book.orders_being_placed:
-                break
-
-        # Cancel all open orders
-        self.cancel_orders(self.order_book_manager.get_order_book().orders)
-        self.order_book_manager.wait_for_order_cancellation()
+        self.cancel_all_orders()
 
     def on_block(self):
         # This method is present only so the lifecycle binds the new block listener, which makes
@@ -233,6 +225,17 @@ class OasisMarketMakerKeeper:
                                             our_buy_balance=self.our_available_balance(self.token_buy()),
                                             our_sell_balance=self.our_available_balance(self.token_sell()),
                                             target_price=target_price)[0])
+
+    def cancel_all_orders(self):
+        # Wait for the order book to stabilize
+        while True:
+            order_book = self.order_book_manager.get_order_book()
+            if not order_book.orders_being_cancelled and not order_book.orders_being_placed:
+                break
+
+        # Cancel all open orders
+        self.cancel_orders(self.order_book_manager.get_order_book().orders)
+        self.order_book_manager.wait_for_order_cancellation()
 
     def cancel_orders(self, orders):
         for order in orders:
