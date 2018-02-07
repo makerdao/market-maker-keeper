@@ -19,17 +19,13 @@ import argparse
 import logging
 import sys
 
-from web3 import Web3, HTTPProvider
-
 from market_maker_keeper.band import Bands
-from market_maker_keeper.bibox_order_book import BiboxOrderBookManager
+from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
-from pyexchange.bibox import BiboxApi
-from pymaker import Address
+from pyexchange.bibox import BiboxApi, Order
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
-from pymaker.sai import Tub
 
 
 class BiboxMarketMakerKeeper:
@@ -83,9 +79,10 @@ class BiboxMarketMakerKeeper:
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
                                                                self.arguments.price_feed_expiry, None)
 
-        self.bibox_order_book_manager = BiboxOrderBookManager(bibox_api=self.bibox_api,
-                                                              pair=self.pair(),
-                                                              refresh_frequency=3)
+        self.order_book_manager = OrderBookManager(refresh_frequency=3)
+        self.order_book_manager.get_orders_with(lambda: self.bibox_api.get_orders(pair=self.pair(), retry=True))
+        self.order_book_manager.get_balances_with(lambda: self.bibox_api.coin_list(retry=True))
+        self.order_book_manager.start()
 
     def main(self):
         with Lifecycle() as lifecycle:
@@ -103,7 +100,7 @@ class BiboxMarketMakerKeeper:
     def shutdown(self):
         while True:
             try:
-                our_orders = self.bibox_api.get_orders(self.bibox_order_book_manager.pair, retry=True)
+                our_orders = self.bibox_api.get_orders(self.pair(), retry=True)
             except:
                 continue
 
@@ -111,7 +108,7 @@ class BiboxMarketMakerKeeper:
                 break
 
             self.cancel_orders(our_orders)
-            self.bibox_order_book_manager.wait_for_order_cancellation()
+            self.order_book_manager.wait_for_order_cancellation()
 
     def price(self) -> Wad:
         return self.price_feed.get_price()
@@ -136,7 +133,7 @@ class BiboxMarketMakerKeeper:
 
     def synchronize_orders(self):
         bands = Bands(self.bands_config)
-        order_book = self.bibox_order_book_manager.get_order_book()
+        order_book = self.order_book_manager.get_order_book()
         target_price = self.price()
 
         if target_price is None:
@@ -153,7 +150,7 @@ class BiboxMarketMakerKeeper:
             return
 
         # Do not place new orders if order book state is not confirmed
-        if order_book.in_progress:
+        if order_book.orders_being_placed or order_book.orders_being_cancelled:
             self.logger.debug("Order book is in progress, not placing new orders")
             return
 
@@ -166,16 +163,25 @@ class BiboxMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.bibox_order_book_manager.cancel_order(order.order_id)
+            self.order_book_manager.cancel_order(order.order_id, lambda: self.bibox_api.cancel_order(order.order_id))
 
     def create_orders(self, orders):
-        for order in orders:
+        def place_order_function(order):
             amount = order.pay_amount if order.is_sell else order.buy_amount
+            amount_symbol = self.token_sell()
             money = order.buy_amount if order.is_sell else order.pay_amount
+            money_symbol = self.token_buy()
 
-            self.bibox_order_book_manager.place_order(is_sell=order.is_sell,
-                                                      amount=amount, amount_symbol=self.token_sell(),
-                                                      money=money, money_symbol=self.token_buy())
+            new_order_id = self.bibox_api.place_order(is_sell=order.is_sell,
+                                                      amount=amount,
+                                                      amount_symbol=amount_symbol,
+                                                      money=money,
+                                                      money_symbol=money_symbol)
+
+            return Order(new_order_id, 0, order.is_sell, Wad(0), amount, amount_symbol, money, money_symbol)
+
+        for order in orders:
+            self.order_book_manager.place_order(lambda: place_order_function(order))
 
 
 if __name__ == '__main__':
