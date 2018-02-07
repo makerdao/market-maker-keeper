@@ -182,8 +182,10 @@ class OasisMarketMakerKeeper:
             return
 
         bands = Bands(self.bands_config)
+        self.logger.debug("Reading active orders started...")
         our_buy_orders = self.our_buy_orders()
         our_sell_orders = self.our_sell_orders()
+        self.logger.debug("Reading active orders finished")
         target_price = self.price()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
