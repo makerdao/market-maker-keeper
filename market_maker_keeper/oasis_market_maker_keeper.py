@@ -158,16 +158,13 @@ class OasisMarketMakerKeeper:
     def our_available_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
-    def our_orders(self):
-        return self.otc.get_orders_by_maker(self.our_address)
+    def our_sell_orders(self):
+        return list(filter(lambda order: order.maker == self.our_address,
+                           self.otc.get_orders(self.token_sell().address, self.token_buy().address)))
 
-    def our_sell_orders(self, our_orders: list):
-        return list(filter(lambda order: order.buy_token == self.token_buy().address and
-                                         order.pay_token == self.token_sell().address, our_orders))
-
-    def our_buy_orders(self, our_orders: list):
-        return list(filter(lambda order: order.buy_token == self.token_sell().address and
-                                         order.pay_token == self.token_buy().address, our_orders))
+    def our_buy_orders(self):
+        return list(filter(lambda order: order.maker == self.our_address,
+                           self.otc.get_orders(self.token_buy().address, self.token_sell().address)))
 
     def synchronize_orders(self):
         # If market is closed, cancel all orders but do not terminate the keeper.
@@ -185,7 +182,8 @@ class OasisMarketMakerKeeper:
             return
 
         bands = Bands(self.bands_config)
-        our_orders = self.our_orders()
+        our_buy_orders = self.our_buy_orders()
+        our_sell_orders = self.our_sell_orders()
         target_price = self.price()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
@@ -199,8 +197,8 @@ class OasisMarketMakerKeeper:
         # bands until the next block. This way we would create new orders based on the most recent price and
         # order book state. We could theoretically retrieve both (`target_price` and `our_orders`) again here,
         # but it just seems cleaner to do it in one place instead of in two.
-        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                                      our_sell_orders=self.our_sell_orders(our_orders),
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=our_buy_orders,
+                                                      our_sell_orders=our_sell_orders,
                                                       target_price=target_price)
 
         if len(cancellable_orders) > 0:
@@ -208,8 +206,8 @@ class OasisMarketMakerKeeper:
             return
 
         # If there are any new orders to be created, create them.
-        new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                      our_sell_orders=self.our_sell_orders(our_orders),
+        new_orders = bands.new_orders(our_buy_orders=our_buy_orders,
+                                      our_sell_orders=our_sell_orders,
                                       our_buy_balance=self.our_available_balance(self.token_buy()),
                                       our_sell_balance=self.our_available_balance(self.token_sell()),
                                       target_price=target_price)[0]
@@ -228,7 +226,7 @@ class OasisMarketMakerKeeper:
 
     def cancel_all_orders(self):
         """Cancel all orders owned by the keeper."""
-        self.cancel_orders(self.our_orders())
+        self.cancel_orders(self.our_buy_orders() + self.our_sell_orders())
 
     def cancel_orders(self, orders):
         """Cancel orders asynchronously."""
