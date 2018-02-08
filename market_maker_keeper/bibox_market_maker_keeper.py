@@ -87,15 +87,8 @@ class BiboxMarketMakerKeeper:
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
-            lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
-
-    def startup(self):
-        user_info = self.bibox_api.user_info(retry=True)
-
-        self.logger.info(f"Bibox API key seems to be valid")
-        self.logger.info(f"Accessing Bibox as user_id: '{user_info['user_id']}', email: '{user_info['email']}'")
 
     def shutdown(self):
         while True:
