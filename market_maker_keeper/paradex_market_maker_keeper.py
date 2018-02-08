@@ -139,8 +139,7 @@ class ParadexMarketMakerKeeper:
                                                                self.arguments.price_feed_expiry)
 
         self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
-        self.paradex_api = ParadexApi(self.web3,
-                                      self.zrx_exchange,
+        self.paradex_api = ParadexApi(self.zrx_exchange,
                                       self.arguments.paradex_api_server,
                                       self.arguments.paradex_api_key,
                                       self.arguments.paradex_api_timeout,
