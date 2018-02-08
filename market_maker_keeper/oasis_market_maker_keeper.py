@@ -255,7 +255,7 @@ class OasisMarketMakerKeeper:
             transact = self.otc.make(pay_token=pay_token, pay_amount=new_order.pay_amount,
                                      buy_token=buy_token, buy_amount=new_order.buy_amount).transact(gas_price=self.gas_price)
 
-            if transact.successful and transact.result is not None:
+            if transact is not None and transact.successful and transact.result is not None:
                 return Order(market=self.otc,
                              order_id=transact.result,
                              maker=self.our_address,
