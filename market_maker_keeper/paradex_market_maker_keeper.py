@@ -101,16 +101,6 @@ class ParadexMarketMakerKeeper:
         parser.add_argument("--gas-price", type=int, default=0,
                             help="Gas price (in Wei)")
 
-        parser.add_argument("--gas-price-increase", type=int,
-                            help="Gas price increase (in Wei) if no confirmation within"
-                                 " `--gas-price-increase-every` seconds")
-
-        parser.add_argument("--gas-price-increase-every", type=int, default=120,
-                            help="Gas price increase frequency (in seconds, default: 120)")
-
-        parser.add_argument("--gas-price-max", type=int,
-                            help="Maximum gas price (in Wei)")
-
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
