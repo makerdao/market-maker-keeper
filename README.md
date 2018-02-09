@@ -727,6 +727,15 @@ optional arguments:
   --debug               Enable debug output
 ```
 
+### Known limitations
+
+* The gate.io API sometimes does not acknowledge order creation, returning following error message:
+  `Oops... reloading...<font color=white> 29.148 </font> <script> function
+  r(){window.location.reload();}setTimeout('r()',3000);</script>`. What's interesting this error
+  seems to depend on the API address of the caller. Despite these errors, orders get properly
+  created and registered in the backend, the keeper will find out about it the next time it
+  queries the open orders list (which happens every few seconds).
+
 
 ## License
 
