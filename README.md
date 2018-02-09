@@ -652,6 +652,81 @@ optional arguments:
   `--eth-from` argument and does not require any account to be unlocked.
 
 
+## `okex-market-maker-keeper`
+
+This keeper supports market-making on the [OKEX](https://www.okex.com/) centralized exchange.
+
+### Usage
+
+```
+usage: okex-market-maker-keeper [-h] [--okex-api-server OKEX_API_SERVER]
+                                --okex-api-key OKEX_API_KEY --okex-secret-key
+                                OKEX_SECRET_KEY [--okex-timeout OKEX_TIMEOUT]
+                                --pair PAIR --config CONFIG --price-feed
+                                PRICE_FEED
+                                [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                [--debug]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --okex-api-server OKEX_API_SERVER
+                        Address of the OKEX API server (default:
+                        'https://www.okex.com')
+  --okex-api-key OKEX_API_KEY
+                        API key for the OKEX API
+  --okex-secret-key OKEX_SECRET_KEY
+                        Secret key for the OKEX API
+  --okex-timeout OKEX_TIMEOUT
+                        Timeout for accessing the OKEX API (in seconds,
+                        default: 9.5)
+  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
+  --config CONFIG       Bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of the price feed (in seconds, default:
+                        120)
+  --debug               Enable debug output
+```
+
+
+## `gateio-market-maker-keeper`
+
+This keeper supports market-making on the [gate.io](http://gate.io/) centralized exchange.
+
+### Usage
+
+```
+usage: gateio-market-maker-keeper [-h] [--gateio-api-server GATEIO_API_SERVER]
+                                  --gateio-api-key GATEIO_API_KEY
+                                  --gateio-secret-key GATEIO_SECRET_KEY
+                                  [--gateio-timeout GATEIO_TIMEOUT] --pair
+                                  PAIR --config CONFIG --price-feed PRICE_FEED
+                                  [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                  [--debug]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --gateio-api-server GATEIO_API_SERVER
+                        Address of the Gate.io API server (default:
+                        'https://data.gate.io')
+  --gateio-api-key GATEIO_API_KEY
+                        API key for the Gate.io API
+  --gateio-secret-key GATEIO_SECRET_KEY
+                        Secret key for the Gate.io API
+  --gateio-timeout GATEIO_TIMEOUT
+                        Timeout for accessing the Gate.io API (in seconds,
+                        default: 9.5)
+  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
+  --config CONFIG       Bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of the price feed (in seconds, default:
+                        120)
+  --debug               Enable debug output
+```
+
 ## License
 
 See [COPYING](https://github.com/makerdao/market-maker-keeper/blob/master/COPYING) file.
