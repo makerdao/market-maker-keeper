@@ -11,6 +11,8 @@ market making on the following exchanges:
 * OasisDEX (`oasis-market-maker-keeper`),
 * EtherDelta (`etherdelta-market-maker-keeper`),
 * RadarRelay (`radarrelay-market-maker-keeper`),
+* Paradex (`paradex-market-maker-keeper`),
+* IDEX (`idex-market-maker-keeper`),
 * Bibox (`bibox-market-maker-keeper`),
 * OKEX (`okex-market-maker-keeper`),
 * gate.io (`gateio-market-maker-keeper`).
@@ -20,11 +22,10 @@ a series of orders in so called _bands_, which are configured with a JSON file
 containing parameters like spreads, maximum engagement etc. Please see the
 _"Bands configuration"_ section below for more details regarding keeper mechanics.
 
-Provided an appropriate price feed is available, the Bibox, OKEX and gate.io keepers
+Provided an appropriate price feed is available, the Bibox, Paradex, OKEX and gate.io keepers
 are capable of market-making on any token pair - configurable with the `--pair`
-commandline argument. The OasisDEX, EtherDelta and RadarRelay keepers still are
-to some extend bound to the DAI/W-ETH (for OasisDEX and RadarRelay) and DAI/ETH
-(for EtherDelta) pairs. This may get relaxed at some point in the future.
+commandline argument. The OasisDEX, EtherDelta, RadarRelay and IDEX keepers still are
+to some extend bound to the DAI/W-ETH and DAI/ETH. This will be changed at some point in the future.
 
 This repo also contains an auxiliary tool called `oasis-market-maker-cancel`, which
 may be used for emergency cancelling all market maker orders on OasisDEX if the
