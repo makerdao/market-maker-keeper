@@ -531,6 +531,77 @@ optional arguments:
   able to decrypt that key. 
 
 
+## `idex-market-maker-keeper`
+
+This keeper supports market-making on the [IDEX](https://idex.market/) exchange.
+
+### Usage
+
+```
+usage: idex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
+                                [--rpc-port RPC_PORT]
+                                [--rpc-timeout RPC_TIMEOUT] --eth-from
+                                ETH_FROM --tub-address TUB_ADDRESS
+                                --idex-address IDEX_ADDRESS
+                                [--idex-api-server IDEX_API_SERVER]
+                                [--idex-timeout IDEX_TIMEOUT] --config CONFIG
+                                --price-feed PRICE_FEED
+                                [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                --eth-reserve ETH_RESERVE
+                                [--min-eth-balance MIN_ETH_BALANCE]
+                                --min-eth-deposit MIN_ETH_DEPOSIT
+                                --min-sai-deposit MIN_SAI_DEPOSIT
+                                [--gas-price GAS_PRICE] [--smart-gas-price]
+                                [--debug]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
+  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --rpc-timeout RPC_TIMEOUT
+                        JSON-RPC timeout (in seconds, default: 10)
+  --eth-from ETH_FROM   Ethereum account from which to send transactions
+  --tub-address TUB_ADDRESS
+                        Ethereum address of the Tub contract
+  --idex-address IDEX_ADDRESS
+                        Ethereum address of the IDEX contract
+  --idex-api-server IDEX_API_SERVER
+                        Address of the IDEX API server (default:
+                        'https://api.idex.market')
+  --idex-timeout IDEX_TIMEOUT
+                        Timeout for accessing the IDEX API (in seconds,
+                        default: 9.5)
+  --config CONFIG       Bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of the price feed (in seconds, default:
+                        120)
+  --eth-reserve ETH_RESERVE
+                        Amount of ETH which will never be deposited so the
+                        keeper can cover gas
+  --min-eth-balance MIN_ETH_BALANCE
+                        Minimum ETH balance below which keeper will cease
+                        operation
+  --min-eth-deposit MIN_ETH_DEPOSIT
+                        Minimum amount of ETH that can be deposited in one
+                        transaction
+  --min-sai-deposit MIN_SAI_DEPOSIT
+                        Minimum amount of SAI that can be deposited in one
+                        transaction
+  --gas-price GAS_PRICE
+                        Gas price (in Wei)
+  --smart-gas-price     Use smart gas pricing strategy, based on the
+                        ethgasstation.info feed
+  --debug               Enable debug output
+```
+
+### Known limitations
+
+* Due to a serious bug in the IDEX API (only half of the open orders are returned via the API),
+  **this keeper should not be used yet**.
+
+
 ## `bibox-market-maker-keeper`
 
 This keeper supports market-making on the [Bibox](https://www.bibox.com/exchange) centralized exchange.
