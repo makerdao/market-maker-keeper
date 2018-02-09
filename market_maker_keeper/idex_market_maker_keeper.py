@@ -49,7 +49,7 @@ class IdexMarketMakerKeeper:
     logger = logging.getLogger()
 
     def __init__(self, args: list, **kwargs):
-        parser = argparse.ArgumentParser(prog='iex-market-maker-keeper')
+        parser = argparse.ArgumentParser(prog='idex-market-maker-keeper')
 
         parser.add_argument("--rpc-host", type=str, default="localhost",
                             help="JSON-RPC host (default: `localhost')")
