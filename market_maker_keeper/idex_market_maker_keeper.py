@@ -75,7 +75,7 @@ class IdexMarketMakerKeeper:
                             help="Timeout for accessing the IDEX API (in seconds, default: 9.5)")
 
         parser.add_argument("--config", type=str, required=True,
-                            help="Buy/sell bands configuration file")
+                            help="Bands configuration file")
 
         parser.add_argument("--price-feed", type=str, required=True,
                             help="Source of price feed")

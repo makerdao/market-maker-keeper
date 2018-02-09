@@ -70,7 +70,7 @@ class RadarRelayMarketMakerKeeper:
                             help="Address of the 0x Relayer API")
 
         parser.add_argument("--config", type=str, required=True,
-                            help="Buy/sell bands configuration file")
+                            help="Bands configuration file")
 
         parser.add_argument("--price-feed", type=str, required=True,
                             help="Source of price feed")

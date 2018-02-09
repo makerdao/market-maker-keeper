@@ -49,10 +49,10 @@ class BiboxMarketMakerKeeper:
                             help="Timeout for accessing the Bibox API (in seconds, default: 9.5)")
 
         parser.add_argument("--pair", type=str, required=True,
-                            help="Token pair on which the keeper should operate")
+                            help="Token pair (sell/buy) on which the keeper will operate")
 
         parser.add_argument("--config", type=str, required=True,
-                            help="Buy/sell bands configuration file")
+                            help="Bands configuration file")
 
         parser.add_argument("--price-feed", type=str, required=True,
                             help="Source of price feed")

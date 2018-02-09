@@ -80,7 +80,7 @@ class EtherDeltaMarketMakerKeeper:
                             help="Timeout for sending orders over the EtherDelta API socket")
 
         parser.add_argument("--config", type=str, required=True,
-                            help="Buy/sell bands configuration file")
+                            help="Bands configuration file")
 
         parser.add_argument("--price-feed", type=str, required=True,
                             help="Source of price feed")
