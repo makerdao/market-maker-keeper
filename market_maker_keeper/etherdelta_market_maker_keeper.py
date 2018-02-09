@@ -29,6 +29,7 @@ from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.util import setup_logging
 from pymaker import Address, synchronize
 from pymaker.approval import directly
 from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
@@ -129,6 +130,7 @@ class EtherDeltaMarketMakerKeeper:
         parser.set_defaults(cancel_on_shutdown=False, withdraw_on_shutdown=False)
 
         self.arguments = parser.parse_args(args)
+        setup_logging(self.arguments)
 
         self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
@@ -137,11 +139,6 @@ class EtherDeltaMarketMakerKeeper:
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
-
-        logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
-                            level=(logging.DEBUG if self.arguments.debug else logging.INFO))
-        logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
-        logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.INFO)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)

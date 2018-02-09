@@ -26,6 +26,7 @@ from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.util import setup_logging
 from pyexchange.paradex import ParadexApi
 from pymaker import Address
 from pymaker.approval import directly
@@ -108,16 +109,12 @@ class ParadexMarketMakerKeeper:
                             help="Enable debug output")
 
         self.arguments = parser.parse_args(args)
+        setup_logging(self.arguments)
 
         self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
-
-        logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
-                            level=(logging.DEBUG if self.arguments.debug else logging.INFO))
-        logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
-        logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.INFO)
 
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)

@@ -23,6 +23,7 @@ from market_maker_keeper.band import Bands
 from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.util import setup_logging
 from pyexchange.bibox import BiboxApi, Order
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
@@ -64,11 +65,7 @@ class BiboxMarketMakerKeeper:
                             help="Enable debug output")
 
         self.arguments = parser.parse_args(args)
-
-        logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
-                            level=(logging.DEBUG if self.arguments.debug else logging.INFO))
-        logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
-        logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.INFO)
+        setup_logging(self.arguments)
 
         self.bibox_api = BiboxApi(api_server=self.arguments.bibox_api_server,
                                   api_key=self.arguments.bibox_api_key,
