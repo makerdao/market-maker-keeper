@@ -130,9 +130,6 @@ class EtherDeltaMarketMakerKeeper:
         parser.add_argument("--gas-price-max", type=int,
                             help="Maximum gas price (in Wei)")
 
-        parser.add_argument("--gas-price-file", type=str,
-                            help="Gas price configuration file")
-
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
