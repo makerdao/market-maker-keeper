@@ -77,7 +77,7 @@ class OasisMarketMakerKeeper:
                             help="Number of decimal places to round order prices to (default=2)")
 
         parser.add_argument("--min-eth-balance", type=float, default=0,
-                            help="Minimum ETH balance below which keeper with either terminate or not start at all")
+                            help="Minimum ETH balance below which keeper will cease operation")
 
         parser.add_argument("--gas-price", type=int, default=0,
                             help="Gas price (in Wei)")

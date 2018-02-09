@@ -85,7 +85,7 @@ class RadarRelayMarketMakerKeeper:
                             help="Order expiration time at which order is considered already expired (in seconds)")
 
         parser.add_argument("--min-eth-balance", type=float, default=0,
-                            help="Minimum ETH balance below which keeper with either terminate or not start at all")
+                            help="Minimum ETH balance below which keeper will cease operation")
 
         parser.add_argument('--cancel-on-shutdown', dest='cancel_on_shutdown', action='store_true',
                             help="Whether should cancel all open orders on RadarRelay on keeper shutdown")

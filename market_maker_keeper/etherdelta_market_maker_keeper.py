@@ -103,7 +103,7 @@ class EtherDeltaMarketMakerKeeper:
                             help="Amount of ETH which will never be deposited so the keeper can cover gas")
 
         parser.add_argument("--min-eth-balance", type=float, default=0,
-                            help="Minimum ETH balance below which keeper with either terminate or not start at all")
+                            help="Minimum ETH balance below which keeper will cease operation")
 
         parser.add_argument("--min-eth-deposit", type=float, required=True,
                             help="Minimum amount of ETH that can be deposited in one transaction")

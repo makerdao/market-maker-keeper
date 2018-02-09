@@ -96,7 +96,7 @@ class ParadexMarketMakerKeeper:
                             help="Expiration time of created orders (in seconds)")
 
         parser.add_argument("--min-eth-balance", type=float, default=0,
-                            help="Minimum ETH balance below which keeper with either terminate or not start at all")
+                            help="Minimum ETH balance below which keeper will cease operation")
 
         parser.add_argument("--gas-price", type=int, default=0,
                             help="Gas price (in Wei)")
