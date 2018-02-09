@@ -447,6 +447,90 @@ optional arguments:
   see two or even more duplicates of market maker orders.
 
 
+## `paradex-market-maker-keeper`
+
+This keeper supports market-making on the [Paradex](https://app.paradex.io/) exchange.
+
+### Usage
+
+```
+usage: paradex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
+                                   [--rpc-port RPC_PORT]
+                                   [--rpc-timeout RPC_TIMEOUT] --eth-from
+                                   ETH_FROM --eth-key-file ETH_KEY_FILE
+                                   --eth-password-file ETH_PASSWORD_FILE
+                                   --exchange-address EXCHANGE_ADDRESS
+                                   [--paradex-api-server PARADEX_API_SERVER]
+                                   --paradex-api-key PARADEX_API_KEY
+                                   [--paradex-api-timeout PARADEX_API_TIMEOUT]
+                                   --pair PAIR --buy-token-address
+                                   BUY_TOKEN_ADDRESS --sell-token-address
+                                   SELL_TOKEN_ADDRESS --config CONFIG
+                                   --price-feed PRICE_FEED
+                                   [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                   --order-expiry ORDER_EXPIRY
+                                   [--min-eth-balance MIN_ETH_BALANCE]
+                                   [--gas-price GAS_PRICE] [--smart-gas-price]
+                                   [--debug]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
+  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --rpc-timeout RPC_TIMEOUT
+                        JSON-RPC timeout (in seconds, default: 10)
+  --eth-from ETH_FROM   Ethereum account from which to send transactions
+  --eth-key-file ETH_KEY_FILE
+                        File with the private key file for the Ethereum
+                        account
+  --eth-password-file ETH_PASSWORD_FILE
+                        File with the private key password for the Ethereum
+                        account
+  --exchange-address EXCHANGE_ADDRESS
+                        Ethereum address of the 0x Exchange contract
+  --paradex-api-server PARADEX_API_SERVER
+                        Address of the Paradex API (default:
+                        'https://api.paradex.io/consumer')
+  --paradex-api-key PARADEX_API_KEY
+                        API key for the Paradex API
+  --paradex-api-timeout PARADEX_API_TIMEOUT
+                        Timeout for accessing the Paradex API (in seconds,
+                        default: 9.5)
+  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
+  --buy-token-address BUY_TOKEN_ADDRESS
+                        Ethereum address of the buy token
+  --sell-token-address SELL_TOKEN_ADDRESS
+                        Ethereum address of the sell token
+  --config CONFIG       Bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of the price feed (in seconds, default:
+                        120)
+  --order-expiry ORDER_EXPIRY
+                        Expiration time of created orders (in seconds)
+  --min-eth-balance MIN_ETH_BALANCE
+                        Minimum ETH balance below which keeper will cease
+                        operation
+  --gas-price GAS_PRICE
+                        Gas price (in Wei)
+  --smart-gas-price     Use smart gas pricing strategy, based on the
+                        ethgasstation.info feed
+  --debug               Enable debug output
+```
+
+### Known limitations
+
+* The keeper needs access to an Ethereum node in order to grant token approvals to _0x_ contracts,
+  and also to constantly monitor token balances so it knows the maximum amount of orders it can place.
+  
+* All Paradex API requests need to be signed with the private key associated with the Ethereum account
+  accessing the exchange. Having said that, the way signed data has to be formatted for Paradex makes
+  it impossible to create the signature with a regular Ethereum JSON RPC `eth_sign` call. Due to that,
+  the keeper needs to have direct access to the private key file and to a file containing the password
+  able to decrypt that key. 
+
+
 ## `bibox-market-maker-keeper`
 
 This keeper supports market-making on the [Bibox](https://www.bibox.com/exchange) centralized exchange.
