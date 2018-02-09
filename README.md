@@ -200,12 +200,8 @@ usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                  [--price-feed-expiry PRICE_FEED_EXPIRY]
                                  [--round-places ROUND_PLACES]
                                  [--min-eth-balance MIN_ETH_BALANCE]
-                                 [--gas-price GAS_PRICE]
-                                 [--gas-price-increase GAS_PRICE_INCREASE]
-                                 [--gas-price-increase-every GAS_PRICE_INCREASE_EVERY]
-                                 [--gas-price-max GAS_PRICE_MAX]
-                                 [--gas-price-file GAS_PRICE_FILE]
-                                 [--smart-gas-price] [--debug]
+                                 [--gas-price GAS_PRICE] [--smart-gas-price]
+                                 [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -218,31 +214,20 @@ optional arguments:
                         Ethereum address of the Tub contract
   --oasis-address OASIS_ADDRESS
                         Ethereum address of the OasisDEX contract
-  --config CONFIG       Buy/sell bands configuration file
+  --config CONFIG       Bands configuration file
   --price-feed PRICE_FEED
-                        Source of price feed. Tub price feed will be used if
-                        not specified
+                        Source of price feed
   --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of non-Tub price feed (in seconds,
-                        default: 120)
+                        Maximum age of the price feed (in seconds, default:
+                        120)
   --round-places ROUND_PLACES
                         Number of decimal places to round order prices to
                         (default=2)
   --min-eth-balance MIN_ETH_BALANCE
-                        Minimum ETH balance below which keeper with either
-                        terminate or not start at all
+                        Minimum ETH balance below which keeper will cease
+                        operation
   --gas-price GAS_PRICE
                         Gas price (in Wei)
-  --gas-price-increase GAS_PRICE_INCREASE
-                        Gas price increase (in Wei) if no confirmation within
-                        `--gas-price-increase-every` seconds
-  --gas-price-increase-every GAS_PRICE_INCREASE_EVERY
-                        Gas price increase frequency (in seconds, default:
-                        120)
-  --gas-price-max GAS_PRICE_MAX
-                        Maximum gas price (in Wei)
-  --gas-price-file GAS_PRICE_FILE
-                        Gas price configuration file
   --smart-gas-price     Use smart gas pricing strategy, based on the
                         ethgasstation.info feed
   --debug               Enable debug output
@@ -306,10 +291,6 @@ usage: etherdelta-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       [--cancel-on-shutdown]
                                       [--withdraw-on-shutdown]
                                       [--gas-price GAS_PRICE]
-                                      [--gas-price-increase GAS_PRICE_INCREASE]
-                                      [--gas-price-increase-every GAS_PRICE_INCREASE_EVERY]
-                                      [--gas-price-max GAS_PRICE_MAX]
-                                      [--gas-price-file GAS_PRICE_FILE]
                                       [--smart-gas-price] [--debug]
 
 optional arguments:
@@ -334,13 +315,12 @@ optional arguments:
   --etherdelta-timeout ETHERDELTA_TIMEOUT
                         Timeout for sending orders over the EtherDelta API
                         socket
-  --config CONFIG       Buy/sell bands configuration file
+  --config CONFIG       Bands configuration file
   --price-feed PRICE_FEED
-                        Source of price feed. Tub price feed will be used if
-                        not specified
+                        Source of price feed
   --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of non-Tub price feed (in seconds,
-                        default: 120)
+                        Maximum age of the price feed (in seconds, default:
+                        120)
   --order-age ORDER_AGE
                         Age of created orders (in blocks)
   --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
@@ -356,8 +336,8 @@ optional arguments:
                         Amount of ETH which will never be deposited so the
                         keeper can cover gas
   --min-eth-balance MIN_ETH_BALANCE
-                        Minimum ETH balance below which keeper with either
-                        terminate or not start at all
+                        Minimum ETH balance below which keeper will cease
+                        operation
   --min-eth-deposit MIN_ETH_DEPOSIT
                         Minimum amount of ETH that can be deposited in one
                         transaction
@@ -371,16 +351,6 @@ optional arguments:
                         keeper shutdown
   --gas-price GAS_PRICE
                         Gas price (in Wei)
-  --gas-price-increase GAS_PRICE_INCREASE
-                        Gas price increase (in Wei) if no confirmation within
-                        `--gas-price-increase-every` seconds
-  --gas-price-increase-every GAS_PRICE_INCREASE_EVERY
-                        Gas price increase frequency (in seconds, default:
-                        120)
-  --gas-price-max GAS_PRICE_MAX
-                        Maximum gas price (in Wei)
-  --gas-price-file GAS_PRICE_FILE
-                        Gas price configuration file
   --smart-gas-price     Use smart gas pricing strategy, based on the
                         ethgasstation.info feed
   --debug               Enable debug output
@@ -430,10 +400,6 @@ usage: radarrelay-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       [--min-eth-balance MIN_ETH_BALANCE]
                                       [--cancel-on-shutdown]
                                       [--gas-price GAS_PRICE]
-                                      [--gas-price-increase GAS_PRICE_INCREASE]
-                                      [--gas-price-increase-every GAS_PRICE_INCREASE_EVERY]
-                                      [--gas-price-max GAS_PRICE_MAX]
-                                      [--gas-price-file GAS_PRICE_FILE]
                                       [--smart-gas-price] [--debug]
 
 optional arguments:
@@ -449,35 +415,24 @@ optional arguments:
                         Ethereum address of the 0x Exchange contract
   --relayer-api-server RELAYER_API_SERVER
                         Address of the 0x Relayer API
-  --config CONFIG       Buy/sell bands configuration file
+  --config CONFIG       Bands configuration file
   --price-feed PRICE_FEED
-                        Source of price feed. Tub price feed will be used if
-                        not specified
+                        Source of price feed
   --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of non-Tub price feed (in seconds,
-                        default: 120)
+                        Maximum age of the price feed (in seconds, default:
+                        120)
   --order-expiry ORDER_EXPIRY
                         Expiration time of created orders (in seconds)
   --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
                         Order expiration time at which order is considered
                         already expired (in seconds)
   --min-eth-balance MIN_ETH_BALANCE
-                        Minimum ETH balance below which keeper with either
-                        terminate or not start at all
+                        Minimum ETH balance below which keeper will cease
+                        operation
   --cancel-on-shutdown  Whether should cancel all open orders on RadarRelay on
                         keeper shutdown
   --gas-price GAS_PRICE
                         Gas price (in Wei)
-  --gas-price-increase GAS_PRICE_INCREASE
-                        Gas price increase (in Wei) if no confirmation within
-                        `--gas-price-increase-every` seconds
-  --gas-price-increase-every GAS_PRICE_INCREASE_EVERY
-                        Gas price increase frequency (in seconds, default:
-                        120)
-  --gas-price-max GAS_PRICE_MAX
-                        Maximum gas price (in Wei)
-  --gas-price-file GAS_PRICE_FILE
-                        Gas price configuration file
   --smart-gas-price     Use smart gas pricing strategy, based on the
                         ethgasstation.info feed
   --debug               Enable debug output
@@ -499,11 +454,7 @@ This keeper supports market-making on the [Bibox](https://www.bibox.com/exchange
 ### Usage
 
 ```
-usage: bibox-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                 [--rpc-port RPC_PORT]
-                                 [--rpc-timeout RPC_TIMEOUT] --tub-address
-                                 TUB_ADDRESS
-                                 [--bibox-api-server BIBOX_API_SERVER]
+usage: bibox-market-maker-keeper [-h] [--bibox-api-server BIBOX_API_SERVER]
                                  --bibox-api-key BIBOX_API_KEY --bibox-secret
                                  BIBOX_SECRET [--bibox-timeout BIBOX_TIMEOUT]
                                  --pair PAIR --config CONFIG --price-feed
@@ -513,12 +464,6 @@ usage: bibox-market-maker-keeper [-h] [--rpc-host RPC_HOST]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
-  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
-  --rpc-timeout RPC_TIMEOUT
-                        JSON-RPC timeout (in seconds, default: 10)
-  --tub-address TUB_ADDRESS
-                        Ethereum address of the Tub contract
   --bibox-api-server BIBOX_API_SERVER
                         Address of the Bibox API server (default:
                         'https://api.bibox.com')
@@ -529,14 +474,13 @@ optional arguments:
   --bibox-timeout BIBOX_TIMEOUT
                         Timeout for accessing the Bibox API (in seconds,
                         default: 9.5)
-  --pair PAIR           Token pair on which the keeper should operate
-  --config CONFIG       Buy/sell bands configuration file
+  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
+  --config CONFIG       Bands configuration file
   --price-feed PRICE_FEED
-                        Source of price feed. Tub price feed will be used if
-                        not specified
+                        Source of price feed
   --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of non-Tub price feed (in seconds,
-                        default: 120)
+                        Maximum age of the price feed (in seconds, default:
+                        120)
   --debug               Enable debug output
 ```
 
