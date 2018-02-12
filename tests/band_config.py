@@ -26,9 +26,9 @@ class BandConfig:
                     "minMargin": 0.02,
                     "avgMargin": 0.04,
                     "maxMargin": 0.06,
-                    "minSaiAmount": 50.0,
-                    "avgSaiAmount": 75.0,
-                    "maxSaiAmount": 100.0,
+                    "minAmount": 50.0,
+                    "avgAmount": 75.0,
+                    "maxAmount": 100.0,
                     "dustCutoff": 0.0
                 }
             ],
@@ -37,9 +37,9 @@ class BandConfig:
                     "minMargin": 0.02,
                     "avgMargin": 0.04,
                     "maxMargin": 0.06,
-                    "minWEthAmount": 5.0,
-                    "avgWEthAmount": 7.5,
-                    "maxWEthAmount": 10.0,
+                    "minAmount": 5.0,
+                    "avgAmount": 7.5,
+                    "maxAmount": 10.0,
                     "dustCutoff": 0.0
                 }
             ]
@@ -56,18 +56,18 @@ class BandConfig:
                     "minMargin": 0.02,
                     "avgMargin": 0.04,
                     "maxMargin": 0.06,
-                    "minWEthAmount": 5.0,
-                    "avgWEthAmount": 7.5,
-                    "maxWEthAmount": 8.5,
+                    "minAmount": 5.0,
+                    "avgAmount": 7.5,
+                    "maxAmount": 8.5,
                     "dustCutoff": 0.0
                 },
                 {
                     "minMargin": 0.06,
                     "avgMargin": 0.08,
                     "maxMargin": 0.10,
-                    "minWEthAmount": 7.0,
-                    "avgWEthAmount": 9.5,
-                    "maxWEthAmount": 12.0,
+                    "minAmount": 7.0,
+                    "avgAmount": 9.5,
+                    "maxAmount": 12.0,
                     "dustCutoff": 0.0
                 }
             ]
@@ -87,9 +87,9 @@ class BandConfig:
                     "minMargin": 0.02,
                     "avgMargin": 0.04,
                     "maxMargin": 0.06,
-                    "minWEthAmount": $.variables.avgEthBook * 0.25,
-                    "avgWEthAmount": $.variables.avgEthBook * 0.5,
-                    "maxWEthAmount": $.variables.avgEthBook * 1.0,
+                    "minAmount": $.variables.avgEthBook * 0.25,
+                    "avgAmount": $.variables.avgEthBook * 0.5,
+                    "maxAmount": $.variables.avgEthBook * 1.0,
                     "dustCutoff": 0.0
                 }
             ]
@@ -106,18 +106,18 @@ class BandConfig:
                     "minMargin": 0.02,
                     "avgMargin": 0.04,
                     "maxMargin": 0.06,
-                    "minWEthAmount": 5.0,
-                    "avgWEthAmount": 7.5,
-                    "maxWEthAmount": 10.0,
+                    "minAmount": 5.0,
+                    "avgAmount": 7.5,
+                    "maxAmount": 10.0,
                     "dustCutoff": 0.0
                 },
                 {
                     "minMargin": 0.059,
                     "avgMargin": 0.07,
                     "maxMargin": 0.08,
-                    "minWEthAmount": 5.0,
-                    "avgWEthAmount": 7.5,
-                    "maxWEthAmount": 10.0,
+                    "minAmount": 5.0,
+                    "avgAmount": 7.5,
+                    "maxAmount": 10.0,
                     "dustCutoff": 0.0
                 }
             ]

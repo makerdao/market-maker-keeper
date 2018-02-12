@@ -57,6 +57,19 @@ class Band:
         assert(self.avg_margin <= self.max_margin)
         assert(self.min_margin < self.max_margin)
 
+    @staticmethod
+    def _validate_deprecated_properties(dictionary: dict):
+        if 'minWEthAmount' in dictionary or \
+                'minSaiAmount' in dictionary or \
+                'avgWEthAmount' in dictionary or \
+                'avgSaiAmount' in dictionary or \
+                'maxWEthAmount' in dictionary or \
+                'maxSaiAmount' in dictionary:
+            logging.getLogger().error("'minWEthAmount', 'minSaiAmount', 'avgWEthAmount', 'avgSaiAmount',"
+                                      " 'maxWEthAmount' and 'maxSaiAmount' are deprecated. Please use"
+                                      " 'minAmount', 'avgAmount' and 'maxAmount' accordingly.")
+            exit(-1)
+
     def includes(self, order, target_price: Wad) -> bool:
         raise NotImplemented()
 
@@ -94,12 +107,14 @@ class Band:
 
 class BuyBand(Band):
     def __init__(self, dictionary: dict):
+        super()._validate_deprecated_properties(dictionary)
+
         super().__init__(min_margin=dictionary['minMargin'],
                          avg_margin=dictionary['avgMargin'],
                          max_margin=dictionary['maxMargin'],
-                         min_amount=Wad.from_number(dictionary['minSaiAmount']) if 'minSaiAmount' in dictionary else Wad.from_number(dictionary['minAmount']),
-                         avg_amount=Wad.from_number(dictionary['avgSaiAmount']) if 'avgSaiAmount' in dictionary else Wad.from_number(dictionary['avgAmount']),
-                         max_amount=Wad.from_number(dictionary['maxSaiAmount']) if 'maxSaiAmount' in dictionary else Wad.from_number(dictionary['maxAmount']),
+                         min_amount=Wad.from_number(dictionary['minAmount']),
+                         avg_amount=Wad.from_number(dictionary['avgAmount']),
+                         max_amount=Wad.from_number(dictionary['maxAmount']),
                          dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
 
     def includes(self, order, target_price: Wad) -> bool:
@@ -118,12 +133,14 @@ class BuyBand(Band):
 
 class SellBand(Band):
     def __init__(self, dictionary: dict):
+        super()._validate_deprecated_properties(dictionary)
+
         super().__init__(min_margin=dictionary['minMargin'],
                          avg_margin=dictionary['avgMargin'],
                          max_margin=dictionary['maxMargin'],
-                         min_amount=Wad.from_number(dictionary['minWEthAmount']) if 'minWEthAmount' in dictionary else Wad.from_number(dictionary['minAmount']),
-                         avg_amount=Wad.from_number(dictionary['avgWEthAmount']) if 'avgWEthAmount' in dictionary else Wad.from_number(dictionary['avgAmount']),
-                         max_amount=Wad.from_number(dictionary['maxWEthAmount']) if 'maxWEthAmount' in dictionary else Wad.from_number(dictionary['maxAmount']),
+                         min_amount=Wad.from_number(dictionary['minAmount']),
+                         avg_amount=Wad.from_number(dictionary['avgAmount']),
+                         max_amount=Wad.from_number(dictionary['maxAmount']),
                          dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
 
     def includes(self, order, target_price: Wad) -> bool:
