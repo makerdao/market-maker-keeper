@@ -55,6 +55,6 @@ class GasPriceFactory:
         if arguments.smart_gas_price:
             return SmartGasPrice()
         elif arguments.gas_price:
-            FixedGasPrice(arguments.gas_price)
+            return FixedGasPrice(arguments.gas_price)
         else:
             return DefaultGasPrice()
