@@ -173,6 +173,40 @@ class NewOrder:
         return pformat(vars(self))
 
 
+class Limits:
+    def __init__(self, limits: list):
+        assert(isinstance(limits, list))
+        self.limits = list(map(Limit, limits))
+        self.history = []
+
+    def available_limit(self, timestamp: int):
+        if len(self.limits) > 0:
+            return Wad.min(*map(lambda limit: limit.available_limit(timestamp, self.history), self.limits))
+        else:
+            return Wad.from_number(2**256 - 1)
+
+    def use_limit(self, timestamp: int, amount: Wad):
+        self.history.append({'timestamp': timestamp, 'amount': amount})
+
+
+class Limit:
+    def __init__(self, limit: dict):
+        assert(isinstance(limit, dict))
+        self.amount = Wad.from_number(limit['amount'])
+        self.time = self._to_seconds(limit['time'])
+
+    def _to_seconds(self, string: str) -> int:
+        assert(isinstance(string, str))
+        seconds_per_unit = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+        return int(string[:-1]) * seconds_per_unit[string[-1]]
+
+    def available_limit(self, timestamp: int, history: list):
+        history_within_time = filter(lambda item: timestamp - self.time < item['timestamp'] <= timestamp, history)
+        history_used_amount = reduce(Wad.__add__, map(lambda item: item['amount'], history_within_time), Wad(0))
+
+        return Wad.max(self.amount - history_used_amount, Wad(0))
+
+
 class Bands:
     logger = logging.getLogger()
 
