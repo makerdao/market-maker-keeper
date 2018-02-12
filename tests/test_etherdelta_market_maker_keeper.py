@@ -816,6 +816,76 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_sorted(self.orders(keeper))[1].buy_amount == Wad.from_number(780)
         assert self.orders_sorted(self.orders(keeper))[1].buy_token == deployment.sai.address
 
+    def test_should_obey_buy_limits(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config_with_limits(tmpdir)
+
+        # and
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        sai_order = self.orders_by_token(keeper, deployment.sai.address)[0]
+        assert sai_order.pay_amount == Wad.from_number(75)
+
+        # when
+        deployment.etherdelta.trade(sai_order, sai_order.buy_amount).transact()
+        # and
+        keeper.synchronize_orders()
+        # then
+        sai_order = self.orders_by_token(keeper, deployment.sai.address)[0]
+        assert sai_order.pay_amount == Wad.from_number(25)
+
+    def test_should_obey_sell_limits(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.sample_config_with_limits(tmpdir)
+
+        # and
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # and
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+        eth_order = self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0]
+        assert eth_order.pay_amount == Wad.from_number(7.5)
+
+        # when
+        deployment.etherdelta.trade(eth_order, eth_order.buy_amount).transact()
+        # and
+        keeper.synchronize_orders()
+        # then
+        eth_order = self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0]
+        assert eth_order.pay_amount == Wad.from_number(2.5)
+
     def test_should_cancel_all_orders_but_not_terminate_if_eth_balance_before_minimum_and_cannot_withdraw(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)

@@ -160,26 +160,33 @@ class SellBand(Band):
 
 
 class NewOrder:
-    def __init__(self, is_sell: bool, price: Wad, pay_amount: Wad, buy_amount: Wad):
+    def __init__(self, is_sell: bool, price: Wad, pay_amount: Wad, buy_amount: Wad, confirm_function):
         assert(isinstance(is_sell, bool))
         assert(isinstance(price, Wad))
         assert(isinstance(pay_amount, Wad))
         assert(isinstance(buy_amount, Wad))
+        assert(callable(confirm_function))
 
         self.is_sell = is_sell
         self.price = price
         self.pay_amount = pay_amount
         self.buy_amount = buy_amount
+        self.confirm_function = confirm_function
+
+    def confirm(self):
+        self.confirm_function()
 
     def __repr__(self):
         return pformat(vars(self))
 
 
 class Limits:
-    def __init__(self, limits: list):
+    logger = logging.getLogger()
+
+    def __init__(self, limits: list, history: list):
         assert(isinstance(limits, list))
         self.limits = list(map(Limit, limits))
-        self.history = []
+        self.history = history
 
     def available_limit(self, timestamp: int):
         if len(self.limits) > 0:
@@ -217,9 +224,9 @@ class Bands:
 
         config = reloadable_config.get_config()
         self.buy_bands = list(map(BuyBand, config['buyBands']))
-        self.buy_limits = Limits(config['buyLimits'] if 'buyLimits' in config else [])
+        self.buy_limits = Limits(config['buyLimits'] if 'buyLimits' in config else [], [])
         self.sell_bands = list(map(SellBand, config['sellBands']))
-        self.sell_limits = Limits(config['sellLimits'] if 'sellLimits' in config else [])
+        self.sell_limits = Limits(config['sellLimits'] if 'sellLimits' in config else [], [])
 
         if self._bands_overlap(self.buy_bands) or self._bands_overlap(self.sell_bands):
             raise Exception(f"Bands in the config file overlap")
@@ -297,7 +304,8 @@ class Bands:
                     our_sell_balance = our_sell_balance - pay_amount
                     limit_amount = limit_amount - pay_amount
 
-                    new_orders.append(NewOrder(is_sell=True, price=price, pay_amount=pay_amount, buy_amount=buy_amount))
+                    new_orders.append(NewOrder(is_sell=True, price=price, pay_amount=pay_amount, buy_amount=buy_amount,
+                                               confirm_function=lambda: self.sell_limits.use_limit(time.time(), pay_amount)))
 
         return new_orders, missing_amount
 
@@ -325,7 +333,8 @@ class Bands:
                     our_buy_balance = our_buy_balance - pay_amount
                     limit_amount = limit_amount - pay_amount
 
-                    new_orders.append(NewOrder(is_sell=False, price=price, pay_amount=pay_amount, buy_amount=buy_amount))
+                    new_orders.append(NewOrder(is_sell=False, price=price, pay_amount=pay_amount, buy_amount=buy_amount,
+                                               confirm_function=lambda: self.buy_limits.use_limit(time.time(), pay_amount)))
 
         return new_orders, missing_amount
 

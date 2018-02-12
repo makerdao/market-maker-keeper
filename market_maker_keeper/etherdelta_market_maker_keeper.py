@@ -319,6 +319,8 @@ class EtherDeltaMarketMakerKeeper:
 
             self.place_order(order)
 
+            new_order.confirm()
+
     def withdraw_everything(self):
         eth_balance = self.etherdelta.balance_of(self.our_address)
         if eth_balance > Wad(0):

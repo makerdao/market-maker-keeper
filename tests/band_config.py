@@ -47,6 +47,47 @@ class BandConfig:
         return file
 
     @staticmethod
+    def sample_config_with_limits(tmpdir):
+        file = tmpdir.join("sample_config.json")
+        file.write("""{
+            "buyBands": [
+                {
+                    "minMargin": 0.02,
+                    "avgMargin": 0.04,
+                    "maxMargin": 0.06,
+                    "minAmount": 50.0,
+                    "avgAmount": 75.0,
+                    "maxAmount": 100.0,
+                    "dustCutoff": 0.0
+                }
+            ],
+            "buyLimits": [
+                {
+                    time: "24h",
+                    amount: 100.0
+                }
+            ],
+            "sellBands": [
+                {
+                    "minMargin": 0.02,
+                    "avgMargin": 0.04,
+                    "maxMargin": 0.06,
+                    "minAmount": 5.0,
+                    "avgAmount": 7.5,
+                    "maxAmount": 10.0,
+                    "dustCutoff": 0.0
+                }
+            ],
+            "sellLimits": [
+                {
+                    time: "24h",
+                    amount: 10.0
+                }
+            ]
+        }""")
+        return file
+
+    @staticmethod
     def two_adjacent_bands_config(tmpdir):
         file = tmpdir.join("two_adjacent_bands_config.json")
         file.write("""{
