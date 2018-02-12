@@ -142,10 +142,10 @@ class OkexMarketMakerKeeper:
         for order in orders:
             self.okex_api.cancel_order(self.pair(), order.order_id)
 
-    def create_orders(self, orders):
-        for order in orders:
-            amount = order.pay_amount if order.is_sell else order.buy_amount
-            self.okex_api.place_order(pair=self.pair(), is_sell=order.is_sell, price=order.price, amount=amount)
+    def create_orders(self, new_orders):
+        for new_order in new_orders:
+            amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
+            self.okex_api.place_order(pair=self.pair(), is_sell=new_order.is_sell, price=new_order.price, amount=amount)
 
 
 if __name__ == '__main__':

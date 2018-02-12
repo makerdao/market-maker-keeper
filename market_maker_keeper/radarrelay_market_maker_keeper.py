@@ -204,22 +204,20 @@ class RadarRelayMarketMakerKeeper:
                                             target_price=target_price)[0])
 
     def cancel_orders(self, orders):
-        """Cancel orders asynchronously."""
         synchronize([self.radar_relay.cancel_order(order).transact_async(gas_price=self.gas_price) for order in orders])
 
-    def create_orders(self, orders):
-        """Create and submit orders synchronously."""
-        for order in orders:
-            pay_token = self.token_sell() if order.is_sell else self.token_buy()
-            buy_token = self.token_buy() if order.is_sell else self.token_sell()
+    def create_orders(self, new_orders):
+        for new_order in new_orders:
+            pay_token = self.token_sell() if new_order.is_sell else self.token_buy()
+            buy_token = self.token_buy() if new_order.is_sell else self.token_sell()
 
-            order = self.radar_relay.create_order(pay_token=pay_token.address, pay_amount=order.pay_amount,
-                                                  buy_token=buy_token.address, buy_amount=order.buy_amount,
+            new_order = self.radar_relay.create_order(pay_token=pay_token.address, pay_amount=new_order.pay_amount,
+                                                  buy_token=buy_token.address, buy_amount=new_order.buy_amount,
                                                   expiration=int(time.time()) + self.arguments.order_expiry)
 
-            order = self.radar_relay_api.calculate_fees(order)
-            order = self.radar_relay.sign_order(order)
-            self.radar_relay_api.submit_order(order)
+            new_order = self.radar_relay_api.calculate_fees(new_order)
+            new_order = self.radar_relay.sign_order(new_order)
+            self.radar_relay_api.submit_order(new_order)
 
 
 if __name__ == '__main__':
