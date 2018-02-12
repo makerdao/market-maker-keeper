@@ -298,13 +298,11 @@ class EtherDeltaMarketMakerKeeper:
         self.our_orders = list(filter(lambda order: not self.is_expired(order, block_number), self.our_orders))
 
     def cancel_orders(self, orders: Iterable, block_number: int):
-        """Cancel orders asynchronously."""
         cancellable_orders = list(filter(lambda order: not self.is_non_cancellable(order, block_number), orders))
         synchronize([self.etherdelta.cancel_order(order).transact_async(gas_price=self.gas_price) for order in cancellable_orders])
         self.our_orders = list(set(self.our_orders) - set(cancellable_orders))
 
     def cancel_all_orders(self):
-        """Cancel all our orders."""
         self.cancel_orders(self.our_orders, self.web3.eth.blockNumber)
 
     def create_orders(self, new_orders):
