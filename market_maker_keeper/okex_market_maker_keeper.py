@@ -132,17 +132,17 @@ class OkexMarketMakerKeeper:
             return
 
         # Place new orders
-        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                            our_sell_orders=self.our_sell_orders(our_orders),
-                                            our_buy_balance=self.our_available_balance(our_balances, self.token_buy()),
-                                            our_sell_balance=self.our_available_balance(our_balances, self.token_sell()),
-                                            target_price=target_price)[0])
+        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                           our_sell_orders=self.our_sell_orders(our_orders),
+                                           our_buy_balance=self.our_available_balance(our_balances, self.token_buy()),
+                                           our_sell_balance=self.our_available_balance(our_balances, self.token_sell()),
+                                           target_price=target_price)[0])
 
     def cancel_orders(self, orders):
         for order in orders:
             self.okex_api.cancel_order(self.pair(), order.order_id)
 
-    def create_orders(self, new_orders):
+    def place_orders(self, new_orders):
         for new_order in new_orders:
             amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
             self.okex_api.place_order(pair=self.pair(), is_sell=new_order.is_sell, price=new_order.price, amount=amount)

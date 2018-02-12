@@ -197,16 +197,16 @@ class RadarRelayMarketMakerKeeper:
         our_sell_balance = self.our_total_balance(self.token_sell()) - Bands.total_amount(self.our_sell_orders(our_orders))
 
         # Place new orders
-        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                            our_sell_orders=self.our_sell_orders(our_orders),
-                                            our_buy_balance=our_buy_balance,
-                                            our_sell_balance=our_sell_balance,
-                                            target_price=target_price)[0])
+        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                           our_sell_orders=self.our_sell_orders(our_orders),
+                                           our_buy_balance=our_buy_balance,
+                                           our_sell_balance=our_sell_balance,
+                                           target_price=target_price)[0])
 
     def cancel_orders(self, orders):
         synchronize([self.radar_relay.cancel_order(order).transact_async(gas_price=self.gas_price) for order in orders])
 
-    def create_orders(self, new_orders):
+    def place_orders(self, new_orders):
         for new_order in new_orders:
             pay_token = self.token_sell() if new_order.is_sell else self.token_buy()
             buy_token = self.token_buy() if new_order.is_sell else self.token_sell()

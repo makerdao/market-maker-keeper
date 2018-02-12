@@ -253,10 +253,10 @@ class IdexMarketMakerKeeper:
                 if self.deposit_for_sell_order(missing_sell_amount):
                     made_deposit = True
 
-        # If we managed to deposit something, do not do anything so we can reevaluate new orders to be created.
-        # Otherwise, create new orders.
+        # If we managed to deposit something, do not do anything so we can reevaluate new orders to be placed.
+        # Otherwise, place new orders.
         if not made_deposit:
-            self.create_orders(new_orders)
+            self.place_orders(new_orders)
 
     def cancel_orders(self, orders: list):
         for order in orders:
@@ -265,7 +265,7 @@ class IdexMarketMakerKeeper:
     def cancel_all_orders(self):
         self.cancel_orders(self.our_orders())
 
-    def create_orders(self, new_orders):
+    def place_orders(self, new_orders):
         for new_order in new_orders:
             if new_order.is_sell:
                 self.idex_api.place_order(pay_token=self.token_sell(),

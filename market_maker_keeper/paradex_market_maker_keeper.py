@@ -206,17 +206,17 @@ class ParadexMarketMakerKeeper:
         our_sell_balance = self.our_total_balance(self.token_sell()) - Bands.total_amount(self.our_sell_orders(our_orders))
 
         # Place new orders
-        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                            our_sell_orders=self.our_sell_orders(our_orders),
-                                            our_buy_balance=our_buy_balance,
-                                            our_sell_balance=our_sell_balance,
-                                            target_price=target_price)[0])
+        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
+                                           our_sell_orders=self.our_sell_orders(our_orders),
+                                           our_buy_balance=our_buy_balance,
+                                           our_sell_balance=our_sell_balance,
+                                           target_price=target_price)[0])
 
     def cancel_orders(self, orders):
         for order in orders:
             self.paradex_api.cancel_order(order.order_id)
 
-    def create_orders(self, new_orders):
+    def place_orders(self, new_orders):
         for new_order in new_orders:
             amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
             self.paradex_api.place_order(self.pair(), new_order.is_sell, new_order.price, amount, self.arguments.order_expiry)

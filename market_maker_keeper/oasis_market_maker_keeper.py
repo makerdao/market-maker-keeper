@@ -204,11 +204,11 @@ class OasisMarketMakerKeeper:
             return
 
         # Place new orders
-        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                            our_sell_orders=self.our_sell_orders(order_book.orders),
-                                            our_buy_balance=self.our_available_balance(self.token_buy()),
-                                            our_sell_balance=self.our_available_balance(self.token_sell()),
-                                            target_price=target_price)[0])
+        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                           our_sell_orders=self.our_sell_orders(order_book.orders),
+                                           our_buy_balance=self.our_available_balance(self.token_buy()),
+                                           our_sell_balance=self.our_available_balance(self.token_sell()),
+                                           target_price=target_price)[0])
 
     def cancel_all_orders(self):
         # Wait for the order book to stabilize
@@ -225,7 +225,7 @@ class OasisMarketMakerKeeper:
         for order in orders:
             self.order_book_manager.cancel_order(order.order_id, lambda: self.otc.kill(order.order_id).transact(gas_price=self.gas_price).successful)
 
-    def create_orders(self, new_orders):
+    def place_orders(self, new_orders):
         def place_order_function(new_order: NewOrder):
             assert(isinstance(new_order, NewOrder))
 

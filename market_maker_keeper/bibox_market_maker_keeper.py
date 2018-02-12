@@ -145,33 +145,33 @@ class BiboxMarketMakerKeeper:
             return
 
         # Place new orders
-        self.create_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                            our_sell_orders=self.our_sell_orders(order_book.orders),
-                                            our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
-                                            our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
-                                            target_price=target_price)[0])
+        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                           our_sell_orders=self.our_sell_orders(order_book.orders),
+                                           our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
+                                           our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
+                                           target_price=target_price)[0])
 
     def cancel_orders(self, orders):
         for order in orders:
             self.order_book_manager.cancel_order(order.order_id, lambda: self.bibox_api.cancel_order(order.order_id))
 
-    def create_orders(self, orders):
-        def place_order_function(order):
-            amount = order.pay_amount if order.is_sell else order.buy_amount
+    def place_orders(self, new_orders):
+        def place_order_function(new_order):
+            amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
             amount_symbol = self.token_sell()
-            money = order.buy_amount if order.is_sell else order.pay_amount
+            money = new_order.buy_amount if new_order.is_sell else new_order.pay_amount
             money_symbol = self.token_buy()
 
-            new_order_id = self.bibox_api.place_order(is_sell=order.is_sell,
+            new_order_id = self.bibox_api.place_order(is_sell=new_order.is_sell,
                                                       amount=amount,
                                                       amount_symbol=amount_symbol,
                                                       money=money,
                                                       money_symbol=money_symbol)
 
-            return Order(new_order_id, 0, order.is_sell, Wad(0), amount, amount_symbol, money, money_symbol)
+            return Order(new_order_id, 0, new_order.is_sell, Wad(0), amount, amount_symbol, money, money_symbol)
 
-        for order in orders:
-            self.order_book_manager.place_order(lambda: place_order_function(order))
+        for new_order in new_orders:
+            self.order_book_manager.place_order(lambda: place_order_function(new_order))
 
 
 if __name__ == '__main__':

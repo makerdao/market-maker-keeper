@@ -280,7 +280,7 @@ class EtherDeltaMarketMakerKeeper:
         # If we managed to deposit something, do not do anything so we can reevaluate new orders to be created.
         # Otherwise, create new orders.
         if not made_deposit:
-            self.create_orders(new_orders)
+            self.place_orders(new_orders)
 
     @staticmethod
     def is_order_age_above_threshold(order: Order, block_number: int, threshold: int):
@@ -305,7 +305,7 @@ class EtherDeltaMarketMakerKeeper:
     def cancel_all_orders(self):
         self.cancel_orders(self.our_orders, self.web3.eth.blockNumber)
 
-    def create_orders(self, new_orders):
+    def place_orders(self, new_orders):
         for new_order in new_orders:
             if new_order.is_sell:
                 order = self.etherdelta.create_order(pay_token=self.token_sell(),

@@ -149,7 +149,7 @@ class GateIOMarketMakerKeeper:
 
         if len(new_orders) > 0:
             if self.can_create_orders():
-                self.create_orders(new_orders)
+                self.place_orders(new_orders)
                 self.register_order_creation()
             else:
                 self.logger.info("Too little time elapsed from last order creation, waiting...")
@@ -166,7 +166,7 @@ class GateIOMarketMakerKeeper:
         for order in orders:
             self.gateio_api.cancel_order(self.pair(), order.order_id)
 
-    def create_orders(self, new_orders: List[NewOrder]):
+    def place_orders(self, new_orders: List[NewOrder]):
         for new_order in new_orders:
             amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
             self.gateio_api.place_order(self.pair(), new_order.is_sell, new_order.price, amount)
