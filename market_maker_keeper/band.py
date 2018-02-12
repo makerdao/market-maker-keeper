@@ -22,6 +22,8 @@ from functools import reduce
 from pprint import pformat
 from typing import Tuple
 
+import time
+
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker.numeric import Wad
 
@@ -215,7 +217,9 @@ class Bands:
 
         config = reloadable_config.get_config()
         self.buy_bands = list(map(BuyBand, config['buyBands']))
+        self.buy_limits = Limits(config['buyLimits'] if 'buyLimits' in config else [])
         self.sell_bands = list(map(SellBand, config['sellBands']))
+        self.sell_limits = Limits(config['sellLimits'] if 'sellLimits' in config else [])
 
         if self._bands_overlap(self.buy_bands) or self._bands_overlap(self.sell_bands):
             raise Exception(f"Bands in the config file overlap")
@@ -276,6 +280,7 @@ class Bands:
         assert(isinstance(target_price, Wad))
 
         new_orders = []
+        limit_amount = self.sell_limits.available_limit(time.time())
         missing_amount = Wad(0)
 
         for band in self.sell_bands:
@@ -283,13 +288,15 @@ class Bands:
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
                 price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, limit_amount)
                 buy_amount = pay_amount * price
                 missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new sell order")
 
                     our_sell_balance = our_sell_balance - pay_amount
+                    limit_amount = limit_amount - pay_amount
+
                     new_orders.append(NewOrder(is_sell=True, price=price, pay_amount=pay_amount, buy_amount=buy_amount))
 
         return new_orders, missing_amount
@@ -301,6 +308,7 @@ class Bands:
         assert(isinstance(target_price, Wad))
 
         new_orders = []
+        limit_amount = self.buy_limits.available_limit(time.time())
         missing_amount = Wad(0)
 
         for band in self.buy_bands:
@@ -308,13 +316,15 @@ class Bands:
             total_amount = self.total_amount(orders)
             if total_amount < band.min_amount:
                 price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance, limit_amount)
                 buy_amount = pay_amount / price
                 missing_amount += Wad.max((band.avg_amount - total_amount) - our_buy_balance, Wad(0))
                 if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new buy order")
 
                     our_buy_balance = our_buy_balance - pay_amount
+                    limit_amount = limit_amount - pay_amount
+
                     new_orders.append(NewOrder(is_sell=False, price=price, pay_amount=pay_amount, buy_amount=buy_amount))
 
         return new_orders, missing_amount
