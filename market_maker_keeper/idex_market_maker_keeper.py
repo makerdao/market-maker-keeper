@@ -154,9 +154,6 @@ class IdexMarketMakerKeeper:
 
         self.idex.approve(tokens, directly(gas_price=self.gas_price))
 
-    def price(self) -> Wad:
-        return self.price_feed.get_price()
-
     def pair(self):
         # IDEX is inconsistent here. They call the pair `DAI_ETH`, but in reality all prices are
         # calculated like it was an `ETH/DAI` pair.
@@ -207,7 +204,7 @@ class IdexMarketMakerKeeper:
         bands = Bands(self.bands_config)
         our_balances = self.our_balances()
         our_orders = self.our_orders()
-        target_price = self.price()
+        target_price = self.price_feed.get_price()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
         # The moment the price feed comes back, the keeper will resume placing orders.

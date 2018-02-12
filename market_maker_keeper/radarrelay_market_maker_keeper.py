@@ -139,9 +139,6 @@ class RadarRelayMarketMakerKeeper:
         """Approve 0x to access our tokens, so we can sell it on the exchange."""
         self.radar_relay.approve([self.token_sell(), self.token_buy()], directly(gas_price=self.gas_price))
 
-    def price(self) -> Wad:
-        return self.price_feed.get_price()
-
     def token_sell(self) -> ERC20Token:
         return self.gem
 
@@ -176,7 +173,7 @@ class RadarRelayMarketMakerKeeper:
 
         bands = Bands(self.bands_config)
         our_orders = self.our_orders()
-        target_price = self.price()
+        target_price = self.price_feed.get_price()
 
         if target_price is None:
             self.logger.warning("Cancelling all orders as no price feed available.")

@@ -100,9 +100,6 @@ class BiboxMarketMakerKeeper:
             self.cancel_orders(our_orders)
             self.order_book_manager.wait_for_order_cancellation()
 
-    def price(self) -> Wad:
-        return self.price_feed.get_price()
-
     def pair(self):
         return self.arguments.pair.upper()
 
@@ -124,7 +121,7 @@ class BiboxMarketMakerKeeper:
     def synchronize_orders(self):
         bands = Bands(self.bands_config)
         order_book = self.order_book_manager.get_order_book()
-        target_price = self.price()
+        target_price = self.price_feed.get_price()
 
         if target_price is None:
             self.logger.warning("Cancelling all orders as no price feed available.")

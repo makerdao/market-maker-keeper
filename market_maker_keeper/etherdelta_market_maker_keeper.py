@@ -194,9 +194,6 @@ class EtherDeltaMarketMakerKeeper:
         self.our_orders.append(order)
         self.etherdelta_api.publish_order(order)
 
-    def price(self) -> Wad:
-        return self.price_feed.get_price()
-
     def token_sell(self) -> Address:
         return EtherDelta.ETH_TOKEN
 
@@ -235,7 +232,7 @@ class EtherDeltaMarketMakerKeeper:
 
         bands = Bands(self.bands_config)
         block_number = self.web3.eth.blockNumber
-        target_price = self.price()
+        target_price = self.price_feed.get_price()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
         # The moment the price feed comes back, the keeper will resume placing orders.

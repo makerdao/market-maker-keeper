@@ -135,9 +135,6 @@ class OasisMarketMakerKeeper:
         """Approve OasisDEX to access our balances, so we can place orders."""
         self.otc.approve([self.token_sell(), self.token_buy()], directly(gas_price=self.gas_price))
 
-    def price(self) -> Wad:
-        return self.price_feed.get_price()
-
     def token_sell(self) -> ERC20Token:
         return self.gem
 
@@ -177,7 +174,7 @@ class OasisMarketMakerKeeper:
 
         bands = Bands(self.bands_config)
         order_book = self.order_book_manager.get_order_book()
-        target_price = self.price()
+        target_price = self.price_feed.get_price()
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
         # The moment the price feed comes back, the keeper will resume placing orders.
