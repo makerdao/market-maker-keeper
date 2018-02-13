@@ -57,12 +57,6 @@ class ParadexMarketMakerKeeper:
         parser.add_argument("--eth-from", type=str, required=True,
                             help="Ethereum account from which to send transactions")
 
-        parser.add_argument("--eth-key-file", type=str, required=True,
-                            help="File with the private key file for the Ethereum account")
-
-        parser.add_argument("--eth-password-file", type=str, required=True,
-                            help="File with the private key password for the Ethereum account")
-
         parser.add_argument("--exchange-address", type=str, required=True,
                             help="Ethereum address of the 0x Exchange contract")
 
@@ -126,14 +120,7 @@ class ParadexMarketMakerKeeper:
         self.paradex_api = ParadexApi(self.zrx_exchange,
                                       self.arguments.paradex_api_server,
                                       self.arguments.paradex_api_key,
-                                      self.arguments.paradex_api_timeout,
-                                      self.arguments.eth_key_file,
-                                      self.read_password(self.arguments.eth_password_file))
-
-    @staticmethod
-    def read_password(filename: str):
-        with open(filename) as file:
-            return "".join(line.rstrip() for line in file)
+                                      self.arguments.paradex_api_timeout)
 
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
