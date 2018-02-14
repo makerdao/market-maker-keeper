@@ -633,12 +633,6 @@ optional arguments:
   have to be done manually in the Bibox UI. The keeper does not have to be shut down during
   deposits, it will pick up new balances automatically and place new orders if needed.
 
-* The only reason the keeper needs to have a working connection to an Ethereum node is
-  to be able to get the price feed from the `Tub`.
-
-* As no transactions are sent to the Ethereum network by this keeper, it does not take the
-  `--eth-from` argument and does not require any account to be unlocked.
-
 
 ## `okex-market-maker-keeper`
 
