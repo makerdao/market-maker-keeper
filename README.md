@@ -457,9 +457,8 @@ This keeper supports market-making on the [Paradex](https://app.paradex.io/) exc
 usage: paradex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                    [--rpc-port RPC_PORT]
                                    [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                   ETH_FROM --eth-key-file ETH_KEY_FILE
-                                   --eth-password-file ETH_PASSWORD_FILE
-                                   --exchange-address EXCHANGE_ADDRESS
+                                   ETH_FROM --exchange-address
+                                   EXCHANGE_ADDRESS
                                    [--paradex-api-server PARADEX_API_SERVER]
                                    --paradex-api-key PARADEX_API_KEY
                                    [--paradex-api-timeout PARADEX_API_TIMEOUT]
@@ -480,12 +479,6 @@ optional arguments:
   --rpc-timeout RPC_TIMEOUT
                         JSON-RPC timeout (in seconds, default: 10)
   --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --eth-key-file ETH_KEY_FILE
-                        File with the private key file for the Ethereum
-                        account
-  --eth-password-file ETH_PASSWORD_FILE
-                        File with the private key password for the Ethereum
-                        account
   --exchange-address EXCHANGE_ADDRESS
                         Ethereum address of the 0x Exchange contract
   --paradex-api-server PARADEX_API_SERVER
@@ -523,12 +516,6 @@ optional arguments:
 
 * The keeper needs access to an Ethereum node in order to grant token approvals to _0x_ contracts,
   and also to constantly monitor token balances so it knows the maximum amount of orders it can place.
-  
-* All Paradex API requests need to be signed with the private key associated with the Ethereum account
-  accessing the exchange. Having said that, the way signed data has to be formatted for Paradex makes
-  it impossible to create the signature with a regular Ethereum JSON RPC `eth_sign` call. Due to that,
-  the keeper needs to have direct access to the private key file and to a file containing the password
-  able to decrypt that key. 
 
 
 ## `idex-market-maker-keeper`
