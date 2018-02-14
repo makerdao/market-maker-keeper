@@ -516,6 +516,7 @@ optional arguments:
 
 * The keeper needs access to an Ethereum node in order to grant token approvals to _0x_ contracts,
   and also to constantly monitor token balances so it knows the maximum amount of orders it can place.
+  In addition to that, it uses the `eth_sign` JSON RPC call to sign all API requests.
 
 
 ## `idex-market-maker-keeper`
