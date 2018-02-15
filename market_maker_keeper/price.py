@@ -295,9 +295,11 @@ class PriceFeedFactory:
         assert(isinstance(price_feed_expiry_argument, int))
         assert(isinstance(tub, Tub) or tub is None)
 
+        gdax_ws_url = "wss://ws-feed.gdax.com"
+
         if price_feed_argument == 'eth_dai':
             # main price feed
-            main_price_feed = GdaxPriceFeed(ws_url="wss://ws-feed.gdax.com",
+            main_price_feed = GdaxPriceFeed(ws_url=gdax_ws_url,
                                             product_id="ETH-USD",
                                             expiry=price_feed_expiry_argument)
 
@@ -311,6 +313,11 @@ class PriceFeedFactory:
                 price_feed = BackupPriceFeed([main_price_feed, emergency_price_feed, last_resort_price_feed])
             else:
                 price_feed = BackupPriceFeed([main_price_feed, emergency_price_feed])
+
+        elif price_feed_argument == 'btc_dai':
+            return GdaxPriceFeed(ws_url=gdax_ws_url,
+                                 product_id="BTC-USD",
+                                 expiry=price_feed_expiry_argument)
 
         elif price_feed_argument == 'tub':
             if tub is not None:
