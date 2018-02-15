@@ -16,16 +16,35 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import threading
 from functools import reduce
 
 from pymaker.numeric import Wad
 
 
+class History:
+    def __init__(self):
+        self.items = []
+        self._lock = threading.Lock()
+
+    def add_item(self, item: dict):
+        assert(isinstance(item, dict))
+
+        with self._lock:
+            self.items.append(item)
+
+    def get_items(self) -> list:
+        with self._lock:
+            return list(self.items)
+
+
 class Limits:
     logger = logging.getLogger()
 
-    def __init__(self, limits: list, history: list):
+    def __init__(self, limits: list, history: History):
         assert(isinstance(limits, list))
+        assert(isinstance(history, History))
+
         self.limits = list(map(Limit, limits))
         self.history = history
 
@@ -36,7 +55,7 @@ class Limits:
             return Wad.from_number(2**256 - 1)
 
     def use_limit(self, timestamp: int, amount: Wad):
-        self.history.append({'timestamp': timestamp, 'amount': amount})
+        self.history.add_item({'timestamp': timestamp, 'amount': amount})
 
 
 class Limit:
@@ -50,8 +69,8 @@ class Limit:
         seconds_per_unit = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
         return int(string[:-1]) * seconds_per_unit[string[-1]]
 
-    def available_limit(self, timestamp: int, history: list):
-        history_within_time = filter(lambda item: timestamp - self.time < item['timestamp'] <= timestamp, history)
+    def available_limit(self, timestamp: int, history: History):
+        history_within_time = filter(lambda item: timestamp - self.time < item['timestamp'] <= timestamp, history.get_items())
         history_used_amount = reduce(Wad.__add__, map(lambda item: item['amount'], history_within_time), Wad(0))
 
         return Wad.max(self.amount - history_used_amount, Wad(0))
