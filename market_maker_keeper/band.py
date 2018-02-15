@@ -24,7 +24,7 @@ from typing import Tuple
 
 import time
 
-from market_maker_keeper.limit import Limits
+from market_maker_keeper.limit import Limits, History
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker.numeric import Wad
 
@@ -189,9 +189,9 @@ class Bands:
 
         config = reloadable_config.get_config()
         self.buy_bands = list(map(BuyBand, config['buyBands']))
-        self.buy_limits = Limits(config['buyLimits'] if 'buyLimits' in config else [], [])
+        self.buy_limits = Limits(config['buyLimits'] if 'buyLimits' in config else [], History())
         self.sell_bands = list(map(SellBand, config['sellBands']))
-        self.sell_limits = Limits(config['sellLimits'] if 'sellLimits' in config else [], [])
+        self.sell_limits = Limits(config['sellLimits'] if 'sellLimits' in config else [], History())
 
         if self._bands_overlap(self.buy_bands) or self._bands_overlap(self.sell_bands):
             raise Exception(f"Bands in the config file overlap")
