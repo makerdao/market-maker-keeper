@@ -152,7 +152,7 @@ class BiboxMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.order_book_manager.cancel_order(order.order_id, lambda: self.bibox_api.cancel_order(order.order_id))
+            self.order_book_manager.cancel_order(order.order_id, lambda order=order: self.bibox_api.cancel_order(order.order_id))
 
     def place_orders(self, new_orders):
         def place_order_function(new_order):
@@ -170,7 +170,7 @@ class BiboxMarketMakerKeeper:
             return Order(new_order_id, 0, new_order.is_sell, Wad(0), amount, amount_symbol, money, money_symbol)
 
         for new_order in new_orders:
-            self.order_book_manager.place_order(lambda: place_order_function(new_order))
+            self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
 
 if __name__ == '__main__':
