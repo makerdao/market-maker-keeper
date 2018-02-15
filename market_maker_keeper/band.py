@@ -59,7 +59,7 @@ class Band:
         assert(self.min_margin <= self.avg_margin)
         assert(self.avg_margin <= self.max_margin)
         assert(self.min_margin < self.max_margin)
-        assert(self.avg_margin > Wad(0))
+        assert(self.avg_margin > 0)
 
     @staticmethod
     def _validate_deprecated_properties(dictionary: dict):
