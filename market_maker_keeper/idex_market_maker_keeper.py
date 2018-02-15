@@ -27,6 +27,7 @@ from typing import Iterable
 from retry import retry
 from web3 import Web3, HTTPProvider
 
+from market_maker_keeper.limit import History
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.util import setup_logging
@@ -130,6 +131,7 @@ class IdexMarketMakerKeeper:
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")
 
+        self.history = History()
         self.idex = IDEX(self.web3, Address(self.arguments.idex_address))
         self.idex_api = IDEXApi(self.idex, self.arguments.idex_api_server, self.arguments.idex_timeout)
 
@@ -201,7 +203,7 @@ class IdexMarketMakerKeeper:
 
             return
 
-        bands = Bands(self.bands_config)
+        bands = Bands(self.bands_config, self.history)
         our_balances = self.our_balances()
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()

@@ -20,6 +20,7 @@ import logging
 import sys
 
 from market_maker_keeper.band import Bands
+from market_maker_keeper.limit import History
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.util import setup_logging
@@ -69,6 +70,7 @@ class OkexMarketMakerKeeper:
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.arguments.price_feed_expiry)
 
+        self.history = History()
         self.okex_api = OKEXApi(api_server=self.arguments.okex_api_server,
                                 api_key=self.arguments.okex_api_key,
                                 secret_key=self.arguments.okex_secret_key,
@@ -113,7 +115,7 @@ class OkexMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        bands = Bands(self.bands_config)
+        bands = Bands(self.bands_config, self.history)
         our_balances = self.our_balances()
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()

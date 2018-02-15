@@ -23,6 +23,7 @@ from typing import List
 import time
 
 from market_maker_keeper.band import Bands, NewOrder
+from market_maker_keeper.limit import History
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.util import setup_logging
@@ -72,6 +73,7 @@ class GateIOMarketMakerKeeper:
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.arguments.price_feed_expiry)
 
+        self.history = History()
         self.gateio_api = GateIOApi(api_server=self.arguments.gateio_api_server,
                                     api_key=self.arguments.gateio_api_key,
                                     secret_key=self.arguments.gateio_secret_key,
@@ -122,7 +124,7 @@ class GateIOMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        bands = Bands(self.bands_config)
+        bands = Bands(self.bands_config, self.history)
         our_balances = self.our_balances()
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()

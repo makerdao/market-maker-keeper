@@ -24,6 +24,7 @@ from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.limit import History
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.util import setup_logging
@@ -116,6 +117,7 @@ class ParadexMarketMakerKeeper:
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
                                                                self.arguments.price_feed_expiry)
 
+        self.history = History()
         self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.paradex_api = ParadexApi(self.zrx_exchange,
                                       self.arguments.paradex_api_server,
@@ -167,7 +169,7 @@ class ParadexMarketMakerKeeper:
             self.cancel_orders(self.our_orders())
             return
 
-        bands = Bands(self.bands_config)
+        bands = Bands(self.bands_config, self.history)
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 

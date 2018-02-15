@@ -27,6 +27,7 @@ from typing import Iterable
 from retry import retry
 from web3 import Web3, HTTPProvider
 
+from market_maker_keeper.limit import History
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.util import setup_logging
@@ -155,6 +156,7 @@ class EtherDeltaMarketMakerKeeper:
         assert(self.arguments.order_expiry_threshold >= 0)
         assert(self.arguments.order_no_cancel_threshold >= self.arguments.order_expiry_threshold)
 
+        self.history = History()
         self.etherdelta = EtherDelta(web3=self.web3, address=Address(self.arguments.etherdelta_address))
         self.etherdelta_api = EtherDeltaApi(client_tool_directory="lib/pymaker/utils/etherdelta-client",
                                             client_tool_command="node main.js",
@@ -230,7 +232,7 @@ class EtherDeltaMarketMakerKeeper:
 
             return
 
-        bands = Bands(self.bands_config)
+        bands = Bands(self.bands_config, self.history)
         block_number = self.web3.eth.blockNumber
         target_price = self.price_feed.get_price()
 

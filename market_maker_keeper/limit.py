@@ -41,21 +41,23 @@ class History:
 class Limits:
     logger = logging.getLogger()
 
-    def __init__(self, limits: list, history: History):
+    def __init__(self, limits: list, history: History, type: str):
         assert(isinstance(limits, list))
         assert(isinstance(history, History))
+        assert(isinstance(type, str))
 
         self.limits = list(map(Limit, limits))
         self.history = history
+        self.type = type
 
     def available_limit(self, timestamp: int):
         if len(self.limits) > 0:
-            return Wad.min(*map(lambda limit: limit.available_limit(timestamp, self.history), self.limits))
+            return Wad.min(*map(lambda limit: limit.available_limit(timestamp, self.history, self.type), self.limits))
         else:
             return Wad.from_number(2**256 - 1)
 
     def use_limit(self, timestamp: int, amount: Wad):
-        self.history.add_item({'timestamp': timestamp, 'amount': amount})
+        self.history.add_item({'timestamp': timestamp, 'type': self.type, 'amount': amount})
 
 
 class Limit:
@@ -69,8 +71,9 @@ class Limit:
         seconds_per_unit = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
         return int(string[:-1]) * seconds_per_unit[string[-1]]
 
-    def available_limit(self, timestamp: int, history: History):
-        history_within_time = filter(lambda item: timestamp - self.time < item['timestamp'] <= timestamp, history.get_items())
+    def available_limit(self, timestamp: int, history: History, type: str):
+        history_within_time = filter(lambda item: timestamp - self.time < item['timestamp'] <= timestamp and
+                                                  item['type'] == type, history.get_items())
         history_used_amount = reduce(Wad.__add__, map(lambda item: item['amount'], history_within_time), Wad(0))
 
         return Wad.max(self.amount - history_used_amount, Wad(0))

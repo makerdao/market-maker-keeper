@@ -20,6 +20,7 @@ import logging
 import sys
 
 from market_maker_keeper.band import Bands
+from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -67,6 +68,7 @@ class BiboxMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
+        self.history = History()
         self.bibox_api = BiboxApi(api_server=self.arguments.bibox_api_server,
                                   api_key=self.arguments.bibox_api_key,
                                   secret=self.arguments.bibox_secret,
@@ -119,7 +121,7 @@ class BiboxMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        bands = Bands(self.bands_config)
+        bands = Bands(self.bands_config, self.history)
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 

@@ -26,12 +26,12 @@ class TestLimits:
 
     @pytest.fixture
     def no_limits(self):
-        return Limits([], History())
+        return Limits([], History(), 'sell')
 
     @pytest.fixture
     def sample_limits(self):
         return Limits([{'amount': 100, 'time': '1h'},
-                       {'amount': 500, 'time': '1d'}], History())
+                       {'amount': 500, 'time': '1d'}], History(), 'sell')
 
     def test_available_limit_is_always_max_if_no_limits_defined(self, no_limits):
         # expect

@@ -184,14 +184,15 @@ class NewOrder:
 class Bands:
     logger = logging.getLogger()
 
-    def __init__(self, reloadable_config: ReloadableConfig):
+    def __init__(self, reloadable_config: ReloadableConfig, history: History):
         assert(isinstance(reloadable_config, ReloadableConfig))
+        assert(isinstance(history, History))
 
         config = reloadable_config.get_config()
         self.buy_bands = list(map(BuyBand, config['buyBands']))
-        self.buy_limits = Limits(config['buyLimits'] if 'buyLimits' in config else [], History())
+        self.buy_limits = Limits(config['buyLimits'] if 'buyLimits' in config else [], history, 'buy')
         self.sell_bands = list(map(SellBand, config['sellBands']))
-        self.sell_limits = Limits(config['sellLimits'] if 'sellLimits' in config else [], History())
+        self.sell_limits = Limits(config['sellLimits'] if 'sellLimits' in config else [], history, 'sell')
 
         if self._bands_overlap(self.buy_bands) or self._bands_overlap(self.sell_bands):
             raise Exception(f"Bands in the config file overlap")

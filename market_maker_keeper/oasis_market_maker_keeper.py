@@ -25,6 +25,7 @@ from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -107,6 +108,7 @@ class OasisMarketMakerKeeper:
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
                                                                self.arguments.price_feed_expiry, self.tub)
 
+        self.history = History()
         self.order_book_manager = OrderBookManager(refresh_frequency=3)
         self.order_book_manager.get_orders_with(lambda: self.our_orders())
         self.order_book_manager.start()
@@ -172,7 +174,7 @@ class OasisMarketMakerKeeper:
             self.cancel_all_orders()
             return
 
-        bands = Bands(self.bands_config)
+        bands = Bands(self.bands_config, self.history)
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 

@@ -28,6 +28,7 @@ from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.limit import History
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.price import PriceFeedFactory
 from market_maker_keeper.util import setup_logging
@@ -117,6 +118,7 @@ class RadarRelayMarketMakerKeeper:
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
                                                                self.arguments.price_feed_expiry, self.tub)
 
+        self.history = History()
         self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.radar_relay_api = ZrxRelayerApi(exchange=self.radar_relay, api_server=self.arguments.relayer_api_server)
 
@@ -171,7 +173,7 @@ class RadarRelayMarketMakerKeeper:
             self.cancel_orders(self.our_orders())
             return
 
-        bands = Bands(self.bands_config)
+        bands = Bands(self.bands_config, self.history)
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 
