@@ -17,7 +17,7 @@
 
 import pytest
 
-from market_maker_keeper.band import Limits
+from market_maker_keeper.limit import Limits
 from pymaker.numeric import Wad
 
 
