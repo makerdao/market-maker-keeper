@@ -338,5 +338,8 @@ class PriceFeedFactory:
         # Ultimately we should do:
         # if vox is not None:
         #     return ApplyTargetPrice(price_feed, vox)
+        #
+        # Actually, maybe there should be a distinction between `eth_usd`/`btc_usd` and `eth_dai`/`btc_dai`,
+        # the former being a raw price feed whereas the latter would take Vox into account...?
 
         return price_feed
