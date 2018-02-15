@@ -17,7 +17,7 @@
 
 import pytest
 
-from market_maker_keeper.limit import Limits, SideHistory
+from market_maker_keeper.limit import SideLimits, SideHistory
 from pymaker.numeric import Wad
 
 
@@ -26,12 +26,12 @@ class TestLimits:
 
     @pytest.fixture
     def no_limits(self):
-        return Limits([], SideHistory())
+        return SideLimits([], SideHistory())
 
     @pytest.fixture
     def sample_limits(self):
-        return Limits([{'amount': 100, 'time': '1h'},
-                       {'amount': 500, 'time': '1d'}], SideHistory())
+        return SideLimits([{'amount': 100, 'time': '1h'},
+                           {'amount': 500, 'time': '1d'}], SideHistory())
 
     def test_available_limit_is_always_max_if_no_limits_defined(self, no_limits):
         # expect

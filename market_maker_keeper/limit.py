@@ -44,19 +44,19 @@ class SideHistory:
             return list(self.items)
 
 
-class Limits:
+class SideLimits:
     logger = logging.getLogger()
 
     def __init__(self, limits: list, side_history: SideHistory):
         assert(isinstance(limits, list))
         assert(isinstance(side_history, SideHistory))
 
-        self.limits = list(map(Limit, limits))
+        self.side_limits = list(map(SideLimit, limits))
         self.side_history = side_history
 
     def available_limit(self, timestamp: int):
-        if len(self.limits) > 0:
-            return Wad.min(*map(lambda limit: limit.available_limit(timestamp, self.side_history), self.limits))
+        if len(self.side_limits) > 0:
+            return Wad.min(*map(lambda limit: limit.available_limit(timestamp, self.side_history), self.side_limits))
         else:
             return Wad.from_number(2**256 - 1)
 
@@ -64,7 +64,7 @@ class Limits:
         self.side_history.add_item({'timestamp': timestamp, 'amount': amount})
 
 
-class Limit:
+class SideLimit:
     def __init__(self, limit: dict):
         assert(isinstance(limit, dict))
         self.amount = Wad.from_number(limit['amount'])
