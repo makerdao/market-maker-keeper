@@ -141,6 +141,8 @@ Sample bands configuration file:
             "dustCutoff": 0.0
         }
     ],
+    "buyLimits": [],
+
     "sellBands": [
         {
             "minMargin": 0.005,
@@ -160,14 +162,39 @@ Sample bands configuration file:
             "maxAmount": 8.0,
             "dustCutoff": 0.0
         }
-    ]
+    ],
+    "sellLimits": []
 }
 ```
+
+### Order rate limitation
+
+Two optional sections (*buyLimits* and *sendLimits*) can be used for limiting the maximum rate of orders
+created by market maker keepers. Both use the same format:
+
+```json
+"buyLimits": [
+    {
+        "time": "1h",
+        "amount": 50.0
+    },
+    {
+        "time": "1d",
+        "amount": 200.0
+    }
+]
+```
+
+The amounts are expressed either in terms of the buy or the sell token, depending on the section.
+The above snippet imposes a limit of *50.0* buy token within each 60 minute window, and in addition
+to that a maximum of *200.0* buy token within each 24h window.
+
+Supported time units are: `s`, `m`, `h`, `d` and `w`.
 
 ### Data templating language
 
 The [Jsonnet](https://github.com/google/jsonnet) data templating language can be used
-for the bands config file.
+for the configuration file.
 
 
 ## Price feed configuration
