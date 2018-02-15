@@ -816,6 +816,67 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_sorted(self.orders(keeper))[1].buy_amount == Wad.from_number(780)
         assert self.orders_sorted(self.orders(keeper))[1].buy_token == deployment.sai.address
 
+    def test_should_support_negative_min_margin(self, deployment: Deployment, tmpdir: py.path.local):
+        # given
+        config_file = BandConfig.negative_min_margin_bands_config(tmpdir)
+
+        # and
+        keeper = EtherDeltaMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --config {config_file}"
+                                                       f" --tub-address {deployment.tub.address}"
+                                                       f" --etherdelta-address {deployment.etherdelta.address}"
+                                                       f" --etherdelta-socket https://127.0.0.1:99999/"
+                                                       f" --price-feed tub"
+                                                       f" --order-age 3600 --eth-reserve 10"
+                                                       f" --min-eth-deposit 1 --min-sai-deposit 400"),
+                                             web3=deployment.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
+        keeper.etherdelta_api.publish_order = MagicMock()
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        keeper.synchronize_orders()  # ... first call is so it can made deposits
+        keeper.synchronize_orders()  # ... second call is so the actual orders can get placed
+
+        # then
+        # (an order at 2% gets placed)
+        assert self.orders(keeper)[0].maker == deployment.our_address
+        assert self.orders(keeper)[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders(keeper)[0].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders(keeper)[0].buy_amount == Wad.from_number(765)
+        assert self.orders(keeper)[0].buy_token == deployment.sai.address
+
+        # when
+        self.set_price(deployment, Wad.from_number(103.02))
+        # and
+        keeper.synchronize_orders()
+        keeper.synchronize_orders()
+
+        # then
+        # (we are almost at -1%, but not yet there, so the order stays)
+        assert self.orders(keeper)[0].maker == deployment.our_address
+        assert self.orders(keeper)[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders(keeper)[0].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders(keeper)[0].buy_amount == Wad.from_number(765)
+        assert self.orders(keeper)[0].buy_token == deployment.sai.address
+
+        # when
+        self.set_price(deployment, Wad.from_number(103.04))
+        # and
+        keeper.synchronize_orders()
+        keeper.synchronize_orders()
+
+        # then
+        # (we have gone over 1%, so the order gets cancellet and a new one gets placed at 2% again)
+        assert self.orders(keeper)[0].maker == deployment.our_address
+        assert self.orders(keeper)[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders(keeper)[0].pay_token == EtherDelta.ETH_TOKEN
+        assert self.orders(keeper)[0].buy_amount == Wad.from_number(788.256)
+        assert self.orders(keeper)[0].buy_token == deployment.sai.address
+
     def test_should_obey_buy_limits(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config_with_limits(tmpdir)

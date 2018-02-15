@@ -116,6 +116,25 @@ class BandConfig:
         return file
 
     @staticmethod
+    def negative_min_margin_bands_config(tmpdir):
+        file = tmpdir.join("negative_min_margin_bands_config.json")
+        file.write("""{
+            "buyBands": [],
+            "sellBands": [
+                {
+                    "minMargin": -0.01,
+                    "avgMargin": 0.02,
+                    "maxMargin": 0.05,
+                    "minAmount": 5.0,
+                    "avgAmount": 7.5,
+                    "maxAmount": 8.5,
+                    "dustCutoff": 0.0
+                }
+            ]
+        }""")
+        return file
+
+    @staticmethod
     def with_variables_config(tmpdir):
         file = tmpdir.join("with_variables_config.json")
         file.write("""{
