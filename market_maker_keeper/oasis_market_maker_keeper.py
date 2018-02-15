@@ -222,7 +222,7 @@ class OasisMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.order_book_manager.cancel_order(order.order_id, lambda: self.otc.kill(order.order_id).transact(gas_price=self.gas_price).successful)
+            self.order_book_manager.cancel_order(order.order_id, lambda order_id: self.otc.kill(order_id).transact(gas_price=self.gas_price).successful)
 
     def place_orders(self, new_orders):
         def place_order_function(new_order: NewOrder):

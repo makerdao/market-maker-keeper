@@ -152,7 +152,7 @@ class BiboxMarketMakerKeeper:
 
     def cancel_orders(self, orders):
         for order in orders:
-            self.order_book_manager.cancel_order(order.order_id, lambda: self.bibox_api.cancel_order(order.order_id))
+            self.order_book_manager.cancel_order(order.order_id, lambda order_id: self.bibox_api.cancel_order(order_id))
 
     def place_orders(self, new_orders):
         def place_order_function(new_order):

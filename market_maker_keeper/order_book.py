@@ -166,7 +166,7 @@ class OrderBookManager:
 
         def func():
             try:
-                if cancel_order_function():
+                if cancel_order_function(order_id):
                     with self._lock:
                         self._order_ids_cancelled.add(order_id)
                         self._order_ids_cancelling.remove(order_id)
