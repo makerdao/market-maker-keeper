@@ -61,8 +61,9 @@ Some market maker keepers use `setzer` in order to access price feeds like Gemin
 is built on top of `setzer` so in order for it to work correctly, `setzer` and its dependencies
 must be installed and available to the keepers. Please see: <https://github.com/makerdao/setzer>.
 
-Without `setzer` installed, the `--price-feed dai_eth` will lack reliability when the main price feed
-(which is currently a GDAX ETH/USD WebSocket) will become unavailable.
+Without `setzer` installed, the `--price-feed eth_dai` will lack reliability when the main price feed
+(which is currently the GDAX ETH/USD WebSocket feed) will become unavailable. It will not impact the
+reliability of `--price-feed btc_dai` which currently depends only on the GDAX BTC/USD WebSocket feed.
 
 
 ## Bands configuration
@@ -173,15 +174,14 @@ for the bands config file.
 
 Each keeper takes a `--price-feed` commandline argument which determines the price used for market-making.
 As of today there are four possible values of this argument:
-* `eth_dai` - uses a price from the GDAX WebSocket ETH/USD price feed, if it becomes unavailable then uses
+* `eth_dai` - uses the price from the GDAX WebSocket ETH/USD price feed, if it becomes unavailable then uses
   the average of Kraken and Gemini ETH/USD prices, if both of them become unavailable uses the price feed
   from `Tub`;
+* `btc_dai` - uses the price from the GDAX WebSocket BTC/USD price feed;
 * `tub` - uses the price feed from `Tub` (only works for keepers being able access an Ethereum node);
 * `fixed:1.56` - uses a fixed price, `1.56` in this example;
 * `file:filename.json` - continuously loads the price from a specified file, which should be a simple
   JSON document with only a `price` property.
-
-Old `gdax` and `gdax-websocket` modes are now aliases to `eth_dai`.
 
 
 ## `oasis-market-maker-keeper`
