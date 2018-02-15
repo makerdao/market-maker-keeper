@@ -190,9 +190,9 @@ class Bands:
 
         config = reloadable_config.get_config()
         self.buy_bands = list(map(BuyBand, config['buyBands']))
-        self.buy_limits = Limits(config['buyLimits'] if 'buyLimits' in config else [], history, 'buy')
+        self.buy_limits = Limits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
         self.sell_bands = list(map(SellBand, config['sellBands']))
-        self.sell_limits = Limits(config['sellLimits'] if 'sellLimits' in config else [], history, 'sell')
+        self.sell_limits = Limits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
 
         if self._bands_overlap(self.buy_bands) or self._bands_overlap(self.sell_bands):
             raise Exception(f"Bands in the config file overlap")
