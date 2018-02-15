@@ -175,11 +175,11 @@ created by market maker keepers. Both use the same format:
 ```json
 "buyLimits": [
     {
-        "time": "1h",
+        "period": "1h",
         "amount": 50.0
     },
     {
-        "time": "1d",
+        "period": "1d",
         "amount": 200.0
     }
 ]

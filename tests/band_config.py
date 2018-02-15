@@ -63,8 +63,8 @@ class BandConfig:
             ],
             "buyLimits": [
                 {
-                    time: "24h",
-                    amount: 100.0
+                    "period": "24h",
+                    "amount": 100.0
                 }
             ],
             "sellBands": [
@@ -80,8 +80,8 @@ class BandConfig:
             ],
             "sellLimits": [
                 {
-                    time: "24h",
-                    amount: 10.0
+                    "period": "24h",
+                    "amount": 10.0
                 }
             ]
         }""")

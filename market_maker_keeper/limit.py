@@ -68,7 +68,7 @@ class SideLimit:
     def __init__(self, limit: dict):
         assert(isinstance(limit, dict))
         self.amount = Wad.from_number(limit['amount'])
-        self.time = self._to_seconds(limit['time'])
+        self.seconds = self._to_seconds(limit['period'])
 
     def _to_seconds(self, string: str) -> int:
         assert(isinstance(string, str))
@@ -78,7 +78,7 @@ class SideLimit:
     def available_limit(self, timestamp: int, side_history: SideHistory):
         assert(isinstance(side_history, SideHistory))
 
-        items = filter(lambda item: timestamp - self.time < item['timestamp'] <= timestamp, side_history.get_items())
+        items = filter(lambda item: timestamp - self.seconds < item['timestamp'] <= timestamp, side_history.get_items())
         used_amount = reduce(Wad.__add__, map(lambda item: item['amount'], items), Wad(0))
 
         return Wad.max(self.amount - used_amount, Wad(0))
