@@ -851,6 +851,13 @@ class TestEtherDeltaMarketMakerKeeper:
         sai_order = self.orders_by_token(keeper, deployment.sai.address)[0]
         assert sai_order.pay_amount == Wad.from_number(25)
 
+        # when
+        deployment.etherdelta.trade(sai_order, sai_order.buy_amount).transact()
+        # and
+        keeper.synchronize_orders()
+        # then
+        assert len(self.orders_by_token(keeper, deployment.sai.address)) == 0
+
     def test_should_obey_sell_limits(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config_with_limits(tmpdir)
@@ -885,6 +892,13 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         eth_order = self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0]
         assert eth_order.pay_amount == Wad.from_number(2.5)
+
+        # when
+        deployment.etherdelta.trade(eth_order, eth_order.buy_amount).transact()
+        # and
+        keeper.synchronize_orders()
+        # then
+        assert len(self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)) == 0
 
     def test_should_cancel_all_orders_but_not_terminate_if_eth_balance_before_minimum_and_cannot_withdraw(self, deployment: Deployment, tmpdir: py.path.local):
         # given
