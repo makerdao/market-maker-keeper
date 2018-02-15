@@ -30,6 +30,7 @@ from tests.band_config import BandConfig
 from tests.helper import args
 
 
+@pytest.mark.skip("Multithreading issue")
 class TestOasisMarketMakerKeeper:
     @staticmethod
     def mint_tokens(deployment: Deployment):
