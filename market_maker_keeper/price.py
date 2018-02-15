@@ -295,13 +295,6 @@ class PriceFeedFactory:
         assert(isinstance(price_feed_expiry_argument, int))
         assert(isinstance(tub, Tub) or tub is None)
 
-        if price_feed_argument in ['gdax', 'gdax-websocket']:
-            logger = logging.getLogger()
-            logger.warning(f"Price feed '{price_feed_argument}' is deprecated, using 'eth_dai' instead")
-            logger.warning(f"Please update your scripts to use '--price-feed eth_dai'.")
-
-            price_feed_argument = 'eth_dai'
-
         if price_feed_argument == 'eth_dai':
             # main price feed
             main_price_feed = GdaxPriceFeed(ws_url="wss://ws-feed.gdax.com",
