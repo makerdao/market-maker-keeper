@@ -22,6 +22,8 @@ from typing import List
 
 import time
 
+from retry import retry
+
 from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.limit import History
 from market_maker_keeper.price import PriceFeedFactory
@@ -93,6 +95,7 @@ class GateIOMarketMakerKeeper:
         self.logger.info(f"Gate.io API key seems to be valid")
         self.logger.info(f"Keeper configured to work on the '{self.pair()}' pair")
 
+    @retry(delay=5, logger=logger)
     def shutdown(self):
         self.gateio_api.cancel_all_orders(self.pair())
 

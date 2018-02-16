@@ -19,6 +19,8 @@ import argparse
 import logging
 import sys
 
+from retry import retry
+
 from market_maker_keeper.band import Bands
 from market_maker_keeper.limit import History
 from market_maker_keeper.price import PriceFeedFactory
@@ -87,6 +89,7 @@ class OkexMarketMakerKeeper:
         self.logger.info(f"OKEX API key seems to be valid")
         self.logger.info(f"Keeper configured to work on the '{self.pair()}' pair")
 
+    @retry(delay=5, logger=logger)
     def shutdown(self):
         self.cancel_orders(self.our_orders())
 
