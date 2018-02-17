@@ -100,6 +100,9 @@ class ParadexMarketMakerKeeper:
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
+        parser.add_argument("--refresh-frequency", type=int, default=3,
+                            help="Order book refresh frequency (in seconds, default: 3)")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -128,7 +131,7 @@ class ParadexMarketMakerKeeper:
         with Lifecycle(self.web3) as lifecycle:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
-            lifecycle.every(3, self.synchronize_orders)
+            lifecycle.every(self.arguments.refresh_frequency, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):

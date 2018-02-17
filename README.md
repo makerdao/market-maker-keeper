@@ -497,6 +497,7 @@ usage: paradex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                    --order-expiry ORDER_EXPIRY
                                    [--min-eth-balance MIN_ETH_BALANCE]
                                    [--gas-price GAS_PRICE] [--smart-gas-price]
+                                   [--refresh-frequency REFRESH_FREQUENCY]
                                    [--debug]
 
 optional arguments:
@@ -536,6 +537,8 @@ optional arguments:
                         Gas price (in Wei)
   --smart-gas-price     Use smart gas pricing strategy, based on the
                         ethgasstation.info feed
+  --refresh-frequency REFRESH_FREQUENCY
+                        Order book refresh frequency (in seconds, default: 3)
   --debug               Enable debug output
 ```
 
