@@ -135,6 +135,9 @@ class OrderBookManager:
                     for order in orders_already_placed_before:
                         self._orders_placed.remove(order)
 
+                    if self._state is None:
+                        self.logger.info("Order book became available")
+
                     self._state = {'orders': orders, 'balances': balances}
 
                 self.logger.debug(f"Fetched the order book"
