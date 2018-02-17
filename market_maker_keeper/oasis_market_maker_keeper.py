@@ -225,27 +225,27 @@ class OasisMarketMakerKeeper:
             self.order_book_manager.cancel_order(order.order_id, lambda order=order: self.otc.kill(order.order_id).transact(gas_price=self.gas_price).successful)
 
     def place_orders(self, new_orders):
-        def place_order_function(new_order: NewOrder):
-            assert(isinstance(new_order, NewOrder))
+        def place_order_function(new_order_to_be_placed: NewOrder):
+            assert(isinstance(new_order_to_be_placed, NewOrder))
 
-            if new_order.is_sell:
+            if new_order_to_be_placed.is_sell:
                 pay_token = self.token_sell().address
                 buy_token = self.token_buy().address
             else:
                 pay_token = self.token_buy().address
                 buy_token = self.token_sell().address
 
-            transact = self.otc.make(pay_token=pay_token, pay_amount=new_order.pay_amount,
-                                     buy_token=buy_token, buy_amount=new_order.buy_amount).transact(gas_price=self.gas_price)
+            transact = self.otc.make(pay_token=pay_token, pay_amount=new_order_to_be_placed.pay_amount,
+                                     buy_token=buy_token, buy_amount=new_order_to_be_placed.buy_amount).transact(gas_price=self.gas_price)
 
             if transact is not None and transact.successful and transact.result is not None:
                 return Order(market=self.otc,
                              order_id=transact.result,
                              maker=self.our_address,
                              pay_token=pay_token,
-                             pay_amount=new_order.pay_amount,
+                             pay_amount=new_order_to_be_placed.pay_amount,
                              buy_token=buy_token,
-                             buy_amount=new_order.buy_amount,
+                             buy_amount=new_order_to_be_placed.buy_amount,
                              timestamp=0)
             else:
                 return None

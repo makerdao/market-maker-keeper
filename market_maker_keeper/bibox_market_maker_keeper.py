@@ -155,19 +155,19 @@ class BiboxMarketMakerKeeper:
             self.order_book_manager.cancel_order(order.order_id, lambda order=order: self.bibox_api.cancel_order(order.order_id))
 
     def place_orders(self, new_orders):
-        def place_order_function(new_order):
-            amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
+        def place_order_function(new_order_to_be_placed):
+            amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             amount_symbol = self.token_sell()
-            money = new_order.buy_amount if new_order.is_sell else new_order.pay_amount
+            money = new_order_to_be_placed.buy_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.pay_amount
             money_symbol = self.token_buy()
 
-            new_order_id = self.bibox_api.place_order(is_sell=new_order.is_sell,
+            new_order_id = self.bibox_api.place_order(is_sell=new_order_to_be_placed.is_sell,
                                                       amount=amount,
                                                       amount_symbol=amount_symbol,
                                                       money=money,
                                                       money_symbol=money_symbol)
 
-            return Order(new_order_id, 0, new_order.is_sell, Wad(0), amount, amount_symbol, money, money_symbol)
+            return Order(new_order_id, 0, new_order_to_be_placed.is_sell, Wad(0), amount, amount_symbol, money, money_symbol)
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
