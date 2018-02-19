@@ -54,8 +54,12 @@ class Band:
         self.max_amount = max_amount
         self.dust_cutoff = dust_cutoff
 
+        assert(self.min_amount >= Wad(0))
+        assert(self.avg_amount >= Wad(0))
+        assert(self.max_amount >= Wad(0))
         assert(self.min_amount <= self.avg_amount)
         assert(self.avg_amount <= self.max_amount)
+
         assert(self.min_margin <= self.avg_margin)
         assert(self.avg_margin <= self.max_margin)
         assert(self.min_margin < self.max_margin)
