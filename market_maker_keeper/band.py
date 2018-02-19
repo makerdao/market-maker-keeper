@@ -83,34 +83,17 @@ class Band:
 
     def excessive_orders(self, orders: list, target_price: Wad):
         """Return orders which need to be cancelled to bring the total order amount in the band below maximum."""
+
+        # Get all orders which are currently present in the band.
         orders_in_band = [order for order in orders if self.includes(order, target_price)]
-        if Bands.total_amount(orders_in_band) > self.max_amount:
-            def calculate_all_subsets():
-                for num in range(0, len(orders_in_band)):
-                    for combination in itertools.combinations(orders_in_band, num):
-                        yield set(combination)
 
-            # all possible subsets of orders which can be left uncancelled, including the empty subset
-            all_subsets = list(calculate_all_subsets())
+        # Keep removing orders starting from the smallest one until their total amount
+        # stops being greater than `maxAmount`.
+        orders_to_leave = sorted(orders_in_band, key=lambda order: order.remaining_sell_amount, reverse=True)
+        while Bands.total_amount(orders_to_leave) > self.max_amount:
+            orders_to_leave.pop()
 
-            # we are only choosing from these subsets which bring us to or below `band.max_amount`
-            candidate_subsets = list(filter(lambda subset: Bands.total_amount(subset) <= self.max_amount, all_subsets))
-
-            # we calculate the size of the largest subset of these, as this will result in the lowest number
-            # of order cancellations i.e. lowest gas consumption for the keeper
-            #
-            # then we only limit interesting subsets to the ones of that size, ignoring smaller ones
-            highest_cnt = max(map(lambda subset: len(subset), candidate_subsets))
-            candidate_subsets = filter(lambda subset: len(subset) == highest_cnt, candidate_subsets)
-
-            # from the interesting subsets we choose the with the highest total amount
-            found_subset = sorted(candidate_subsets, key=lambda subset: Bands.total_amount(subset), reverse=True)[0]
-
-            # as we are supposed to return the orders which should be cancelled, we return the complement
-            # of the found subset
-            return set(orders_in_band) - set(found_subset)
-        else:
-            return []
+        return set(orders_in_band) - set(orders_to_leave)
 
 
 class BuyBand(Band):
