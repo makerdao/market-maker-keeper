@@ -40,7 +40,7 @@ class WebSocketFeed:
 
         self._header = self._get_header(ws_url)
         self._sanitized_url = re.sub("://([^:@]+):([^:@]+)@", "://\g<1>@", ws_url)
-        self._last = {}, 0
+        self._last = {}, 0.0
         self._lock = threading.Lock()
 
         threading.Thread(target=self._background_run, daemon=True).start()
@@ -91,4 +91,17 @@ class WebSocketFeed:
 
 
 class ExpiringWebSocketFeed:
-    pass
+    def __init__(self, feed: WebSocketFeed, expiry: int):
+        assert(isinstance(feed, WebSocketFeed))
+        assert(isinstance(expiry, int))
+
+        self.feed = feed
+        self.expiry = expiry
+
+    def get(self) -> Tuple[dict, float]:
+        data, timestamp = self.feed.get()
+
+        if time.time() - timestamp <= self.expiry:
+            return data, timestamp
+        else:
+            return {}, 0.0
