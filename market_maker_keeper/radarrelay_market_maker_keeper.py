@@ -83,7 +83,7 @@ class RadarRelayMarketMakerKeeper:
                             help="Expiration time of created orders (in seconds)")
 
         parser.add_argument("--order-expiry-threshold", type=int, default=0,
-                            help="Order expiration time at which order is considered already expired (in seconds)")
+                            help="How long before order expiration it is considered already expired (in seconds)")
 
         parser.add_argument("--min-eth-balance", type=float, default=0,
                             help="Minimum ETH balance below which keeper will cease operation")
