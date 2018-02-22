@@ -24,7 +24,7 @@ from typing import Optional, List
 import os
 import websocket
 
-from market_maker_keeper.feed import ExpiringWebSocketFeed
+from market_maker_keeper.feed import ExpiringWebSocketFeed, WebSocketFeed
 from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
 from pymaker.numeric import Wad
@@ -330,6 +330,12 @@ class PriceFeedFactory:
 
         elif price_feed_argument.startswith("file:"):
             price_feed = FilePriceFeed(filename=price_feed_argument[5:], expiry=price_feed_expiry_argument)
+
+        elif price_feed_argument.startswith("ws://") or price_feed_argument.startswith("wss://"):
+            socket_feed = WebSocketFeed(price_feed_argument, 5)
+            socket_feed = ExpiringWebSocketFeed(socket_feed, price_feed_expiry_argument)
+
+            price_feed = WebSocketPriceFeed(socket_feed)
 
         else:
             raise Exception(f"'--price-feed {price_feed_argument}' unknown")
