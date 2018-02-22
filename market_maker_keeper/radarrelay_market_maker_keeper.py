@@ -16,12 +16,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import itertools
 import logging
-import operator
 import sys
 import time
-from functools import reduce
 
 from retry import retry
 from web3 import Web3, HTTPProvider
@@ -29,21 +26,20 @@ from web3 import Web3, HTTPProvider
 from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
-from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.price import PriceFeedFactory
+from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.util import setup_logging
 from pymaker import Address, synchronize
 from pymaker.approval import directly
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
-from pymaker.sai import Tub, Vox
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
-from pymaker.zrx import ZrxExchange, ZrxRelayerApi, Order
+from pymaker.zrx import ZrxExchange, ZrxRelayerApi
 
 
 class RadarRelayMarketMakerKeeper:
-    """Keeper acting as a market maker on RadarRelay, on the WETH/SAI pair."""
+    """Keeper acting as a market maker on RadarRelay."""
 
     logger = logging.getLogger()
 
@@ -62,14 +58,17 @@ class RadarRelayMarketMakerKeeper:
         parser.add_argument("--eth-from", type=str, required=True,
                             help="Ethereum account from which to send transactions")
 
-        parser.add_argument("--tub-address", type=str, required=True,
-                            help="Ethereum address of the Tub contract")
-
         parser.add_argument("--exchange-address", type=str, required=True,
                             help="Ethereum address of the 0x Exchange contract")
 
         parser.add_argument("--relayer-api-server", type=str, required=True,
                             help="Address of the 0x Relayer API")
+
+        parser.add_argument("--buy-token-address", type=str, required=True,
+                            help="Ethereum address of the buy token")
+
+        parser.add_argument("--sell-token-address", type=str, required=True,
+                            help="Ethereum address of the sell token")
 
         parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
@@ -108,15 +107,14 @@ class RadarRelayMarketMakerKeeper:
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
-        self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
-        self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
-        self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
+        self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
+        self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry, self.tub)
+                                                               self.arguments.price_feed_expiry)
 
         self.history = History()
         self.radar_relay = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
@@ -139,13 +137,7 @@ class RadarRelayMarketMakerKeeper:
 
     def approve(self):
         """Approve 0x to access our tokens, so we can sell it on the exchange."""
-        self.radar_relay.approve([self.token_sell(), self.token_buy()], directly(gas_price=self.gas_price))
-
-    def token_sell(self) -> ERC20Token:
-        return self.gem
-
-    def token_buy(self) -> ERC20Token:
-        return self.sai
+        self.radar_relay.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
     def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
@@ -159,12 +151,12 @@ class RadarRelayMarketMakerKeeper:
         return our_orders
 
     def our_sell_orders(self, our_orders: list) -> list:
-        return list(filter(lambda order: order.buy_token == self.token_buy().address and
-                                         order.pay_token == self.token_sell().address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_buy.address and
+                                         order.pay_token == self.token_sell.address, our_orders))
 
     def our_buy_orders(self, our_orders: list) -> list:
-        return list(filter(lambda order: order.buy_token == self.token_sell().address and
-                                         order.pay_token == self.token_buy().address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_sell.address and
+                                         order.pay_token == self.token_buy.address, our_orders))
 
     def synchronize_orders(self):
         """Update our positions in the order book to reflect keeper parameters."""
@@ -192,8 +184,8 @@ class RadarRelayMarketMakerKeeper:
 
         # In case of RadarRelay, balances returned by `our_total_balance` still contain amounts "locked"
         # by currently open orders, so we need to explicitly subtract these amounts.
-        our_buy_balance = self.our_total_balance(self.token_buy()) - Bands.total_amount(self.our_buy_orders(our_orders))
-        our_sell_balance = self.our_total_balance(self.token_sell()) - Bands.total_amount(self.our_sell_orders(our_orders))
+        our_buy_balance = self.our_total_balance(self.token_buy) - Bands.total_amount(self.our_buy_orders(our_orders))
+        our_sell_balance = self.our_total_balance(self.token_sell) - Bands.total_amount(self.our_sell_orders(our_orders))
 
         # Place new orders
         self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
@@ -207,8 +199,8 @@ class RadarRelayMarketMakerKeeper:
 
     def place_orders(self, new_orders):
         for new_order in new_orders:
-            pay_token = self.token_sell() if new_order.is_sell else self.token_buy()
-            buy_token = self.token_buy() if new_order.is_sell else self.token_sell()
+            pay_token = self.token_sell if new_order.is_sell else self.token_buy
+            buy_token = self.token_buy if new_order.is_sell else self.token_sell
 
             new_order = self.radar_relay.create_order(pay_token=pay_token.address, pay_amount=new_order.pay_amount,
                                                   buy_token=buy_token.address, buy_amount=new_order.buy_amount,
