@@ -114,6 +114,9 @@ class ParadexMarketMakerKeeper:
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
 
+        self.pair = self.arguments.pair.upper()
+        self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
+        self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
@@ -142,22 +145,13 @@ class ParadexMarketMakerKeeper:
         self.cancel_orders(self.our_orders())
 
     def approve(self):
-        self.zrx_exchange.approve([self.token_sell(), self.token_buy()], directly(gas_price=self.gas_price))
-
-    def pair(self):
-        return self.arguments.pair.upper()
-
-    def token_sell(self) -> ERC20Token:
-        return ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
-
-    def token_buy(self) -> ERC20Token:
-        return ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
+        self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
     def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
     def our_orders(self) -> list:
-        return self.paradex_api.get_orders(self.pair())
+        return self.paradex_api.get_orders(self.pair)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -191,8 +185,8 @@ class ParadexMarketMakerKeeper:
 
         # In case of Paradex, balances returned by `our_total_balance` still contain amounts "locked"
         # by currently open orders, so we need to explicitly subtract these amounts.
-        our_buy_balance = self.our_total_balance(self.token_buy()) - Bands.total_amount(self.our_buy_orders(our_orders))
-        our_sell_balance = self.our_total_balance(self.token_sell()) - Bands.total_amount(self.our_sell_orders(our_orders))
+        our_buy_balance = self.our_total_balance(self.token_buy) - Bands.total_amount(self.our_buy_orders(our_orders))
+        our_sell_balance = self.our_total_balance(self.token_sell) - Bands.total_amount(self.our_sell_orders(our_orders))
 
         # Place new orders
         self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
@@ -208,7 +202,7 @@ class ParadexMarketMakerKeeper:
     def place_orders(self, new_orders):
         for new_order in new_orders:
             amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
-            self.paradex_api.place_order(self.pair(), new_order.is_sell, new_order.price, amount, self.arguments.order_expiry)
+            self.paradex_api.place_order(self.pair, new_order.is_sell, new_order.price, amount, self.arguments.order_expiry)
 
 
 if __name__ == '__main__':
