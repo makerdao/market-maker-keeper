@@ -22,9 +22,8 @@ a series of orders in so called _bands_, which are configured with a JSON file
 containing parameters like spreads, maximum engagement etc. Please see the
 _"Bands configuration"_ section below for more details regarding keeper mechanics.
 
-Provided an appropriate price feed is available, the Bibox, Paradex, OKEX and gate.io keepers
-are capable of market-making on any token pair - configurable with the `--pair`
-commandline argument. The OasisDEX, EtherDelta, RadarRelay and IDEX keepers still are
+Provided an appropriate price feed is available, the Bibox, Paradex, OKEX, RadarRelay and gate.io keepers
+are capable of market-making on any token pair. The OasisDEX, EtherDelta and IDEX keepers still are
 to some extend bound to the DAI/W-ETH and DAI/ETH. This will be changed at some point in the future.
 
 This repo also contains an auxiliary tool called `oasis-market-maker-cancel`, which
@@ -417,10 +416,12 @@ keeper can be easily adapted to market-make on other 0x exchanges as well.
 usage: radarrelay-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       [--rpc-port RPC_PORT]
                                       [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                      ETH_FROM --tub-address TUB_ADDRESS
-                                      --exchange-address EXCHANGE_ADDRESS
-                                      --relayer-api-server RELAYER_API_SERVER
-                                      --config CONFIG --price-feed PRICE_FEED
+                                      ETH_FROM --exchange-address
+                                      EXCHANGE_ADDRESS --relayer-api-server
+                                      RELAYER_API_SERVER --buy-token-address
+                                      BUY_TOKEN_ADDRESS --sell-token-address
+                                      SELL_TOKEN_ADDRESS --config CONFIG
+                                      --price-feed PRICE_FEED
                                       [--price-feed-expiry PRICE_FEED_EXPIRY]
                                       --order-expiry ORDER_EXPIRY
                                       [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
@@ -436,12 +437,14 @@ optional arguments:
   --rpc-timeout RPC_TIMEOUT
                         JSON-RPC timeout (in seconds, default: 10)
   --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --tub-address TUB_ADDRESS
-                        Ethereum address of the Tub contract
   --exchange-address EXCHANGE_ADDRESS
                         Ethereum address of the 0x Exchange contract
   --relayer-api-server RELAYER_API_SERVER
                         Address of the 0x Relayer API
+  --buy-token-address BUY_TOKEN_ADDRESS
+                        Ethereum address of the buy token
+  --sell-token-address SELL_TOKEN_ADDRESS
+                        Ethereum address of the sell token
   --config CONFIG       Bands configuration file
   --price-feed PRICE_FEED
                         Source of price feed
