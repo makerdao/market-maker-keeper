@@ -148,7 +148,8 @@ class ZrxMarketMakerKeeper:
 
     def our_orders(self) -> list:
         api_orders = self.zrx_relayer_api.get_orders_by_maker(self.our_address, self.arguments.relayer_per_page)
-        return self.remove_old_orders(self.placed_orders + api_orders)
+        all_orders = list(set(self.placed_orders + api_orders))
+        return self.remove_old_orders(all_orders)
 
     def remove_old_orders(self, orders: list) -> list:
         current_timestamp = int(time.time())
