@@ -10,7 +10,7 @@ to automate certain operations around the Ethereum blockchain.
 market making on the following exchanges:
 * OasisDEX (`oasis-market-maker-keeper`),
 * EtherDelta (`etherdelta-market-maker-keeper`),
-* RadarRelay (`radarrelay-market-maker-keeper`),
+* 0x (`0x-market-maker-keeper`),
 * Paradex (`paradex-market-maker-keeper`),
 * IDEX (`idex-market-maker-keeper`),
 * Bibox (`bibox-market-maker-keeper`),
@@ -22,7 +22,7 @@ a series of orders in so called _bands_, which are configured with a JSON file
 containing parameters like spreads, maximum engagement etc. Please see the
 _"Bands configuration"_ section below for more details regarding keeper mechanics.
 
-Provided an appropriate price feed is available, the Bibox, Paradex, OKEX, RadarRelay and gate.io keepers
+Provided an appropriate price feed is available, the Bibox, Paradex, OKEX, 0x and gate.io keepers
 are capable of market-making on any token pair. The OasisDEX, EtherDelta and IDEX keepers still are
 to some extend bound to the DAI/W-ETH and DAI/ETH. This will be changed at some point in the future.
 
@@ -95,7 +95,7 @@ The same thing will happen if the total amount of open orders in a band falls be
 In this case also a new order gets created for the remaining amount so the total
 amount of orders in this band is equal to `avgAmount`.
 
-Some keepers will constantly use gas to cancel orders (OasisDEX, EtherDelta and RadarRelay)
+Some keepers will constantly use gas to cancel orders (OasisDEX, EtherDelta and 0x)
 and create new ones (OasisDEX) as the price changes. Gas usage can be limited
 by setting the margin and amount ranges wide enough and also by making sure that bands
 are always adjacent to each other and that their <min,max> amount ranges overlap.
@@ -404,31 +404,26 @@ optional arguments:
   (see: https://github.com/etherdelta/etherdelta.github.io/issues/274).
 
 
-## `radarrelay-market-maker-keeper`
+## `0x-market-maker-keeper`
 
-This keeper supports market-making on the [RadarRelay](https://app.radarrelay.com/) exchange.
-As _RadarRelay_ is a regular 0x Exchange implementing the _0x Standard Relayer API_, this
-keeper can be easily adapted to market-make on other 0x exchanges as well.
+This keeper supports market-making on any 0x exchange which implements the _0x Standard Relayer HTTP API_.
 
 ### Usage
 
 ```
-usage: radarrelay-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                      [--rpc-port RPC_PORT]
-                                      [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                      ETH_FROM --exchange-address
-                                      EXCHANGE_ADDRESS --relayer-api-server
-                                      RELAYER_API_SERVER --buy-token-address
-                                      BUY_TOKEN_ADDRESS --sell-token-address
-                                      SELL_TOKEN_ADDRESS --config CONFIG
-                                      --price-feed PRICE_FEED
-                                      [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                      --order-expiry ORDER_EXPIRY
-                                      [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
-                                      [--min-eth-balance MIN_ETH_BALANCE]
-                                      [--cancel-on-shutdown]
-                                      [--gas-price GAS_PRICE]
-                                      [--smart-gas-price] [--debug]
+usage: 0x-market-maker-keeper [-h] [--rpc-host RPC_HOST] [--rpc-port RPC_PORT]
+                              [--rpc-timeout RPC_TIMEOUT] --eth-from ETH_FROM
+                              --exchange-address EXCHANGE_ADDRESS
+                              --relayer-api-server RELAYER_API_SERVER
+                              --buy-token-address BUY_TOKEN_ADDRESS
+                              --sell-token-address SELL_TOKEN_ADDRESS --config
+                              CONFIG --price-feed PRICE_FEED
+                              [--price-feed-expiry PRICE_FEED_EXPIRY]
+                              --order-expiry ORDER_EXPIRY
+                              [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
+                              [--min-eth-balance MIN_ETH_BALANCE]
+                              [--cancel-on-shutdown] [--gas-price GAS_PRICE]
+                              [--smart-gas-price] [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -454,13 +449,13 @@ optional arguments:
   --order-expiry ORDER_EXPIRY
                         Expiration time of created orders (in seconds)
   --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
-                        Order expiration time at which order is considered
+                        How long before order expiration it is considered
                         already expired (in seconds)
   --min-eth-balance MIN_ETH_BALANCE
                         Minimum ETH balance below which keeper will cease
                         operation
-  --cancel-on-shutdown  Whether should cancel all open orders on RadarRelay on
-                        keeper shutdown
+  --cancel-on-shutdown  Whether should cancel all open orders on keeper
+                        shutdown
   --gas-price GAS_PRICE
                         Gas price (in Wei)
   --smart-gas-price     Use smart gas pricing strategy, based on the
@@ -470,8 +465,8 @@ optional arguments:
 
 ### Known limitations
 
-* Expired and/or taken orders to not disappear from the RadarRelay UI immediately. Apparently they run a
-  backend process called _chain watching service_, which for tokens with little liquidity kicks in only
+* In case of RadarRelay, expired and/or taken orders to not disappear from the UI immediately. Apparently they run
+  a backend process called _chain watching service_, which for tokens with little liquidity kicks in only
   every 10 minutes and does order pruning. Because of that, if we configure the keeper to refresh
   the orders too frequently (i.e. if the `--order-expiry` will be too low), the exchange users will
   see two or even more duplicates of market maker orders.
