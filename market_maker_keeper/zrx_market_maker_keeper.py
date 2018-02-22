@@ -64,6 +64,9 @@ class ZrxMarketMakerKeeper:
         parser.add_argument("--relayer-api-server", type=str, required=True,
                             help="Address of the 0x Relayer API")
 
+        parser.add_argument("--relayer-per-page", type=int, default=100,
+                            help="Number of orders to fetch per one page from the 0x Relayer API (default: 100)")
+
         parser.add_argument("--buy-token-address", type=str, required=True,
                             help="Ethereum address of the buy token")
 
@@ -119,6 +122,7 @@ class ZrxMarketMakerKeeper:
         self.history = History()
         self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.zrx_relayer_api = ZrxRelayerApi(exchange=self.zrx_exchange, api_server=self.arguments.relayer_api_server)
+        self.placed_orders = []
 
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
@@ -143,12 +147,17 @@ class ZrxMarketMakerKeeper:
         return token.balance_of(self.our_address)
 
     def our_orders(self) -> list:
-        our_orders = self.zrx_relayer_api.get_orders_by_maker(self.our_address)
-        current_timestamp = int(time.time())
+        api_orders = self.zrx_relayer_api.get_orders_by_maker(self.our_address, self.arguments.relayer_per_page)
+        print(f"PLACED: {len(self.placed_orders)}")
+        print(f"API: {len(api_orders)}")
+        print(f"TOTAL: {len(self.remove_old_orders(self.placed_orders + api_orders))}")
+        return self.remove_old_orders(self.placed_orders + api_orders)
 
-        our_orders = list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, our_orders))
-        our_orders = list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, our_orders))
-        return our_orders
+    def remove_old_orders(self, orders: list) -> list:
+        current_timestamp = int(time.time())
+        orders = list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, orders))
+        orders = list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, orders))
+        return orders
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.buy_token == self.token_buy.address and
@@ -202,13 +211,16 @@ class ZrxMarketMakerKeeper:
             pay_token = self.token_sell if new_order.is_sell else self.token_buy
             buy_token = self.token_buy if new_order.is_sell else self.token_sell
 
-            new_order = self.zrx_exchange.create_order(pay_token=pay_token.address, pay_amount=new_order.pay_amount,
+            zrx_order = self.zrx_exchange.create_order(pay_token=pay_token.address, pay_amount=new_order.pay_amount,
                                                        buy_token=buy_token.address, buy_amount=new_order.buy_amount,
                                                        expiration=int(time.time()) + self.arguments.order_expiry)
 
-            new_order = self.zrx_relayer_api.calculate_fees(new_order)
-            new_order = self.zrx_exchange.sign_order(new_order)
-            self.zrx_relayer_api.submit_order(new_order)
+            zrx_order = self.zrx_relayer_api.calculate_fees(zrx_order)
+            zrx_order = self.zrx_exchange.sign_order(zrx_order)
+
+            if self.zrx_relayer_api.submit_order(zrx_order):
+                self.placed_orders = self.remove_old_orders(self.placed_orders)
+                self.placed_orders.append(zrx_order)
 
 
 if __name__ == '__main__':
