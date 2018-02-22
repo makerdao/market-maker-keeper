@@ -24,6 +24,7 @@ from typing import Optional, List
 import os
 import websocket
 
+from market_maker_keeper.feed import ExpiringWebSocketFeed
 from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
 from pymaker.numeric import Wad
@@ -231,6 +232,21 @@ class GdaxPriceFeed(PriceFeed):
 
     def _process_heartbeat(self):
         self._last_timestamp = time.time()
+
+
+class WebSocketPriceFeed(PriceFeed):
+    def __init__(self, feed: ExpiringWebSocketFeed):
+        assert(isinstance(feed, ExpiringWebSocketFeed))
+
+        self.feed = feed
+
+    def get_price(self) -> Optional[Wad]:
+        data, timestamp = self.feed.get()
+
+        try:
+            return Wad.from_number(data['price'])
+        except:
+            return None
 
 
 class AveragePriceFeed(PriceFeed):
