@@ -39,7 +39,7 @@ from pymaker.zrx import ZrxExchange, ZrxRelayerApi
 
 
 class RadarRelayMarketMakerKeeper:
-    """Keeper acting as a market maker on RadarRelay."""
+    """Keeper acting as a market maker on any 0x exchange implementing the Standard 0x Relayer API V0."""
 
     logger = logging.getLogger()
 
@@ -89,7 +89,7 @@ class RadarRelayMarketMakerKeeper:
                             help="Minimum ETH balance below which keeper will cease operation")
 
         parser.add_argument('--cancel-on-shutdown', dest='cancel_on_shutdown', action='store_true',
-                            help="Whether should cancel all open orders on RadarRelay on keeper shutdown")
+                            help="Whether should cancel all open orders on keeper shutdown")
 
         parser.add_argument("--gas-price", type=int, default=0,
                             help="Gas price (in Wei)")
@@ -182,7 +182,7 @@ class RadarRelayMarketMakerKeeper:
             self.cancel_orders(cancellable_orders)
             return
 
-        # In case of RadarRelay, balances returned by `our_total_balance` still contain amounts "locked"
+        # Balances returned by `our_total_balance` still contain amounts "locked"
         # by currently open orders, so we need to explicitly subtract these amounts.
         our_buy_balance = self.our_total_balance(self.token_buy) - Bands.total_amount(self.our_buy_orders(our_orders))
         our_sell_balance = self.our_total_balance(self.token_sell) - Bands.total_amount(self.our_sell_orders(our_orders))
