@@ -415,6 +415,7 @@ usage: 0x-market-maker-keeper [-h] [--rpc-host RPC_HOST] [--rpc-port RPC_PORT]
                               [--rpc-timeout RPC_TIMEOUT] --eth-from ETH_FROM
                               --exchange-address EXCHANGE_ADDRESS
                               --relayer-api-server RELAYER_API_SERVER
+                              [--relayer-per-page RELAYER_PER_PAGE]
                               --buy-token-address BUY_TOKEN_ADDRESS
                               --sell-token-address SELL_TOKEN_ADDRESS --config
                               CONFIG --price-feed PRICE_FEED
@@ -436,6 +437,9 @@ optional arguments:
                         Ethereum address of the 0x Exchange contract
   --relayer-api-server RELAYER_API_SERVER
                         Address of the 0x Relayer API
+  --relayer-per-page RELAYER_PER_PAGE
+                        Number of orders to fetch per one page from the 0x
+                        Relayer API (default: 100)
   --buy-token-address BUY_TOKEN_ADDRESS
                         Ethereum address of the buy token
   --sell-token-address SELL_TOKEN_ADDRESS
@@ -465,11 +469,21 @@ optional arguments:
 
 ### Known limitations
 
+* This keeper is confirmed to work with RadarRelay and ERCdEX.
+
 * In case of RadarRelay, expired and/or taken orders to not disappear from the UI immediately. Apparently they run
   a backend process called _chain watching service_, which for tokens with little liquidity kicks in only
   every 10 minutes and does order pruning. Because of that, if we configure the keeper to refresh
   the orders too frequently (i.e. if the `--order-expiry` will be too low), the exchange users will
   see two or even more duplicates of market maker orders.
+
+* The _0x Standard Relayer HTTP API_ specifies 100 as the maximal page size for querying open orders.
+  Having said that, some exchanges (e.g. RadarRelay) support more than that, so the `--relayer-per-page`
+  argument can be used to increase this limit. Just bear in mind this is against the spec.
+
+* Relayers tend to silently discard orders, for example if the ZRX token balance available in keeper account
+  is too low. Even after successful order placement confirmation from the API the order may still disappear
+  one or two seconds later.
 
 
 ## `paradex-market-maker-keeper`
