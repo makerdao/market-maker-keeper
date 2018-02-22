@@ -27,7 +27,7 @@ import websocket
 from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
 from pymaker.numeric import Wad
-from pymaker.sai import Tub, Vox
+from pymaker.sai import Tub
 
 
 class PriceFeed(object):
@@ -56,22 +56,6 @@ class TubPriceFeed(PriceFeed):
 
     def get_price(self) -> Optional[Wad]:
         return Wad(self.ds_value.read_as_int())
-
-
-class ApplyTargetPrice(PriceFeed):
-    def __init__(self, price_feed: PriceFeed, vox: Vox):
-        assert(isinstance(price_feed, PriceFeed))
-        assert(isinstance(vox, Vox))
-
-        self.price_feed = price_feed
-        self.vox = vox
-
-    def get_price(self) -> Optional[Wad]:
-        price = self.price_feed.get_price()
-        if price is None:
-            return None
-        else:
-            return price / Wad(self.vox.par())
 
 
 class FilePriceFeed(PriceFeed):
@@ -333,13 +317,5 @@ class PriceFeedFactory:
 
         else:
             raise Exception(f"'--price-feed {price_feed_argument}' unknown")
-
-        # Optimization.
-        # Ultimately we should do:
-        # if vox is not None:
-        #     return ApplyTargetPrice(price_feed, vox)
-        #
-        # Actually, maybe there should be a distinction between `eth_usd`/`btc_usd` and `eth_dai`/`btc_dai`,
-        # the former being a raw price feed whereas the latter would take Vox into account...?
 
         return price_feed

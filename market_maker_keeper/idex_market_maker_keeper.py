@@ -39,7 +39,7 @@ from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from market_maker_keeper.band import Bands
 from market_maker_keeper.price import PriceFeedFactory
-from pymaker.sai import Tub, Vox
+from pymaker.sai import Tub
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
 

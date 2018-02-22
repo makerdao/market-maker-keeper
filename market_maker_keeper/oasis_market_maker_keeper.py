@@ -35,7 +35,7 @@ from pymaker.approval import directly
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.oasis import Order, MatchingMarket
-from pymaker.sai import Tub, Vox
+from pymaker.sai import Tub
 from pymaker.token import ERC20Token
 from pymaker.util import synchronize, eth_balance
 
