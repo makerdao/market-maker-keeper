@@ -10,7 +10,7 @@ to automate certain operations around the Ethereum blockchain.
 market making on the following exchanges:
 * OasisDEX (`oasis-market-maker-keeper`),
 * EtherDelta (`etherdelta-market-maker-keeper`),
-* 0x (`0x-market-maker-keeper`),
+* RadarRelay and ERCdEX (`0x-market-maker-keeper`),
 * Paradex (`paradex-market-maker-keeper`),
 * IDEX (`idex-market-maker-keeper`),
 * Bibox (`bibox-market-maker-keeper`),
