@@ -22,9 +22,9 @@ a series of orders in so called _bands_, which are configured with a JSON file
 containing parameters like spreads, maximum engagement etc. Please see the
 _"Bands configuration"_ section below for more details regarding keeper mechanics.
 
-Provided an appropriate price feed is available, the Bibox, Paradex, OKEX, 0x and gate.io keepers
-are capable of market-making on any token pair. The OasisDEX, EtherDelta and IDEX keepers still are
-to some extend bound to the DAI/W-ETH and DAI/ETH. This will be changed at some point in the future.
+Provided an appropriate price feed is available, the OasisDEX, Bibox, Paradex, OKEX, 0x and gate.io keepers
+are capable of market-making on any token pair. The EtherDelta and IDEX keepers still are
+to some extend bound to the DAI/ETH pair. This will be changed at some point in the future.
 
 This repo also contains an auxiliary tool called `oasis-market-maker-cancel`, which
 may be used for emergency cancelling all market maker orders on OasisDEX if the
@@ -220,9 +220,11 @@ This keeper supports market-making on the [OasisDEX](https://oasisdex.com/) exch
 usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                  [--rpc-port RPC_PORT]
                                  [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                 ETH_FROM --tub-address TUB_ADDRESS
-                                 --oasis-address OASIS_ADDRESS --config CONFIG
-                                 --price-feed PRICE_FEED
+                                 ETH_FROM [--tub-address TUB_ADDRESS]
+                                 --oasis-address OASIS_ADDRESS
+                                 --buy-token-address BUY_TOKEN_ADDRESS
+                                 --sell-token-address SELL_TOKEN_ADDRESS
+                                 --config CONFIG --price-feed PRICE_FEED
                                  [--price-feed-expiry PRICE_FEED_EXPIRY]
                                  [--round-places ROUND_PLACES]
                                  [--min-eth-balance MIN_ETH_BALANCE]
@@ -240,6 +242,10 @@ optional arguments:
                         Ethereum address of the Tub contract
   --oasis-address OASIS_ADDRESS
                         Ethereum address of the OasisDEX contract
+  --buy-token-address BUY_TOKEN_ADDRESS
+                        Ethereum address of the buy token
+  --sell-token-address SELL_TOKEN_ADDRESS
+                        Ethereum address of the sell token
   --config CONFIG       Bands configuration file
   --price-feed PRICE_FEED
                         Source of price feed
