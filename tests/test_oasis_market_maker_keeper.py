@@ -30,7 +30,6 @@ from tests.band_config import BandConfig
 from tests.helper import args
 
 
-@pytest.mark.skip("Multithreading issue")
 class TestOasisMarketMakerKeeper:
     @staticmethod
     def mint_tokens(deployment: Deployment):
@@ -51,8 +50,9 @@ class TestOasisMarketMakerKeeper:
 
     @staticmethod
     def synchronize_orders_twice(keeper: OasisMarketMakerKeeper):
-        keeper.synchronize_orders()
-        keeper.synchronize_orders()
+        for _ in range(0, 2):
+            keeper.synchronize_orders()
+            keeper.order_book_manager.wait_for_stable_order_book()
 
     def test_should_create_orders_on_startup(self, deployment: Deployment, tmpdir):
         # given
@@ -235,6 +235,8 @@ class TestOasisMarketMakerKeeper:
         # when
         deployment.otc.take(sai_order_id, Wad.from_number(20)).transact()
         # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
+        # and
         self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 2
@@ -242,12 +244,16 @@ class TestOasisMarketMakerKeeper:
         # when
         deployment.otc.take(sai_order_id, Wad.from_number(5)).transact()
         # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
+        # and
         self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 2
 
         # when
         deployment.otc.take(sai_order_id, Wad.from_number(1)).transact()
+        # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
         # and
         self.synchronize_orders_twice(keeper)
         # then
@@ -282,6 +288,8 @@ class TestOasisMarketMakerKeeper:
         # when [75+17 = 92]
         deployment.otc.make(deployment.sai.address, Wad.from_number(17), deployment.gem.address, Wad.from_number(0.1770805)).transact()
         # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
+        # and
         self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 3
@@ -289,12 +297,16 @@ class TestOasisMarketMakerKeeper:
         # when [92+2 = 94]
         deployment.otc.make(deployment.sai.address, Wad.from_number(2), deployment.gem.address, Wad.from_number(0.020833)).transact()
         # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
+        # and
         self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 4
 
         # when [94+7 = 101] --> above max!
         deployment.otc.make(deployment.sai.address, Wad.from_number(7), deployment.gem.address, Wad.from_number(0.072912)).transact()
+        # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
         # and
         self.synchronize_orders_twice(keeper)
         # then
@@ -325,6 +337,8 @@ class TestOasisMarketMakerKeeper:
         # and
         # [one artificially created order above the max band threshold]
         deployment.otc.make(deployment.sai.address, Wad.from_number(170), deployment.gem.address, Wad.from_number(1.770805)).transact()
+        # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
 
         # when
         self.synchronize_orders_twice(keeper)
@@ -363,6 +377,8 @@ class TestOasisMarketMakerKeeper:
         # when [7.5+2.0 = 9.5]
         deployment.otc.make(deployment.gem.address, Wad.from_number(2), deployment.sai.address, Wad.from_number(208)).transact()
         # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
+        # and
         self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 3
@@ -370,12 +386,16 @@ class TestOasisMarketMakerKeeper:
         # when [9.5+0.5 = 10]
         deployment.otc.make(deployment.gem.address, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(52)).transact()
         # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
+        # and
         self.synchronize_orders_twice(keeper)
         # then
         assert len(deployment.otc.get_orders()) == 4
 
         # when [10+0.1 = 10.1] --> above max!
         deployment.otc.make(deployment.gem.address, Wad.from_number(0.1), deployment.sai.address, Wad.from_number(10.4)).transact()
+        # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
         # and
         self.synchronize_orders_twice(keeper)
         # then
@@ -406,6 +426,8 @@ class TestOasisMarketMakerKeeper:
         # and
         # [one artificially created order above the max band threshold]
         deployment.otc.make(deployment.gem.address, Wad.from_number(20), deployment.sai.address, Wad.from_number(2080)).transact()
+        # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
 
         # when
         self.synchronize_orders_twice(keeper)
@@ -447,6 +469,8 @@ class TestOasisMarketMakerKeeper:
         deployment.otc.make(deployment.gem.address, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(50.5)).transact() #price=101
         deployment.otc.make(deployment.gem.address, Wad.from_number(0.5), deployment.sai.address, Wad.from_number(53.5)).transact() #price=107
         assert len(deployment.otc.get_orders()) == 6
+        # and
+        keeper.order_book_manager.wait_for_order_book_refresh()
         # and
         self.synchronize_orders_twice(keeper)
         # then

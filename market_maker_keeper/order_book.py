@@ -47,6 +47,7 @@ class OrderBookManager:
 
         self._lock = threading.Lock()
         self._state = None
+        self._refresh_count = 0
         self._currently_placing_orders = 0
         self._orders_placed = list()
         self._order_ids_cancelling = set()
@@ -119,6 +120,26 @@ class OrderBookManager:
         while len(self._order_ids_cancelling) > 0:
             time.sleep(0.1)
 
+    def wait_for_order_book_refresh(self):
+        with self._lock:
+            old_counter = self._refresh_count
+
+        while True:
+            with self._lock:
+                new_counter = self._refresh_count
+
+            if new_counter > old_counter:
+                break
+
+            time.sleep(0.1)
+
+    def wait_for_stable_order_book(self):
+        while True:
+            order_book = self.get_order_book()
+            if not order_book.orders_being_cancelled and not order_book.orders_being_placed:
+                break
+            time.sleep(0.1)
+
     def _thread_refresh_order_book(self):
         while True:
             try:
@@ -139,6 +160,7 @@ class OrderBookManager:
                         self.logger.info("Order book became available")
 
                     self._state = {'orders': orders, 'balances': balances}
+                    self._refresh_count += 1
 
                 self.logger.debug(f"Fetched the order book"
                                   f" (orders: {[order.order_id for order in orders]})")
