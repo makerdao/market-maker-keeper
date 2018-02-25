@@ -62,6 +62,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -100,6 +102,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -128,6 +132,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -159,6 +165,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -193,6 +201,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -217,6 +227,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -271,6 +283,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -322,6 +336,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                              web3=deployment.web3)
@@ -360,6 +376,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -411,6 +429,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -449,6 +469,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -484,6 +506,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -522,6 +546,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
@@ -584,6 +610,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file} "
                                                   f"--gas-price 70000000000"),
@@ -615,6 +643,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file} "
                                                   f"--min-eth-balance 100.0"),
@@ -651,6 +681,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file} "
                                                   f"--min-eth-balance 100.0"),
@@ -681,6 +713,8 @@ class TestOasisMarketMakerKeeper:
         keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
                                                   f"--tub-address {deployment.tub.address} "
                                                   f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
                                                   f"--price-feed tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)

@@ -41,7 +41,7 @@ from pymaker.util import synchronize, eth_balance
 
 
 class OasisMarketMakerKeeper:
-    """Keeper acting as a market maker on OasisDEX, on the W-ETH/SAI pair."""
+    """Keeper acting as a market maker on OasisDEX."""
 
     logger = logging.getLogger()
 
@@ -60,11 +60,17 @@ class OasisMarketMakerKeeper:
         parser.add_argument("--eth-from", type=str, required=True,
                             help="Ethereum account from which to send transactions")
 
-        parser.add_argument("--tub-address", type=str, required=True,
+        parser.add_argument("--tub-address", type=str, required=False,
                             help="Ethereum address of the Tub contract")
 
         parser.add_argument("--oasis-address", type=str, required=True,
                             help="Ethereum address of the OasisDEX contract")
+
+        parser.add_argument("--buy-token-address", type=str, required=True,
+                            help="Ethereum address of the buy token")
+
+        parser.add_argument("--sell-token-address", type=str, required=True,
+                            help="Ethereum address of the sell token")
 
         parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
@@ -98,15 +104,17 @@ class OasisMarketMakerKeeper:
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
         self.otc = MatchingMarket(web3=self.web3, address=Address(self.arguments.oasis_address))
-        self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
-        self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
-        self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
+        tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address)) \
+            if self.arguments.tub_address is not None else None
+
+        self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
+        self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry, self.tub)
+                                                               self.arguments.price_feed_expiry, tub)
 
         self.history = History()
         self.order_book_manager = OrderBookManager(refresh_frequency=3)
@@ -135,29 +143,23 @@ class OasisMarketMakerKeeper:
 
     def approve(self):
         """Approve OasisDEX to access our balances, so we can place orders."""
-        self.otc.approve([self.token_sell(), self.token_buy()], directly(gas_price=self.gas_price))
-
-    def token_sell(self) -> ERC20Token:
-        return self.gem
-
-    def token_buy(self) -> ERC20Token:
-        return self.sai
+        self.otc.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
     def our_available_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
     def our_orders(self):
         return list(filter(lambda order: order.maker == self.our_address,
-                           self.otc.get_orders(self.token_sell().address, self.token_buy().address) +
-                           self.otc.get_orders(self.token_buy().address, self.token_sell().address)))
+                           self.otc.get_orders(self.token_sell.address, self.token_buy.address) +
+                           self.otc.get_orders(self.token_buy.address, self.token_sell.address)))
 
     def our_sell_orders(self, our_orders: list):
-        return list(filter(lambda order: order.buy_token == self.token_buy().address and
-                                         order.pay_token == self.token_sell().address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_buy.address and
+                                         order.pay_token == self.token_sell.address, our_orders))
 
     def our_buy_orders(self, our_orders: list):
-        return list(filter(lambda order: order.buy_token == self.token_sell().address and
-                                         order.pay_token == self.token_buy().address, our_orders))
+        return list(filter(lambda order: order.buy_token == self.token_sell.address and
+                                         order.pay_token == self.token_buy.address, our_orders))
 
     def synchronize_orders(self):
         # If market is closed, cancel all orders but do not terminate the keeper.
@@ -205,8 +207,8 @@ class OasisMarketMakerKeeper:
         # Place new orders
         self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                            our_sell_orders=self.our_sell_orders(order_book.orders),
-                                           our_buy_balance=self.our_available_balance(self.token_buy()),
-                                           our_sell_balance=self.our_available_balance(self.token_sell()),
+                                           our_buy_balance=self.our_available_balance(self.token_buy),
+                                           our_sell_balance=self.our_available_balance(self.token_sell),
                                            target_price=target_price)[0])
 
     def cancel_all_orders(self):
@@ -229,11 +231,11 @@ class OasisMarketMakerKeeper:
             assert(isinstance(new_order_to_be_placed, NewOrder))
 
             if new_order_to_be_placed.is_sell:
-                pay_token = self.token_sell().address
-                buy_token = self.token_buy().address
+                pay_token = self.token_sell.address
+                buy_token = self.token_buy.address
             else:
-                pay_token = self.token_buy().address
-                buy_token = self.token_sell().address
+                pay_token = self.token_buy.address
+                buy_token = self.token_sell.address
 
             transact = self.otc.make(pay_token=pay_token, pay_amount=new_order_to_be_placed.pay_amount,
                                      buy_token=buy_token, buy_amount=new_order_to_be_placed.buy_amount).transact(gas_price=self.gas_price)
