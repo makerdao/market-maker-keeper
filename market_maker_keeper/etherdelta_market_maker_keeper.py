@@ -300,18 +300,20 @@ class EtherDeltaMarketMakerKeeper:
         self.cancel_orders(self.our_orders, self.web3.eth.blockNumber)
 
     def place_orders(self, new_orders):
+        # EtherDelta sometimes rejects orders when the amounts are not rounded. Choice of choosing
+        # rounding to 9 decimal digits is completely arbitrary as it's not documented anywhere.
         for new_order in new_orders:
             if new_order.is_sell:
                 order = self.etherdelta.create_order(pay_token=self.token_sell(),
-                                                     pay_amount=self.fix_amount(new_order.pay_amount),
+                                                     pay_amount=round(new_order.pay_amount, 9),
                                                      buy_token=self.token_buy(),
-                                                     buy_amount=self.fix_amount(new_order.buy_amount),
+                                                     buy_amount=round(new_order.buy_amount, 9),
                                                      expires=self.web3.eth.blockNumber + self.arguments.order_age)
             else:
                 order = self.etherdelta.create_order(pay_token=self.token_buy(),
-                                                     pay_amount=self.fix_amount(new_order.pay_amount),
+                                                     pay_amount=round(new_order.pay_amount, 9),
                                                      buy_token=self.token_sell(),
-                                                     buy_amount=self.fix_amount(new_order.buy_amount),
+                                                     buy_amount=round(new_order.buy_amount, 9),
                                                      expires=self.web3.eth.blockNumber + self.arguments.order_age)
 
             self.place_order(order)
@@ -346,21 +348,6 @@ class EtherDeltaMarketMakerKeeper:
             return self.etherdelta.deposit_token(self.token_buy(), depositable_sai).transact(gas_price=self.gas_price).successful
         else:
             return False
-
-    @staticmethod
-    def fix_amount(amount: Wad) -> Wad:
-        # for some reason, the EtherDelta backend rejects offchain orders with some amounts
-        # for example, the following order:
-        #       self.etherdelta.place_order_offchain(self.sai.address, Wad(93033469375510291122),
-        #                                                 EtherDelta.ETH_TOKEN, Wad(400000000000000000),
-        #                                                 self.web3.eth.blockNumber + 50)
-        # will get placed correctly, but if we substitute 93033469375510291122 for 93033469375510237227
-        # the backend will not accept it. this is 100% reproductible with above amounts,
-        # although I wasn't able to figure out the actual reason
-        #
-        # what I have noticed is that rounding the amount seems to help,
-        # so this is what this particular method does
-        return Wad(int(amount.value / 10**9) * 10**9)
 
 
 if __name__ == '__main__':
