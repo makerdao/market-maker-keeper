@@ -17,27 +17,23 @@
 
 import argparse
 import logging
-import operator
 import sys
-from functools import reduce
-
-import itertools
 from typing import Iterable
 
 from retry import retry
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.limit import History
-from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.limit import History
+from market_maker_keeper.price import PriceFeedFactory
+from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.util import setup_logging
 from pymaker import Address, synchronize
 from pymaker.approval import directly
 from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
-from market_maker_keeper.band import Bands
-from market_maker_keeper.price import PriceFeedFactory
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
