@@ -17,28 +17,23 @@
 
 import argparse
 import logging
-import operator
 import sys
-from functools import reduce
-
-import itertools
-from typing import Iterable
 
 from retry import retry
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.limit import History
-from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.limit import History
+from market_maker_keeper.price import PriceFeedFactory
+from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.util import setup_logging
 from pyexchange.idex import IDEX, IDEXApi
-from pymaker import Address, synchronize
+from pymaker import Address
 from pymaker.approval import directly
-from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
+from pymaker.etherdelta import EtherDelta
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
-from market_maker_keeper.band import Bands
-from market_maker_keeper.price import PriceFeedFactory
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
@@ -150,7 +145,6 @@ class IdexMarketMakerKeeper:
         self.cancel_all_orders()
 
     def approve(self):
-        """Approve IEEX to access our tokens, so we can deposit them with the exchange"""
         token_addresses = filter(lambda address: address != IDEX.ETH_TOKEN, [self.token_sell(), self.token_buy()])
         tokens = list(map(lambda address: ERC20Token(web3=self.web3, address=address), token_addresses))
 

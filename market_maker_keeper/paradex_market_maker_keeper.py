@@ -160,7 +160,6 @@ class ParadexMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        """Update our positions in the order book to reflect keeper parameters."""
         if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
             self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
             self.cancel_orders(self.our_orders())

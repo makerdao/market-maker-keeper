@@ -140,7 +140,6 @@ class ZrxMarketMakerKeeper:
             self.cancel_orders(self.our_orders())
 
     def approve(self):
-        """Approve 0x to access our tokens, so we can sell it on the exchange."""
         self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
     def our_total_balance(self, token: ERC20Token) -> Wad:
@@ -166,7 +165,6 @@ class ZrxMarketMakerKeeper:
                                          order.pay_token == self.token_buy.address, our_orders))
 
     def synchronize_orders(self):
-        """Update our positions in the order book to reflect keeper parameters."""
         if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
             self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
             self.cancel_orders(self.our_orders())

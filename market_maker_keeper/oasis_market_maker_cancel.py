@@ -52,11 +52,9 @@ class OasisMarketMakerCancel:
         self.cancel_orders(self.our_orders(self.otc.get_orders()))
 
     def our_orders(self, orders: list):
-        """Return list of orders owned by us."""
         return list(filter(lambda order: order.maker == self.our_address, orders))
 
     def cancel_orders(self, orders: list):
-        """Cancel orders asynchronously."""
         synchronize([self.otc.kill(order.order_id).transact_async(gas_price=self.gas_price()) for order in orders])
 
     def gas_price(self):

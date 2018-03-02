@@ -35,7 +35,7 @@ class BiboxMarketMakerKeeper:
 
     logger = logging.getLogger()
 
-    def __init__(self, args: list, **kwargs):
+    def __init__(self, args: list):
         parser = argparse.ArgumentParser(prog='bibox-market-maker-keeper')
 
         parser.add_argument("--bibox-api-server", type=str, default="https://api.bibox.com",

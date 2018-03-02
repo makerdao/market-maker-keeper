@@ -186,7 +186,6 @@ class EtherDeltaMarketMakerKeeper:
             self.withdraw_everything()
 
     def approve(self):
-        """Approve EtherDelta to access our tokens, so we can deposit them with the exchange"""
         token_addresses = filter(lambda address: address != EtherDelta.ETH_TOKEN, [self.token_sell(), self.token_buy()])
         tokens = list(map(lambda address: ERC20Token(web3=self.web3, address=address), token_addresses))
 

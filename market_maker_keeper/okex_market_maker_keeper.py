@@ -36,7 +36,7 @@ class OkexMarketMakerKeeper:
 
     logger = logging.getLogger()
 
-    def __init__(self, args: list, **kwargs):
+    def __init__(self, args: list):
         parser = argparse.ArgumentParser(prog='okex-market-maker-keeper')
 
         parser.add_argument("--okex-api-server", type=str, default="https://www.okex.com",
