@@ -22,6 +22,30 @@ import time
 
 
 class OrderBook:
+    """Represents the current snapshot of the order book.
+
+    Attributes:
+        orders: Current list of active keeper orders. This list is already amended with
+            recently placed orders, also recently cancelled orders or orders being currently cancelled
+            are not present in it.
+
+        balances: Current balances state. This field only has value when balance retrieval function
+            has been configured by invoking  OrderBookManager.get_balances_with()`. Otherwise it's always
+            None. Currently, the balances state is not updated with order placement and cancellation
+            (unlike `orders`) so it may (and will) happen that `orders` and `balances` will get out of sync.
+            There are no serious consequences of it, keeper may be trying to place orders with money
+            it doesn't have yet, which will of course fail, but the state will be rectified the
+            next time a successful orders/balances sync takes place.
+
+        orders_being_placed: `True` if at least one order is currently being placed. `False` otherwise.
+            Orders which are currently being placed are not included in `orders`. They will only get
+            included there the moment order placement succeeds.
+
+        orders_being_cancelled: `True` if at least one orders is currently being cancelled. `False` otherwise.
+            Orders which are currently being cancelled are immediately removed from `orders`. Having said that,
+            they will 'reappear' there again if the cancellation fails. It's the keepers responsibility
+            to notice them and try to cancel them again.
+    """
     def __init__(self,
                  orders,
                  balances,
@@ -29,6 +53,7 @@ class OrderBook:
                  orders_being_cancelled: bool):
         assert(isinstance(orders_being_placed, bool))
         assert(isinstance(orders_being_cancelled, bool))
+
         self.orders = orders
         self.balances = balances
         self.orders_being_placed = orders_being_placed
@@ -36,6 +61,30 @@ class OrderBook:
 
 
 class OrderBookManager:
+    """Order book manager allows keeper to track state of the order book without constantly querying it.
+
+    Some exchange APIs are not very good in responding to API requests. If a place order API call
+    periodically fails it's not such a big deal for the keeper, but if a `get_orders()` call starts
+    to fail for a few minutes this can have tremendous consequences if the keeper relies on that
+    call directly. For example the keeper may not be able to cancel orders as the price moves.
+
+    Order book manager allows to decouple the keeper from directly depending on the `get_orders()` call
+    in order to be aware of the current state of its orders. It queries the order book periodically
+    in background, allowing the keeper to get the latest snapshot of it. In addition to that, for orders
+    placed or cancelled via the order book manager it can update this internal snapshot by 'forgetting'
+    the cancelled ones and 'amending' the snapshot with the newly placed ones. See the `OrderBook` class.
+
+    This way, as long as the `place_order()` call is able to return the id of the newly placed order,
+    the keeper can cancel these orders even if no `get_orders()` call has been successful since then.
+
+    Order book manager can also optionally query the balances and include them in the snapshot,
+    along querying the order book.
+
+    Attributes:
+        refresh_frequency: Frequency (in seconds) of how often background order book (and balances)
+            refresh takes place.
+    """
+
     logger = logging.getLogger()
 
     def __init__(self, refresh_frequency: int):
@@ -54,17 +103,40 @@ class OrderBookManager:
         self._order_ids_cancelled = set()
 
     def get_orders_with(self, get_orders_function):
+        """Configures the function used to fetch active keeper orders.
+
+        Args:
+            get_orders_function: The function which will be periodically called by the order book manager
+                in order to get active orders. It has to be configured before `start()` gets called.
+        """
         assert(callable(get_orders_function))
+
         self.get_orders_function = get_orders_function
 
     def get_balances_with(self, get_balances_function):
+        """Configures the (optional) function used to fetch current keeper balances.
+
+        Args:
+            get_balances_function: The function which will be periodically called by the order book manager
+                in order to get current keeper balances. This is optional, is not configured balances
+                will not be fetched.
+        """
         assert(callable(get_balances_function))
+
         self.get_balances_function = get_balances_function
 
     def start(self):
+        """Start the background refresh of active keeper orders."""
         threading.Thread(target=self._thread_refresh_order_book, daemon=True).start()
 
     def get_order_book(self) -> OrderBook:
+        """Returns the current snapshot of the active keeper orders and balances.
+
+        Place see the `OrderBook` class for detailed description of all returned fields.
+
+        Returns:
+            An `OrderBook` class instance.
+        """
         while self._state is None:
             self.logger.info("Waiting for the order book to become available...")
             time.sleep(0.5)
@@ -100,6 +172,11 @@ class OrderBookManager:
                          orders_being_cancelled=len(self._order_ids_cancelling) > 0)
 
     def place_order(self, place_order_function):
+        """Places new order. Order placement will happen in a background thread.
+
+        Args:
+            place_order_function: Function used to place the order.
+        """
         assert(callable(place_order_function))
 
         with self._lock:
@@ -108,6 +185,15 @@ class OrderBookManager:
         threading.Thread(target=self._thread_place_order(place_order_function)).start()
 
     def cancel_order(self, order_id: int, cancel_order_function):
+        """Cancels an existing order. Order cancellation will happen in a background thread.
+
+        Args:
+            order_id: Identified of the order to cancel. It is only used to hide the order
+                from the order book snapshot during the cancellation takes place, and to permanently
+                remove it from there if the cancellation is successful.
+
+            cancel_order_function: Function used to cancel the order.
+        """
         assert(isinstance(order_id, int))
         assert(callable(cancel_order_function))
 
@@ -117,10 +203,12 @@ class OrderBookManager:
         threading.Thread(target=self._thread_cancel_order(order_id, cancel_order_function)).start()
 
     def wait_for_order_cancellation(self):
+        """Wait until no background order cancellation takes place."""
         while len(self._order_ids_cancelling) > 0:
             time.sleep(0.1)
 
     def wait_for_order_book_refresh(self):
+        """Wait until at least one background order book refresh happens since now."""
         with self._lock:
             old_counter = self._refresh_count
 
@@ -134,6 +222,7 @@ class OrderBookManager:
             time.sleep(0.1)
 
     def wait_for_stable_order_book(self):
+        """Wait until no background order placement nor cancellation takes place."""
         while True:
             order_book = self.get_order_book()
             if not order_book.orders_being_cancelled and not order_book.orders_being_placed:
