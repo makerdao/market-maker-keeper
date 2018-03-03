@@ -119,6 +119,8 @@ class ParadexMarketMakerKeeper:
         self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
+        self.price_max_decimals = None
+        self.amount_max_decimals = None
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
                                                                self.arguments.price_feed_expiry)
@@ -139,6 +141,14 @@ class ParadexMarketMakerKeeper:
 
     def startup(self):
         self.approve()
+
+        # Get maximum number of decimals for prices and amounts.
+        # Paradex API enforces it.
+        markets = self.paradex_api.get_markets()
+        market = next(filter(lambda item: item['symbol'] == self.pair, markets))
+
+        self.price_max_decimals = market['priceMaxDecimals']
+        self.amount_max_decimals = market['amountMaxDecimals']
 
     @retry(delay=5, logger=logger)
     def shutdown(self):
@@ -201,7 +211,11 @@ class ParadexMarketMakerKeeper:
     def place_orders(self, new_orders):
         for new_order in new_orders:
             amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
-            self.paradex_api.place_order(self.pair, new_order.is_sell, new_order.price, amount, self.arguments.order_expiry)
+            self.paradex_api.place_order(pair=self.pair,
+                                         is_sell=new_order.is_sell,
+                                         price=round(new_order.price, self.price_max_decimals),
+                                         amount=round(amount, self.amount_max_decimals),
+                                         expiry=self.arguments.order_expiry)
 
 
 if __name__ == '__main__':
