@@ -33,6 +33,11 @@ class Feed(object):
         raise NotImplementedError("Please implement this method")
 
 
+class EmptyFeed(Feed):
+    def get(self) -> Tuple[dict, float]:
+        return {}, 0.0
+
+
 class WebSocketFeed(Feed):
     logger = logging.getLogger()
 
