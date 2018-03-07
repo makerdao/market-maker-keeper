@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import zlib
+from typing import Optional
 
 
 class ReloadableConfig:
@@ -45,8 +46,17 @@ class ReloadableConfig:
         self._checksum = None
         self._config = None
         self._mtime = None
+        self._spread_feed = None
 
-    def get_config(self):
+    @staticmethod
+    def _spread_feed_import_callback(spread_feed: Optional[dict]):
+        def callback(path, file):
+            if file == "spread-feed" and spread_feed is not None:
+                return path, json.dumps(spread_feed)
+
+        return callback
+
+    def get_config(self, spread_feed: dict = None):
         """Reads the JSON config file from disk and returns it as a Python object.
 
         Returns:
@@ -61,12 +71,13 @@ class ReloadableConfig:
         # Ultimately something like `watchdog` (<https://pythonhosted.org/watchdog/index.html>)
         # should be used to watch the filesystem changes asynchronously.
         if self._config is not None and self._mtime is not None:
-            if mtime == self._mtime:
+            if mtime == self._mtime and spread_feed == self._spread_feed:
                 return self._config
 
         with open(self.filename) as data_file:
             content_file = data_file.read()
-            content_config = _jsonnet.evaluate_snippet("snippet", content_file, ext_vars={})
+            content_config = _jsonnet.evaluate_snippet("snippet", content_file, ext_vars={},
+                                                       import_callback=self._spread_feed_import_callback(spread_feed))
             result = json.loads(content_config)
 
             # Report if file has been newly loaded or reloaded
@@ -81,5 +92,6 @@ class ReloadableConfig:
             self._checksum = checksum
             self._config = result
             self._mtime = mtime
+            self._spread_feed = spread_feed
 
             return result
