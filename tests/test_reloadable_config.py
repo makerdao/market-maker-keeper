@@ -34,7 +34,7 @@ class TestReloadableConfig:
 
     @staticmethod
     def write_spread_importing_config(tmpdir):
-        file = tmpdir.join("spread_importing_config_config.json")
+        file = tmpdir.join("spread_importing_config.json")
         file.write("""{
             local spreads = import "spread-feed",
 
