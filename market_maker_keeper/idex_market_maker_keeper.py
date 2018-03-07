@@ -27,6 +27,7 @@ from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
 from pyexchange.idex import IDEX, IDEXApi
 from pymaker import Address
@@ -80,6 +81,12 @@ class IdexMarketMakerKeeper:
         parser.add_argument("--price-feed-expiry", type=int, default=120,
                             help="Maximum age of the price feed (in seconds, default: 120)")
 
+        parser.add_argument("--spread-feed", type=str,
+                            help="Source of spread feed")
+
+        parser.add_argument("--spread-feed-expiry", type=int, default=3600,
+                            help="Maximum age of the spread feed (in seconds, default: 3600)")
+
         parser.add_argument("--eth-reserve", type=float, required=True,
                             help="Amount of ETH which will never be deposited so the keeper can cover gas")
 
@@ -121,6 +128,7 @@ class IdexMarketMakerKeeper:
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments, self.tub)
+        self.spread_feed = create_spread_feed(self.arguments)
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")

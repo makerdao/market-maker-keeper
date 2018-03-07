@@ -28,6 +28,7 @@ from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
 from pymaker import Address, synchronize
 from pymaker.approval import directly
@@ -85,6 +86,12 @@ class EtherDeltaMarketMakerKeeper:
 
         parser.add_argument("--price-feed-expiry", type=int, default=120,
                             help="Maximum age of the price feed (in seconds, default: 120)")
+
+        parser.add_argument("--spread-feed", type=str,
+                            help="Source of spread feed")
+
+        parser.add_argument("--spread-feed-expiry", type=int, default=3600,
+                            help="Maximum age of the spread feed (in seconds, default: 3600)")
 
         parser.add_argument("--order-age", type=int, required=True,
                             help="Age of created orders (in blocks)")
@@ -144,6 +151,7 @@ class EtherDeltaMarketMakerKeeper:
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments, self.tub)
+        self.spread_feed = create_spread_feed(self.arguments)
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")

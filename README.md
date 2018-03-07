@@ -226,6 +226,8 @@ usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                  --sell-token-address SELL_TOKEN_ADDRESS
                                  --config CONFIG --price-feed PRICE_FEED
                                  [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                 [--spread-feed SPREAD_FEED]
+                                 [--spread-feed-expiry SPREAD_FEED_EXPIRY]
                                  [--round-places ROUND_PLACES]
                                  [--min-eth-balance MIN_ETH_BALANCE]
                                  [--gas-price GAS_PRICE] [--smart-gas-price]
@@ -252,6 +254,11 @@ optional arguments:
   --price-feed-expiry PRICE_FEED_EXPIRY
                         Maximum age of the price feed (in seconds, default:
                         120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
   --round-places ROUND_PLACES
                         Number of decimal places to round order prices to
                         (default=2)
@@ -313,6 +320,8 @@ usage: etherdelta-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                       [--etherdelta-timeout ETHERDELTA_TIMEOUT]
                                       --config CONFIG --price-feed PRICE_FEED
                                       [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                      [--spread-feed SPREAD_FEED]
+                                      [--spread-feed-expiry SPREAD_FEED_EXPIRY]
                                       --order-age ORDER_AGE
                                       [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
                                       [--order-no-cancel-threshold ORDER_NO_CANCEL_THRESHOLD]
@@ -353,6 +362,11 @@ optional arguments:
   --price-feed-expiry PRICE_FEED_EXPIRY
                         Maximum age of the price feed (in seconds, default:
                         120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
   --order-age ORDER_AGE
                         Age of created orders (in blocks)
   --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
@@ -426,6 +440,8 @@ usage: 0x-market-maker-keeper [-h] [--rpc-host RPC_HOST] [--rpc-port RPC_PORT]
                               --sell-token-address SELL_TOKEN_ADDRESS --config
                               CONFIG --price-feed PRICE_FEED
                               [--price-feed-expiry PRICE_FEED_EXPIRY]
+                              [--spread-feed SPREAD_FEED]
+                              [--spread-feed-expiry SPREAD_FEED_EXPIRY]
                               --order-expiry ORDER_EXPIRY
                               [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
                               [--min-eth-balance MIN_ETH_BALANCE]
@@ -456,6 +472,11 @@ optional arguments:
   --price-feed-expiry PRICE_FEED_EXPIRY
                         Maximum age of the price feed (in seconds, default:
                         120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
   --order-expiry ORDER_EXPIRY
                         Expiration time of created orders (in seconds)
   --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
@@ -512,6 +533,8 @@ usage: paradex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                    SELL_TOKEN_ADDRESS --config CONFIG
                                    --price-feed PRICE_FEED
                                    [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                   [--spread-feed SPREAD_FEED]
+                                   [--spread-feed-expiry SPREAD_FEED_EXPIRY]
                                    --order-expiry ORDER_EXPIRY
                                    [--min-eth-balance MIN_ETH_BALANCE]
                                    [--gas-price GAS_PRICE] [--smart-gas-price]
@@ -546,6 +569,11 @@ optional arguments:
   --price-feed-expiry PRICE_FEED_EXPIRY
                         Maximum age of the price feed (in seconds, default:
                         120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
   --order-expiry ORDER_EXPIRY
                         Expiration time of created orders (in seconds)
   --min-eth-balance MIN_ETH_BALANCE
@@ -583,6 +611,8 @@ usage: idex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
                                 [--idex-timeout IDEX_TIMEOUT] --config CONFIG
                                 --price-feed PRICE_FEED
                                 [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                [--spread-feed SPREAD_FEED]
+                                [--spread-feed-expiry SPREAD_FEED_EXPIRY]
                                 --eth-reserve ETH_RESERVE
                                 [--min-eth-balance MIN_ETH_BALANCE]
                                 --min-eth-deposit MIN_ETH_DEPOSIT
@@ -613,6 +643,11 @@ optional arguments:
   --price-feed-expiry PRICE_FEED_EXPIRY
                         Maximum age of the price feed (in seconds, default:
                         120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
   --eth-reserve ETH_RESERVE
                         Amount of ETH which will never be deposited so the
                         keeper can cover gas
@@ -651,6 +686,8 @@ usage: bibox-market-maker-keeper [-h] [--bibox-api-server BIBOX_API_SERVER]
                                  --pair PAIR --config CONFIG --price-feed
                                  PRICE_FEED
                                  [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                 [--spread-feed SPREAD_FEED]
+                                 [--spread-feed-expiry SPREAD_FEED_EXPIRY]
                                  [--debug]
 
 optional arguments:
@@ -672,6 +709,11 @@ optional arguments:
   --price-feed-expiry PRICE_FEED_EXPIRY
                         Maximum age of the price feed (in seconds, default:
                         120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
   --debug               Enable debug output
 ```
 
@@ -695,6 +737,8 @@ usage: okex-market-maker-keeper [-h] [--okex-api-server OKEX_API_SERVER]
                                 --pair PAIR --config CONFIG --price-feed
                                 PRICE_FEED
                                 [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                [--spread-feed SPREAD_FEED]
+                                [--spread-feed-expiry SPREAD_FEED_EXPIRY]
                                 [--debug]
 
 optional arguments:
@@ -716,6 +760,11 @@ optional arguments:
   --price-feed-expiry PRICE_FEED_EXPIRY
                         Maximum age of the price feed (in seconds, default:
                         120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
   --debug               Enable debug output
 ```
 
@@ -733,6 +782,8 @@ usage: gateio-market-maker-keeper [-h] [--gateio-api-server GATEIO_API_SERVER]
                                   [--gateio-timeout GATEIO_TIMEOUT] --pair
                                   PAIR --config CONFIG --price-feed PRICE_FEED
                                   [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                  [--spread-feed SPREAD_FEED]
+                                  [--spread-feed-expiry SPREAD_FEED_EXPIRY]
                                   [--debug]
 
 optional arguments:
@@ -754,6 +805,11 @@ optional arguments:
   --price-feed-expiry PRICE_FEED_EXPIRY
                         Maximum age of the price feed (in seconds, default:
                         120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
   --debug               Enable debug output
 ```
 

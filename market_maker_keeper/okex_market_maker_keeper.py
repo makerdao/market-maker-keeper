@@ -25,6 +25,7 @@ from market_maker_keeper.band import Bands
 from market_maker_keeper.limit import History
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
 from pyexchange.okex import OKEXApi
 from pymaker.lifecycle import Lifecycle
@@ -63,6 +64,12 @@ class OkexMarketMakerKeeper:
         parser.add_argument("--price-feed-expiry", type=int, default=120,
                             help="Maximum age of the price feed (in seconds, default: 120)")
 
+        parser.add_argument("--spread-feed", type=str,
+                            help="Source of spread feed")
+
+        parser.add_argument("--spread-feed-expiry", type=int, default=3600,
+                            help="Maximum age of the spread feed (in seconds, default: 3600)")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -71,6 +78,7 @@ class OkexMarketMakerKeeper:
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
+        self.spread_feed = create_spread_feed(self.arguments)
 
         self.history = History()
         self.okex_api = OKEXApi(api_server=self.arguments.okex_api_server,
