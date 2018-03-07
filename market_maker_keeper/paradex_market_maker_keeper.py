@@ -25,7 +25,7 @@ from web3 import Web3, HTTPProvider
 from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
-from market_maker_keeper.price import PriceFeedFactory
+from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.util import setup_logging
 from pyexchange.paradex import ParadexApi

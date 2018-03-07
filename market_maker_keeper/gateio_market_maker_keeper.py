@@ -26,7 +26,7 @@ from retry import retry
 
 from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.limit import History
-from market_maker_keeper.price import PriceFeedFactory
+from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.util import setup_logging
 from pyexchange.gateio import GateIOApi, Order

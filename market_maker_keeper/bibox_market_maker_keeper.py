@@ -22,7 +22,7 @@ import sys
 from market_maker_keeper.band import Bands
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
-from market_maker_keeper.price import PriceFeedFactory
+from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.util import setup_logging
 from pyexchange.bibox import BiboxApi, Order

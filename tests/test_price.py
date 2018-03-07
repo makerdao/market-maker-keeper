@@ -17,7 +17,7 @@
 
 from typing import Optional
 
-from market_maker_keeper.price import PriceFeed, BackupPriceFeed, AveragePriceFeed
+from market_maker_keeper.price_feed import PriceFeed, BackupPriceFeed, AveragePriceFeed
 from pymaker.numeric import Wad
 
 
