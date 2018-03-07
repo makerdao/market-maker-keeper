@@ -28,7 +28,12 @@ from urllib.parse import urlparse
 import websocket
 
 
-class WebSocketFeed:
+class Feed(object):
+    def get(self) -> Tuple[dict, float]:
+        raise NotImplementedError("Please implement this method")
+
+
+class WebSocketFeed(Feed):
     logger = logging.getLogger()
 
     def __init__(self, ws_url: str, reconnect_delay: int):
@@ -90,7 +95,7 @@ class WebSocketFeed:
             return self._last
 
 
-class ExpiringWebSocketFeed:
+class ExpiringWebSocketFeed(Feed):
     def __init__(self, feed: WebSocketFeed, expiry: int):
         assert(isinstance(feed, WebSocketFeed))
         assert(isinstance(expiry, int))
