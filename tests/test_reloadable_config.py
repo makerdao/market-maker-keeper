@@ -38,14 +38,14 @@ class TestReloadableConfig:
         file.write("""{
             local spreads = import "spread-feed",
 
-            "usedBuySpread": spreads.buySpread,
-            "usedSellSpread": spreads.sellSpread
+            "usedBuySpread": spreads.buySpread * 2,
+            "usedSellSpread": spreads.sellSpread * 3
         }""")
         return str(file)
 
     def test_should_read_simple_file(self, tmpdir):
         # when
-        config = ReloadableConfig(self.write_sample_config(tmpdir)).get_config()
+        config = ReloadableConfig(self.write_sample_config(tmpdir)).get_config({})
 
         # then
         assert len(config) == 1
@@ -53,7 +53,7 @@ class TestReloadableConfig:
 
     def test_should_read_advanced_file(self, tmpdir):
         # when
-        config = ReloadableConfig(self.write_advanced_config(tmpdir, "b")).get_config()
+        config = ReloadableConfig(self.write_advanced_config(tmpdir, "b")).get_config({})
 
         # then
         assert len(config) == 2
@@ -65,14 +65,14 @@ class TestReloadableConfig:
         reloadable_config = ReloadableConfig(self.write_advanced_config(tmpdir, "b"))
 
         # when
-        config = reloadable_config.get_config()
+        config = reloadable_config.get_config({})
 
         # then
         assert config["a"] == "b"
 
         # when
         self.write_advanced_config(tmpdir, "z")
-        config = reloadable_config.get_config()
+        config = reloadable_config.get_config({})
 
         # then
         assert config["a"] == "z"
@@ -80,8 +80,8 @@ class TestReloadableConfig:
     def test_should_import_spreads(self, tmpdir):
         # given
         spread_feed = {
-            "buySpread": 0.1,
-            "sellSpread": 0.2
+            "buySpread": "0.1",
+            "sellSpread": "1.0"
         }
 
         # when
@@ -89,8 +89,8 @@ class TestReloadableConfig:
 
         # then
         assert len(config) == 2
-        assert config["usedBuySpread"] == 0.1
-        assert config["usedSellSpread"] == 0.2
+        assert config["usedBuySpread"] == 0.2
+        assert config["usedSellSpread"] == 3.0
 
     def test_should_use_new_spreads_even_if_config_not_changed(self, tmpdir):
         # given
@@ -99,14 +99,14 @@ class TestReloadableConfig:
 
         # when
         spread_feed = {
-            "buySpread": 0.1,
-            "sellSpread": 0.2
+            "buySpread": "0.1",
+            "sellSpread": "1.0"
         }
         config = reloadable_config.get_config(spread_feed)
 
         # then
-        assert config["usedBuySpread"] == 0.1
-        assert config["usedSellSpread"] == 0.2
+        assert config["usedBuySpread"] == 0.2
+        assert config["usedSellSpread"] == 3.0
 
         # and
         # [a log message that the config was loaded gets generated]
@@ -114,14 +114,14 @@ class TestReloadableConfig:
 
         # when
         spread_feed = {
-            "buySpread": 0.3,
-            "sellSpread": 0.4
+            "buySpread": "0.2",
+            "sellSpread": "0.5"
         }
         config = reloadable_config.get_config(spread_feed)
 
         # then
-        assert config["usedBuySpread"] == 0.3
-        assert config["usedSellSpread"] == 0.4
+        assert config["usedBuySpread"] == 0.4
+        assert config["usedSellSpread"] == 1.5
 
         # and
         # [a log message that the config was reloaded gets generated]

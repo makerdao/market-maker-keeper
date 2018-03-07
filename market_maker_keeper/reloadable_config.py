@@ -52,7 +52,7 @@ class ReloadableConfig:
     def _spread_feed_import_callback(spread_feed: Optional[dict]):
         def callback(path, file):
             if file == "spread-feed" and spread_feed is not None:
-                return path, json.dumps(spread_feed)
+                return path, json.dumps(dict(map(lambda kv: (kv[0], float(kv[1])), spread_feed.items())))
 
         return callback
 
