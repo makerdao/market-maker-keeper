@@ -120,8 +120,7 @@ class IdexMarketMakerKeeper:
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry, self.tub)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments, self.tub)
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")

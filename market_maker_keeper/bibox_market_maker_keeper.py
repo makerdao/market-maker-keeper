@@ -75,8 +75,7 @@ class BiboxMarketMakerKeeper:
                                   timeout=self.arguments.bibox_timeout)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry, None)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=3)
         self.order_book_manager.get_orders_with(lambda: self.bibox_api.get_orders(pair=self.pair(), retry=True))

@@ -70,7 +70,7 @@ class OkexMarketMakerKeeper:
         setup_logging(self.arguments)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.arguments.price_feed_expiry)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
 
         self.history = History()
         self.okex_api = OKEXApi(api_server=self.arguments.okex_api_server,

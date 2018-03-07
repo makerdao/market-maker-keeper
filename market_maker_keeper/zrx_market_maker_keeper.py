@@ -116,8 +116,7 @@ class ZrxMarketMakerKeeper:
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
 
         self.history = History()
         self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))

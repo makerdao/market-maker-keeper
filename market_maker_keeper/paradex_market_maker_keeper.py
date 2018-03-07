@@ -122,8 +122,7 @@ class ParadexMarketMakerKeeper:
         self.price_max_decimals = None
         self.amount_max_decimals = None
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
 
         self.history = History()
         self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))

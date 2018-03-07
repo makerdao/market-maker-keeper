@@ -288,13 +288,11 @@ class BackupPriceFeed(PriceFeed):
 
 class PriceFeedFactory:
     @staticmethod
-    def create_price_feed(price_feed_argument: str,
-                          price_feed_expiry_argument: int,
-                          tub: Tub = None) -> PriceFeed:
-        assert(isinstance(price_feed_argument, str))
-        assert(isinstance(price_feed_expiry_argument, int))
+    def create_price_feed(arguments, tub: Tub = None) -> PriceFeed:
         assert(isinstance(tub, Tub) or tub is None)
 
+        price_feed_argument = arguments.price_feed
+        price_feed_expiry_argument = arguments.price_feed_expiry
         gdax_ws_url = "wss://ws-feed.gdax.com"
 
         if price_feed_argument == 'eth_dai':

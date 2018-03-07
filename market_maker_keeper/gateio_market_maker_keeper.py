@@ -73,7 +73,7 @@ class GateIOMarketMakerKeeper:
         setup_logging(self.arguments)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed, self.arguments.price_feed_expiry)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
 
         self.history = History()
         self.gateio_api = GateIOApi(api_server=self.arguments.gateio_api_server,

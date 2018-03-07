@@ -113,8 +113,7 @@ class OasisMarketMakerKeeper:
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments.price_feed,
-                                                               self.arguments.price_feed_expiry, tub)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments, tub)
 
         self.history = History()
         self.order_book_manager = OrderBookManager(refresh_frequency=3)
