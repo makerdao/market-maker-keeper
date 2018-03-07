@@ -193,7 +193,7 @@ class TestOasisMarketMakerKeeper:
         # then
         assert len(deployment.otc.get_orders()) == 2
 
-    def test_should_fail_to_operate_if_bands_overlap(self, deployment: Deployment, tmpdir):
+    def test_should_not_create_orders_if_bands_overlap(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.bands_overlapping_invalid_config(tmpdir)
 
@@ -215,9 +215,11 @@ class TestOasisMarketMakerKeeper:
         # and
         keeper.approve()
 
-        # expect
-        with pytest.raises(Exception):
-            self.synchronize_orders_twice(keeper)
+        # when
+        self.synchronize_orders_twice(keeper)
+
+        # then
+        assert len(deployment.otc.get_orders()) == 0
 
     def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir):
         # given
@@ -733,6 +735,43 @@ class TestOasisMarketMakerKeeper:
 
         # when
         deployment.otc._contract.transact().stop()
+
+        # and
+        self.synchronize_orders_twice(keeper)
+
+        # then
+        assert len(deployment.otc.get_orders()) == 0
+        assert not keeper.lifecycle.terminated_internally
+
+    def test_should_cancel_all_orders_but_not_terminate_if_config_file_becomes_invalid(self, deployment: Deployment, tmpdir):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
+                                                  f"--price-feed tub "
+                                                  f"--config {config_file}"),
+                                        web3=deployment.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
+
+        # and
+        self.mint_tokens(deployment)
+        self.set_price(deployment, Wad.from_number(100))
+
+        # when
+        keeper.approve()
+        self.synchronize_orders_twice(keeper)
+
+        # then
+        assert len(deployment.otc.get_orders()) == 2
+
+        # when
+        second_config_file = BandConfig.bands_overlapping_invalid_config(tmpdir)
+        shutil.copyfile(second_config_file, config_file)
 
         # and
         self.synchronize_orders_twice(keeper)

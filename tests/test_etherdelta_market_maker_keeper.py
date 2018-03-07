@@ -386,7 +386,7 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert len(self.orders(keeper)) == 2
 
-    def test_should_fail_to_operate_if_bands_overlap(self, deployment: Deployment, tmpdir: py.path.local):
+    def test_should_not_create_orders_if_bands_overlap(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.bands_overlapping_invalid_config(tmpdir)
 
@@ -409,9 +409,11 @@ class TestEtherDeltaMarketMakerKeeper:
         # and
         keeper.approve()
 
-        # expect
-        with pytest.raises(Exception):
-            keeper.synchronize_orders()
+        # when
+        keeper.synchronize_orders()
+
+        # then
+        assert len(self.orders(keeper)) == 0
 
     def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir: py.path.local):
         # given

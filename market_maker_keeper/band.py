@@ -176,14 +176,25 @@ class Bands:
         assert(isinstance(reloadable_config, ReloadableConfig))
         assert(isinstance(history, History))
 
-        config = reloadable_config.get_config()
-        self.buy_bands = list(map(BuyBand, config['buyBands']))
-        self.buy_limits = SideLimits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
-        self.sell_bands = list(map(SellBand, config['sellBands']))
-        self.sell_limits = SideLimits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
+        try:
+            config = reloadable_config.get_config()
+            self.buy_bands = list(map(BuyBand, config['buyBands']))
+            self.buy_limits = SideLimits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
+            self.sell_bands = list(map(SellBand, config['sellBands']))
+            self.sell_limits = SideLimits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
+        except Exception as e:
+            self.logger.warning(f"Config file is invalid ({e}). Treating the config file as it has no bands.")
+
+            self.buy_bands = []
+            self.buy_limits = SideLimits([], history.buy_history)
+            self.sell_bands = []
+            self.sell_limits = SideLimits([], history.buy_history)
 
         if self._bands_overlap(self.buy_bands) or self._bands_overlap(self.sell_bands):
-            raise Exception(f"Bands in the config file overlap")
+            self.logger.warning("Bands in the config file overlap. Treating the config file as it has no bands.")
+
+            self.buy_bands = []
+            self.sell_bands = []
 
     def _excessive_sell_orders(self, our_sell_orders: list, target_price: Wad):
         """Return sell orders which need to be cancelled to bring total amounts within all sell bands below maximums."""
