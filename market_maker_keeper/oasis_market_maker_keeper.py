@@ -183,7 +183,7 @@ class OasisMarketMakerKeeper:
             self.cancel_all_orders()
             return
 
-        bands = Bands(self.bands_config, self.history)
+        bands = Bands(self.bands_config, self.spread_feed, self.history)
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 

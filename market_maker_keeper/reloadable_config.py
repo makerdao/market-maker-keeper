@@ -49,19 +49,22 @@ class ReloadableConfig:
         self._spread_feed = None
 
     @staticmethod
-    def _spread_feed_import_callback(spread_feed: Optional[dict]):
+    def _spread_feed_import_callback(spread_feed: dict):
+        assert(isinstance(spread_feed, dict))
+
         def callback(path, file):
-            if file == "spread-feed" and spread_feed is not None:
+            if file == "spread-feed":
                 return path, json.dumps(dict(map(lambda kv: (kv[0], float(kv[1])), spread_feed.items())))
 
         return callback
 
-    def get_config(self, spread_feed: dict = None):
+    def get_config(self, spread_feed: dict):
         """Reads the JSON config file from disk and returns it as a Python object.
 
         Returns:
             Current configuration as a `dict` or `list` object.
         """
+        assert(isinstance(spread_feed, dict))
 
         mtime = os.path.getmtime(self.filename)
 

@@ -24,6 +24,7 @@ from typing import Tuple
 
 import time
 
+from market_maker_keeper.feed import Feed
 from market_maker_keeper.limit import SideLimits, History
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker.numeric import Wad
@@ -172,12 +173,13 @@ class NewOrder:
 class Bands:
     logger = logging.getLogger()
 
-    def __init__(self, reloadable_config: ReloadableConfig, history: History):
+    def __init__(self, reloadable_config: ReloadableConfig, spread_feed: Feed, history: History):
         assert(isinstance(reloadable_config, ReloadableConfig))
         assert(isinstance(history, History))
 
         try:
-            config = reloadable_config.get_config()
+            config = reloadable_config.get_config(spread_feed.get()[0])
+
             self.buy_bands = list(map(BuyBand, config['buyBands']))
             self.buy_limits = SideLimits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
             self.sell_bands = list(map(SellBand, config['sellBands']))

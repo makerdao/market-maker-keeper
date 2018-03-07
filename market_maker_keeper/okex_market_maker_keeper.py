@@ -126,7 +126,7 @@ class OkexMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        bands = Bands(self.bands_config, self.history)
+        bands = Bands(self.bands_config, self.spread_feed, self.history)
         our_balances = self.our_balances()
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()

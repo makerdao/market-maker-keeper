@@ -177,7 +177,7 @@ class ZrxMarketMakerKeeper:
             self.cancel_orders(self.our_orders())
             return
 
-        bands = Bands(self.bands_config, self.history)
+        bands = Bands(self.bands_config, self.spread_feed, self.history)
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 
