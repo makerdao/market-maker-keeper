@@ -187,13 +187,6 @@ class OasisMarketMakerKeeper:
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 
-        # If the is no target price feed, cancel all orders but do not terminate the keeper.
-        # The moment the price feed comes back, the keeper will resume placing orders.
-        if target_price is None:
-            self.logger.warning("No price feed available. Cancelling all orders.")
-            self.cancel_all_orders()
-            return
-
         # If there are any orders to be cancelled, cancel them. It is deliberate that we wait with topping-up
         # bands until the next block. This way we would create new orders based on the most recent price and
         # order book state. We could theoretically retrieve both (`target_price` and `our_orders`) again here,

@@ -231,6 +231,12 @@ class Bands:
         assert(isinstance(our_sell_orders, list))
         assert(isinstance(target_price, Wad))
 
+        # If the is no target price feed, cancel all orders but do not terminate the keeper.
+        # The moment the price feed comes back, the keeper will resume placing orders.
+        if target_price is None:
+            self.logger.warning("Cancelling all orders as no price feed available.")
+            return our_buy_orders + our_sell_orders
+
         return list(itertools.chain(self._excessive_buy_orders(our_buy_orders, target_price),
                                     self._excessive_sell_orders(our_sell_orders, target_price),
                                     self._outside_any_band_orders(our_buy_orders, self.buy_bands, target_price),

@@ -131,11 +131,6 @@ class OkexMarketMakerKeeper:
         our_orders = self.our_orders()
         target_price = self.price_feed.get_price()
 
-        if target_price is None:
-            self.logger.warning("Cancelling all orders as no price feed available.")
-            self.cancel_orders(our_orders)
-            return
-
         # Cancel orders
         cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
                                                       our_sell_orders=self.our_sell_orders(our_orders),
