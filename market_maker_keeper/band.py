@@ -216,15 +216,15 @@ class Bands:
             for order in band.excessive_orders(our_buy_orders, target_price):
                 yield order
 
-    def _outside_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Wad):
-        """Return orders which do not fall into any buy or sell band."""
-        def outside_any_band_orders(orders: list, bands: list):
-            for order in orders:
-                if not any(band.includes(order, target_price) for band in bands):
-                    yield order
+    def _outside_any_band_orders(self, orders: list, bands: list, target_price: Wad):
+        """Return buy or sell orders which need to be cancelled as they do not fall into any buy or sell band."""
+        assert(isinstance(orders, list))
+        assert(isinstance(bands, list))
+        assert(isinstance(target_price, Wad))
 
-        return itertools.chain(outside_any_band_orders(our_buy_orders, self.buy_bands),
-                               outside_any_band_orders(our_sell_orders, self.sell_bands))
+        for order in orders:
+            if not any(band.includes(order, target_price) for band in bands):
+                yield order
 
     def cancellable_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Wad) -> list:
         assert(isinstance(our_buy_orders, list))
@@ -233,7 +233,8 @@ class Bands:
 
         return list(itertools.chain(self._excessive_buy_orders(our_buy_orders, target_price),
                                     self._excessive_sell_orders(our_sell_orders, target_price),
-                                    self._outside_orders(our_buy_orders, our_sell_orders, target_price)))
+                                    self._outside_any_band_orders(our_buy_orders, self.buy_bands, target_price),
+                                    self._outside_any_band_orders(our_sell_orders, self.sell_bands, target_price)))
 
     def new_orders(self, our_buy_orders: list, our_sell_orders: list, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Wad) -> Tuple[list, Wad, Wad]:
         assert(isinstance(our_buy_orders, list))
