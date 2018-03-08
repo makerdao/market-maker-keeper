@@ -59,55 +59,6 @@ class TubPriceFeed(PriceFeed):
         return Wad(self.ds_value.read_as_int())
 
 
-class FilePriceFeed(PriceFeed):
-    logger = logging.getLogger()
-
-    def __init__(self, filename: str, expiry: int):
-        assert(isinstance(filename, str))
-        assert(isinstance(expiry, int))
-
-        self.filename = filename
-        self.expiry = expiry
-        self._price = None
-        self._timestamp = 0
-        self._expired = True
-
-    def _read_price(self):
-        try:
-            if not os.path.isfile(self.filename):
-                self._price = None
-                self._timestamp = 0
-                return
-
-            with open(self.filename) as file:
-                new_price = Wad.from_number(json.load(file)['price'])
-                self.logger.debug(f"Read price from '{self.filename}': {new_price}")
-
-                if self._price is None or new_price != self._price:
-                    self.logger.info(f"Price feed updated to {new_price}")
-
-                self._price = new_price
-                self._timestamp = os.path.getmtime(self.filename)
-        except Exception as e:
-            self.logger.debug(f"Failed to read price from '{self.filename}': {e}")
-
-    def get_price(self) -> Optional[Wad]:
-        self._read_price()
-
-        if time.time() - self._timestamp > self.expiry:
-            if not self._expired:
-                self.logger.warning(f"Price feed from '{self.filename}' has expired")
-                self._expired = True
-
-            return None
-        else:
-            if self._expired:
-                self.logger.info(f"Price feed from '{self.filename}' became available")
-                self._expired = False
-
-            return self._price
-
-
 class SetzerPriceFeed(PriceFeed):
     logger = logging.getLogger()
 
@@ -325,9 +276,6 @@ class PriceFeedFactory:
 
         elif price_feed_argument.startswith("fixed:"):
             price_feed = FixedPriceFeed(Wad.from_number(price_feed_argument[6:]))
-
-        elif price_feed_argument.startswith("file:"):
-            price_feed = FilePriceFeed(filename=price_feed_argument[5:], expiry=price_feed_expiry_argument)
 
         elif price_feed_argument.startswith("ws://") or price_feed_argument.startswith("wss://"):
             socket_feed = WebSocketFeed(price_feed_argument, 5)
