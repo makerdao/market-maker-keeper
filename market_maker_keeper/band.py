@@ -20,7 +20,7 @@ import logging
 import operator
 from functools import reduce
 from pprint import pformat
-from typing import Tuple
+from typing import Tuple, Optional
 
 import time
 
@@ -226,10 +226,10 @@ class Bands:
             if not any(band.includes(order, target_price) for band in bands):
                 yield order
 
-    def cancellable_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Wad) -> list:
+    def cancellable_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Optional[Wad]) -> list:
         assert(isinstance(our_buy_orders, list))
         assert(isinstance(our_sell_orders, list))
-        assert(isinstance(target_price, Wad))
+        assert(isinstance(target_price, Wad) or target_price is None)
 
         # If the is no target price feed, cancel all orders but do not terminate the keeper.
         # The moment the price feed comes back, the keeper will resume placing orders.
@@ -242,17 +242,21 @@ class Bands:
                                     self._outside_any_band_orders(our_buy_orders, self.buy_bands, target_price),
                                     self._outside_any_band_orders(our_sell_orders, self.sell_bands, target_price)))
 
-    def new_orders(self, our_buy_orders: list, our_sell_orders: list, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Wad) -> Tuple[list, Wad, Wad]:
+    def new_orders(self, our_buy_orders: list, our_sell_orders: list, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Optional[Wad]) -> Tuple[list, Wad, Wad]:
         assert(isinstance(our_buy_orders, list))
         assert(isinstance(our_sell_orders, list))
         assert(isinstance(our_buy_balance, Wad))
         assert(isinstance(our_sell_balance, Wad))
-        assert(isinstance(target_price, Wad))
+        assert(isinstance(target_price, Wad) or target_price is None)
 
-        new_buy_orders, missing_buy_amount = self._new_buy_orders(our_buy_orders, our_buy_balance, target_price)
-        new_sell_orders, missing_sell_amount = self._new_sell_orders(our_sell_orders, our_sell_balance, target_price)
+        if target_price is not None:
+            new_buy_orders, missing_buy_amount = self._new_buy_orders(our_buy_orders, our_buy_balance, target_price)
+            new_sell_orders, missing_sell_amount = self._new_sell_orders(our_sell_orders, our_sell_balance, target_price)
 
-        return new_buy_orders + new_sell_orders, missing_buy_amount, missing_sell_amount
+            return new_buy_orders + new_sell_orders, missing_buy_amount, missing_sell_amount
+
+        else:
+            return [], Wad(0), Wad(0)
 
     def _new_sell_orders(self, our_sell_orders: list, our_sell_balance: Wad, target_price: Wad):
         """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
