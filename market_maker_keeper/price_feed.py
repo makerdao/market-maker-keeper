@@ -19,20 +19,29 @@ import json
 import logging
 import threading
 import time
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 import os
 import websocket
 
-from market_maker_keeper.feed import ExpiringWebSocketFeed, WebSocketFeed
+from market_maker_keeper.feed import ExpiringWebSocketFeed, WebSocketFeed, Feed
 from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
 from pymaker.numeric import Wad
 from pymaker.sai import Tub
 
 
+class Price(object):
+    def __init__(self, buy_price: Optional[Wad], sell_price: Optional[Wad]):
+        assert(isinstance(buy_price, Wad) or buy_price is None)
+        assert(isinstance(sell_price, Wad) or sell_price is None)
+
+        self.buy_price = buy_price
+        self.sell_price = sell_price
+
+
 class PriceFeed(object):
-    def get_price(self) -> Optional[Wad]:
+    def get_price(self) -> Price:
         raise NotImplementedError("Please implement this method")
 
 
@@ -45,8 +54,8 @@ class FixedPriceFeed(PriceFeed):
 
         self.logger.info(f"Using fixed price '{self.fixed_price}' as the price feed")
 
-    def get_price(self) -> Optional[Wad]:
-        return self.fixed_price
+    def get_price(self) -> Price:
+        return Price(buy_price=self.fixed_price, sell_price=self.fixed_price)
 
 
 class TubPriceFeed(PriceFeed):
@@ -55,8 +64,10 @@ class TubPriceFeed(PriceFeed):
 
         self.ds_value = DSValue(web3=tub.web3, address=tub.pip())
 
-    def get_price(self) -> Optional[Wad]:
-        return Wad(self.ds_value.read_as_int())
+    def get_price(self) -> Price:
+        tub_price = Wad(self.ds_value.read_as_int())
+
+        return Price(buy_price=tub_price, sell_price=tub_price)
 
 
 class SetzerPriceFeed(PriceFeed):
@@ -96,15 +107,17 @@ class SetzerPriceFeed(PriceFeed):
             self._fetch_price()
             time.sleep(60)
 
-    def get_price(self) -> Optional[Wad]:
+    def get_price(self) -> Price:
         if time.time() - self._timestamp > self.expiry:
             if not self._expired:
                 self.logger.warning(f"Price feed from 'setzer' ({self.source}) has expired")
                 self._expired = True
 
-            return None
+            return Price(buy_price=None, sell_price=None)
+
         else:
-            return self._price
+            value = self._price
+            return Price(buy_price=value, sell_price=value)
 
 
 class GdaxPriceFeed(PriceFeed):
@@ -162,14 +175,17 @@ class GdaxPriceFeed(PriceFeed):
     def _on_error(self, ws, error):
         self.logger.info(f"GDAX {self.product_id} WebSocket error: '{error}'")
 
-    def get_price(self) -> Optional[Wad]:
+    def get_price(self) -> Price:
         if time.time() - self._last_timestamp > self.expiry:
             if not self._expired:
                 self.logger.warning(f"Price feed from GDAX ({self.product_id}) has expired")
                 self._expired = True
-            return None
+
+            return Price(buy_price=None, sell_price=None)
+
         else:
-            return self._last_price
+            value = self._last_price
+            return Price(buy_price=value, sell_price=value)
 
     def _process_ticker(self, message_obj):
         self._last_price = Wad.from_number(message_obj['price'])
@@ -186,18 +202,39 @@ class GdaxPriceFeed(PriceFeed):
 
 
 class WebSocketPriceFeed(PriceFeed):
-    def __init__(self, feed: ExpiringWebSocketFeed):
-        assert(isinstance(feed, ExpiringWebSocketFeed))
+    def __init__(self, feed: Feed):
+        assert(isinstance(feed, Feed))
 
         self.feed = feed
 
-    def get_price(self) -> Optional[Wad]:
+    def get_price(self) -> Price:
         data, timestamp = self.feed.get()
 
         try:
-            return Wad.from_number(data['price'])
+            if 'buyPrice' in data:
+                buy_price = Wad.from_number(data['buyPrice'])
+
+            elif 'price' in data:
+                buy_price = Wad.from_number(data['price'])
+
+            else:
+                buy_price = None
         except:
-            return None
+            buy_price = None
+
+        try:
+            if 'sellPrice' in data:
+                sell_price = Wad.from_number(data['sellPrice'])
+
+            elif 'price' in data:
+                sell_price = Wad.from_number(data['price'])
+
+            else:
+                sell_price = None
+        except:
+            sell_price = None
+
+        return Price(buy_price=buy_price, sell_price=sell_price)
 
 
 class AveragePriceFeed(PriceFeed):
@@ -205,20 +242,27 @@ class AveragePriceFeed(PriceFeed):
         assert(isinstance(feeds, list))
         self.feeds = feeds
 
-    def get_price(self) -> Optional[Wad]:
-        total = Wad.from_number(0)
-        count = 0
+    def get_price(self) -> Price:
+        total_buy = Wad.from_number(0)
+        count_buy = 0
+
+        total_sell = Wad.from_number(0)
+        count_sell = 0
 
         for feed in self.feeds:
             price = feed.get_price()
-            if price is not None:
-                total += price
-                count += 1
+            if price.buy_price is not None:
+                total_buy += price.buy_price
+                count_buy += 1
 
-        if count > 0:
-            return total / Wad.from_number(count)
-        else:
-            return None
+            if price.sell_price is not None:
+                total_sell += price.sell_price
+                count_sell += 1
+
+        buy_price = total_buy / Wad.from_number(count_buy) if count_buy > 0 else None
+        sell_price = total_sell / Wad.from_number(count_sell) if count_sell > 0 else None
+
+        return Price(buy_price=buy_price, sell_price=sell_price)
 
 
 class BackupPriceFeed(PriceFeed):
@@ -228,13 +272,13 @@ class BackupPriceFeed(PriceFeed):
         assert(isinstance(feeds, list))
         self.feeds = feeds
 
-    def get_price(self) -> Optional[Wad]:
+    def get_price(self) -> Price:
         for feed in self.feeds:
             price = feed.get_price()
-            if price is not None:
+            if price.buy_price is not None or price.sell_price is not None:
                 return price
 
-        return None
+        return Price(buy_price=None, sell_price=None)
 
 
 class PriceFeedFactory:

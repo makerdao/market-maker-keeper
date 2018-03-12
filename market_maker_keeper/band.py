@@ -26,6 +26,7 @@ import time
 
 from market_maker_keeper.feed import Feed
 from market_maker_keeper.limit import SideLimits, History
+from market_maker_keeper.price_feed import Price
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from pymaker.numeric import Wad
 
@@ -226,32 +227,44 @@ class Bands:
             if not any(band.includes(order, target_price) for band in bands):
                 yield order
 
-    def cancellable_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Optional[Wad]) -> list:
+    def cancellable_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Price) -> list:
         assert(isinstance(our_buy_orders, list))
         assert(isinstance(our_sell_orders, list))
-        assert(isinstance(target_price, Wad) or target_price is None)
+        assert(isinstance(target_price, Price))
 
-        # If the is no target price feed, cancel all orders but do not terminate the keeper.
-        # The moment the price feed comes back, the keeper will resume placing orders.
-        if target_price is None:
-            self.logger.warning("Cancelling all orders as no price feed available.")
-            return our_buy_orders + our_sell_orders
+        if target_price.buy_price is None:
+            self.logger.warning("Cancelling all buy orders as no buy price is available.")
+            buy_orders_to_cancel = our_buy_orders
 
-        return list(itertools.chain(self._excessive_buy_orders(our_buy_orders, target_price),
-                                    self._excessive_sell_orders(our_sell_orders, target_price),
-                                    self._outside_any_band_orders(our_buy_orders, self.buy_bands, target_price),
-                                    self._outside_any_band_orders(our_sell_orders, self.sell_bands, target_price)))
+        else:
+            buy_orders_to_cancel = list(itertools.chain(self._excessive_buy_orders(our_buy_orders, target_price.buy_price),
+                                                        self._outside_any_band_orders(our_buy_orders, self.buy_bands, target_price.buy_price)))
 
-    def new_orders(self, our_buy_orders: list, our_sell_orders: list, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Optional[Wad]) -> Tuple[list, Wad, Wad]:
+        if target_price.sell_price is None:
+            self.logger.warning("Cancelling all sell orders as no sell price is available.")
+            sell_orders_to_cancel = our_sell_orders
+
+        else:
+            sell_orders_to_cancel = list(itertools.chain(self._excessive_sell_orders(our_sell_orders, target_price.sell_price),
+                                                         self._outside_any_band_orders(our_sell_orders, self.sell_bands, target_price.sell_price)))
+
+        return buy_orders_to_cancel + sell_orders_to_cancel
+
+    def new_orders(self, our_buy_orders: list, our_sell_orders: list, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Price) -> Tuple[list, Wad, Wad]:
         assert(isinstance(our_buy_orders, list))
         assert(isinstance(our_sell_orders, list))
         assert(isinstance(our_buy_balance, Wad))
         assert(isinstance(our_sell_balance, Wad))
-        assert(isinstance(target_price, Wad) or target_price is None)
+        assert(isinstance(target_price, Price))
 
         if target_price is not None:
-            new_buy_orders, missing_buy_amount = self._new_buy_orders(our_buy_orders, our_buy_balance, target_price)
-            new_sell_orders, missing_sell_amount = self._new_sell_orders(our_sell_orders, our_sell_balance, target_price)
+            new_buy_orders, missing_buy_amount = self._new_buy_orders(our_buy_orders, our_buy_balance, target_price.buy_price) \
+                if target_price.buy_price is not None \
+                else ([], Wad(0))
+
+            new_sell_orders, missing_sell_amount = self._new_sell_orders(our_sell_orders, our_sell_balance, target_price.sell_price) \
+                if target_price.sell_price is not None \
+                else ([], Wad(0))
 
             return new_buy_orders + new_sell_orders, missing_buy_amount, missing_sell_amount
 
