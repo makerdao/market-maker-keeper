@@ -97,6 +97,7 @@ class BiboxMarketMakerKeeper:
             lifecycle.on_shutdown(self.shutdown)
 
     def shutdown(self):
+        #TODO I don't think this approach makes sure all orders will always get cancelled!!
         while True:
             try:
                 our_orders = self.bibox_api.get_orders(self.pair(), retry=True)
