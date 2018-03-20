@@ -15,13 +15,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from market_maker_keeper.feed import Feed, ExpiringWebSocketFeed, WebSocketFeed, EmptyFeed
+from market_maker_keeper.feed import Feed, ExpiringFeed, WebSocketFeed, EmptyFeed
 
 
 def create_spread_feed(arguments) -> Feed:
     if arguments.spread_feed:
         web_socket_feed = WebSocketFeed(arguments.spread_feed, 5)
-        expiring_web_socket_feed = ExpiringWebSocketFeed(web_socket_feed, arguments.spread_feed_expiry)
+        expiring_web_socket_feed = ExpiringFeed(web_socket_feed, arguments.spread_feed_expiry)
 
         return expiring_web_socket_feed
     else:

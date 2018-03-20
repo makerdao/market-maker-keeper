@@ -24,7 +24,7 @@ from typing import Optional, List, Tuple
 import os
 import websocket
 
-from market_maker_keeper.feed import ExpiringWebSocketFeed, WebSocketFeed, Feed
+from market_maker_keeper.feed import ExpiringFeed, WebSocketFeed, Feed
 from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
 from pymaker.numeric import Wad
@@ -323,7 +323,7 @@ class PriceFeedFactory:
 
         elif price_feed_argument.startswith("ws://") or price_feed_argument.startswith("wss://"):
             socket_feed = WebSocketFeed(price_feed_argument, 5)
-            socket_feed = ExpiringWebSocketFeed(socket_feed, price_feed_expiry_argument)
+            socket_feed = ExpiringFeed(socket_feed, price_feed_expiry_argument)
 
             price_feed = WebSocketPriceFeed(socket_feed)
 

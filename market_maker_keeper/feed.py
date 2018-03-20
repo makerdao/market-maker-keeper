@@ -100,9 +100,9 @@ class WebSocketFeed(Feed):
             return self._last
 
 
-class ExpiringWebSocketFeed(Feed):
-    def __init__(self, feed: WebSocketFeed, expiry: int):
-        assert(isinstance(feed, WebSocketFeed))
+class ExpiringFeed(Feed):
+    def __init__(self, feed: Feed, expiry: int):
+        assert(isinstance(feed, Feed))
         assert(isinstance(expiry, int))
 
         self.feed = feed
