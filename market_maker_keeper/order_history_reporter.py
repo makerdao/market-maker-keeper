@@ -74,7 +74,6 @@ class OrderHistoryReporter:
             result = requests.post(url=self.endpoint, json=record, timeout=15.5)
 
             if result.ok:
-                print(record)
                 self.logger.debug(f"Successfully reported {len(orders)} orders to '{self.sanitized_endpoint}'")
             else:
                 self.logger.warning(f"Failed to report orders to '{self.sanitized_endpoint}': {result.status_code} {result.text}")
