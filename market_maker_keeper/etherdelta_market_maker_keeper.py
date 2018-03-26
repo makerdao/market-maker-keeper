@@ -26,6 +26,7 @@ from web3 import Web3, HTTPProvider
 from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
+from market_maker_keeper.order_history_reporter import create_order_history_reporter
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
@@ -93,6 +94,12 @@ class EtherDeltaMarketMakerKeeper:
         parser.add_argument("--spread-feed-expiry", type=int, default=3600,
                             help="Maximum age of the spread feed (in seconds, default: 3600)")
 
+        parser.add_argument("--order-history", type=str,
+                            help="Endpoint to report active orders to")
+
+        parser.add_argument("--order-history-every", type=int, default=30,
+                            help="Frequency of reporting active orders (in seconds, default: 30)")
+
         parser.add_argument("--order-age", type=int, required=True,
                             help="Age of created orders (in blocks)")
 
@@ -152,6 +159,7 @@ class EtherDeltaMarketMakerKeeper:
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments, self.tub)
         self.spread_feed = create_spread_feed(self.arguments)
+        self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         if self.eth_reserve <= self.min_eth_balance:
             raise Exception("--eth-reserve must be higher than --min-eth-balance")

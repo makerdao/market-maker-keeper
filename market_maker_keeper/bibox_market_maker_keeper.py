@@ -22,6 +22,7 @@ import sys
 from market_maker_keeper.band import Bands
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
+from market_maker_keeper.order_history_reporter import OrderHistoryReporter, create_order_history_reporter
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
@@ -69,6 +70,12 @@ class BiboxMarketMakerKeeper:
         parser.add_argument("--spread-feed-expiry", type=int, default=3600,
                             help="Maximum age of the spread feed (in seconds, default: 3600)")
 
+        parser.add_argument("--order-history", type=str,
+                            help="Endpoint to report active orders to")
+
+        parser.add_argument("--order-history-every", type=int, default=30,
+                            help="Frequency of reporting active orders (in seconds, default: 30)")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -84,10 +91,12 @@ class BiboxMarketMakerKeeper:
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
+        self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=3)
         self.order_book_manager.get_orders_with(lambda: self.bibox_api.get_orders(pair=self.pair(), retry=True))
         self.order_book_manager.get_balances_with(lambda: self.bibox_api.coin_list(retry=True))
+        self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
     def main(self):

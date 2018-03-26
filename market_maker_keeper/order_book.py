@@ -20,6 +20,8 @@ import threading
 
 import time
 
+from market_maker_keeper.order_history_reporter import OrderHistoryReporter
+
 
 class OrderBook:
     """Represents the current snapshot of the order book.
@@ -93,6 +95,9 @@ class OrderBookManager:
         self.refresh_frequency = refresh_frequency
         self.get_orders_function = None
         self.get_balances_function = None
+        self.order_history_reporter = None
+        self.buy_filter_function = None
+        self.sell_filter_function = None
 
         self._lock = threading.Lock()
         self._state = None
@@ -124,6 +129,16 @@ class OrderBookManager:
         assert(callable(get_balances_function))
 
         self.get_balances_function = get_balances_function
+
+    def enable_history_reporting(self, order_history_reporter: OrderHistoryReporter, buy_filter_function, sell_filter_function):
+        assert(isinstance(order_history_reporter, OrderHistoryReporter) or (order_history_reporter is None))
+        assert(callable(buy_filter_function))
+        assert(callable(sell_filter_function))
+
+        if order_history_reporter is not None:
+            self.order_history_reporter = order_history_reporter
+            self.buy_filter_function = buy_filter_function
+            self.sell_filter_function = sell_filter_function
 
     def start(self):
         """Start the background refresh of active keeper orders."""
@@ -239,6 +254,12 @@ class OrderBookManager:
                 # get orders, get balances
                 orders = self.get_orders_function()
                 balances = self.get_balances_function() if self.get_balances_function is not None else None
+
+                if self.order_history_reporter:
+                    orders_buy = self.buy_filter_function(orders)
+                    orders_sell = self.sell_filter_function(orders)
+
+                    self.order_history_reporter.report_orders(orders_buy, orders_sell)
 
                 with self._lock:
                     self._order_ids_cancelled = self._order_ids_cancelled - orders_already_cancelled_before
