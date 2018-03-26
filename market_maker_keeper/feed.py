@@ -27,6 +27,8 @@ from urllib.parse import urlparse
 
 import websocket
 
+from market_maker_keeper.util import sanitize_url
+
 
 class Feed(object):
     def get(self) -> Tuple[dict, float]:
@@ -49,7 +51,7 @@ class WebSocketFeed(Feed):
         self.reconnect_delay = reconnect_delay
 
         self._header = self._get_header(ws_url)
-        self._sanitized_url = re.sub("://([^:@]+):([^:@]+)@", "://\g<1>@", ws_url)
+        self._sanitized_url = sanitize_url(ws_url)
         self._last = {}, 0.0
         self._lock = threading.Lock()
 
