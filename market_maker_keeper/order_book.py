@@ -19,6 +19,7 @@ import logging
 import threading
 
 import time
+from functools import partial
 
 from market_maker_keeper.order_history_reporter import OrderHistoryReporter
 
@@ -95,6 +96,7 @@ class OrderBookManager:
         self.refresh_frequency = refresh_frequency
         self.get_orders_function = None
         self.get_balances_function = None
+        self.cancel_order_function = None
         self.order_history_reporter = None
         self.buy_filter_function = None
         self.sell_filter_function = None
@@ -129,6 +131,16 @@ class OrderBookManager:
         assert(callable(get_balances_function))
 
         self.get_balances_function = get_balances_function
+
+    def cancel_orders_with(self, cancel_order_function):
+        """Configures the function used to cancel orders.
+
+        Args:
+            cancel_order_function: The function which will be called in order to cancel orders.
+        """
+        assert(callable(cancel_order_function))
+
+        self.cancel_order_function = cancel_order_function
 
     def enable_history_reporting(self, order_history_reporter: OrderHistoryReporter, buy_filter_function, sell_filter_function):
         assert(isinstance(order_history_reporter, OrderHistoryReporter) or (order_history_reporter is None))
@@ -199,6 +211,7 @@ class OrderBookManager:
 
         threading.Thread(target=self._thread_place_order(place_order_function)).start()
 
+    #TODO deprecated
     def cancel_order(self, order_id: int, cancel_order_function):
         """Cancels an existing order. Order cancellation will happen in a background thread.
 
@@ -216,6 +229,59 @@ class OrderBookManager:
             self._order_ids_cancelling.add(order_id)
 
         threading.Thread(target=self._thread_cancel_order(order_id, cancel_order_function)).start()
+
+    def cancel_orders(self, orders: list):
+        assert(isinstance(orders, list))
+        assert(callable(self.cancel_order_function))
+
+        with self._lock:
+            for order in orders:
+                self._order_ids_cancelling.add(order.order_id)
+
+        for order in orders:
+            threading.Thread(target=self._thread_cancel_order(order.order_id, partial(self.cancel_order_function, order))).start()
+
+    def cancel_all_orders(self, final_wait_time: int = None):
+        # Cancel all orders straight away, repeat until the internal order book state confirms
+        # that there are no open orders left.
+        while True:
+            orders = self.get_order_book().orders
+
+            if len(orders) == 0:
+                break
+
+            self.logger.info(f"Cancelling {len(orders)} open orders...")
+
+            self.cancel_orders(self.get_order_book().orders)
+            self.wait_for_stable_order_book()
+
+        # Wait for the background thread to refresh the order book at least once,
+        # so we are 99.9% sure there are no orders left in the backend.
+        self.logger.info("No open orders. Waiting for the order book to refresh just to be sure...")
+        self.wait_for_order_book_refresh()
+
+        orders = self.get_order_book().orders
+        if len(orders) > 0:
+            self.logger.warning(f"There are still {len(orders)} open orders! Repeating the process.")
+            return self.cancel_all_orders(final_wait_time=final_wait_time)
+
+        self.logger.info("Still no open orders after order book refresh. This is what we expected.")
+
+        # If asked to do so (i.e. in case of on-chain exchanges for which the chain may reorg)
+        # wait certain time and confirm once again that there are no open orders left.
+        if final_wait_time:
+            self.logger.info(f"Waiting {final_wait_time} seconds in order to perform the final check...")
+            time.sleep(final_wait_time)
+
+            self.logger.info("Waiting for the order book to refresh...")
+            self.wait_for_order_book_refresh()
+
+            orders = self.get_order_book().orders
+            if len(orders) > 0:
+                self.logger.warning(f"There are still {len(orders)} open orders! Repeating the process.")
+                return self.cancel_all_orders(final_wait_time=final_wait_time)
+
+            self.logger.info("Still no open orders after the final check.")
 
     def wait_for_order_cancellation(self):
         """Wait until no background order cancellation takes place."""

@@ -76,6 +76,9 @@ class BiboxMarketMakerKeeper:
         parser.add_argument("--order-history-every", type=int, default=30,
                             help="Frequency of reporting active orders (in seconds, default: 30)")
 
+        parser.add_argument("--refresh-frequency", type=int, default=3,
+                            help="Order book refresh frequency (in seconds, default: 3)")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -93,9 +96,10 @@ class BiboxMarketMakerKeeper:
         self.spread_feed = create_spread_feed(self.arguments)
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
-        self.order_book_manager = OrderBookManager(refresh_frequency=3)
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.bibox_api.get_orders(pair=self.pair(), retry=True))
         self.order_book_manager.get_balances_with(lambda: self.bibox_api.coin_list(retry=True))
+        self.order_book_manager.cancel_orders_with(lambda order: self.bibox_api.cancel_order(order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -106,18 +110,7 @@ class BiboxMarketMakerKeeper:
             lifecycle.on_shutdown(self.shutdown)
 
     def shutdown(self):
-        #TODO I don't think this approach makes sure all orders will always get cancelled!!
-        while True:
-            try:
-                our_orders = self.bibox_api.get_orders(self.pair(), retry=True)
-            except:
-                continue
-
-            if len(our_orders) == 0:
-                break
-
-            self.cancel_orders(our_orders)
-            self.order_book_manager.wait_for_order_cancellation()
+        self.order_book_manager.cancel_all_orders(final_wait_time=30)
 
     def pair(self):
         return self.arguments.pair.upper()
@@ -147,7 +140,7 @@ class BiboxMarketMakerKeeper:
                                                       our_sell_orders=self.our_sell_orders(order_book.orders),
                                                       target_price=target_price)
         if len(cancellable_orders) > 0:
-            self.cancel_orders(cancellable_orders)
+            self.order_book_manager.cancel_orders(cancellable_orders)
             return
 
         # Do not place new orders if order book state is not confirmed
@@ -161,10 +154,6 @@ class BiboxMarketMakerKeeper:
                                            our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
                                            our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
                                            target_price=target_price)[0])
-
-    def cancel_orders(self, orders):
-        for order in orders:
-            self.order_book_manager.cancel_order(order.order_id, lambda order=order: self.bibox_api.cancel_order(order.order_id))
 
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
