@@ -25,12 +25,13 @@ from web3 import Web3, HTTPProvider
 from market_maker_keeper.band import Bands
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
+from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.order_history_reporter import create_order_history_reporter
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
-from pyexchange.paradex import ParadexApi
+from pyexchange.paradex import ParadexApi, Order
 from pymaker import Address
 from pymaker.approval import directly
 from pymaker.lifecycle import Lifecycle
@@ -147,11 +148,17 @@ class ParadexMarketMakerKeeper:
                                       self.arguments.paradex_api_key,
                                       self.arguments.paradex_api_timeout)
 
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
+        self.order_book_manager.get_orders_with(lambda: self.paradex_api.get_orders(self.pair))
+        self.order_book_manager.cancel_orders_with(lambda order: self.paradex_api.cancel_order(order.order_id))
+        self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
+        self.order_book_manager.start()
+
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
-            lifecycle.every(self.arguments.refresh_frequency, self.synchronize_orders)
+            lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
@@ -165,18 +172,14 @@ class ParadexMarketMakerKeeper:
         self.price_max_decimals = market['priceMaxDecimals']
         self.amount_max_decimals = market['amountMaxDecimals']
 
-    @retry(delay=5, logger=logger)
     def shutdown(self):
-        self.cancel_orders(self.our_orders())
+        self.order_book_manager.cancel_all_orders()
 
     def approve(self):
         self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
     def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
-
-    def our_orders(self) -> list:
-        return self.paradex_api.get_orders(self.pair)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -187,45 +190,53 @@ class ParadexMarketMakerKeeper:
     def synchronize_orders(self):
         if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
             self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
-            self.cancel_orders(self.our_orders())
+            self.order_book_manager.cancel_all_orders()
             return
 
         bands = Bands(self.bands_config, self.spread_feed, self.history)
-        our_orders = self.our_orders()
+        order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 
         # Cancel orders
-        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                                      our_sell_orders=self.our_sell_orders(our_orders),
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                      our_sell_orders=self.our_sell_orders(order_book.orders),
                                                       target_price=target_price)
         if len(cancellable_orders) > 0:
-            self.cancel_orders(cancellable_orders)
+            self.order_book_manager.cancel_orders(cancellable_orders)
+            return
+
+        # Do not place new orders if order book state is not confirmed
+        if order_book.orders_being_placed or order_book.orders_being_cancelled:
+            self.logger.debug("Order book is in progress, not placing new orders")
             return
 
         # In case of Paradex, balances returned by `our_total_balance` still contain amounts "locked"
         # by currently open orders, so we need to explicitly subtract these amounts.
-        our_buy_balance = self.our_total_balance(self.token_buy) - Bands.total_amount(self.our_buy_orders(our_orders))
-        our_sell_balance = self.our_total_balance(self.token_sell) - Bands.total_amount(self.our_sell_orders(our_orders))
+        our_buy_balance = self.our_total_balance(self.token_buy) - Bands.total_amount(self.our_buy_orders(order_book.orders))
+        our_sell_balance = self.our_total_balance(self.token_sell) - Bands.total_amount(self.our_sell_orders(order_book.orders))
 
         # Place new orders
-        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                           our_sell_orders=self.our_sell_orders(our_orders),
+        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                           our_sell_orders=self.our_sell_orders(order_book.orders),
                                            our_buy_balance=our_buy_balance,
                                            our_sell_balance=our_sell_balance,
                                            target_price=target_price)[0])
 
-    def cancel_orders(self, orders):
-        for order in orders:
-            self.paradex_api.cancel_order(order.order_id)
-
     def place_orders(self, new_orders):
+        def place_order_function(new_order_to_be_placed):
+            price = round(new_order_to_be_placed.price, self.price_max_decimals)
+            amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
+            amount = round(amount, self.amount_max_decimals)
+            order_id = self.paradex_api.place_order(pair=self.pair,
+                                                    is_sell=new_order_to_be_placed.is_sell,
+                                                    price=price,
+                                                    amount=amount,
+                                                    expiry=self.arguments.order_expiry)
+
+            return Order(order_id, self.pair, new_order_to_be_placed.is_sell, price, amount, amount)
+
         for new_order in new_orders:
-            amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
-            self.paradex_api.place_order(pair=self.pair,
-                                         is_sell=new_order.is_sell,
-                                         price=round(new_order.price, self.price_max_decimals),
-                                         amount=round(amount, self.amount_max_decimals),
-                                         expiry=self.arguments.order_expiry)
+            self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
 
 if __name__ == '__main__':
