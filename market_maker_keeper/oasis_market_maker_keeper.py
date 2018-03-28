@@ -134,6 +134,7 @@ class OasisMarketMakerKeeper:
         self.history = History()
         self.order_book_manager = OrderBookManager(refresh_frequency=3)
         self.order_book_manager.get_orders_with(lambda: self.our_orders())
+        self.order_book_manager.cancel_orders_with(lambda order: self.otc.kill(order.order_id).transact(gas_price=self.gas_price).successful)
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -148,9 +149,8 @@ class OasisMarketMakerKeeper:
     def startup(self):
         self.approve()
 
-    @retry(delay=5, logger=logger)
     def shutdown(self):
-        self.cancel_all_orders()
+        self.order_book_manager.cancel_all_orders(final_wait_time=60)
 
     def on_block(self):
         # This method is present only so the lifecycle binds the new block listener, which makes
@@ -181,7 +181,7 @@ class OasisMarketMakerKeeper:
         # If market is closed, cancel all orders but do not terminate the keeper.
         if self.otc.is_closed():
             self.logger.warning("Market is closed. Cancelling all orders.")
-            self.cancel_all_orders()
+            self.order_book_manager.cancel_all_orders()
             return
 
         # If keeper balance is below `--min-eth-balance`, cancel all orders but do not terminate
@@ -189,7 +189,7 @@ class OasisMarketMakerKeeper:
         # resume activity straight away, without the need to restart it.
         if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
             self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
-            self.cancel_all_orders()
+            self.order_book_manager.cancel_all_orders()
             return
 
         bands = Bands(self.bands_config, self.spread_feed, self.history)
@@ -205,7 +205,7 @@ class OasisMarketMakerKeeper:
                                                       target_price=target_price)
 
         if len(cancellable_orders) > 0:
-            self.cancel_orders(cancellable_orders)
+            self.order_book_manager.cancel_orders(cancellable_orders)
             return
 
         # Do not place new orders if order book state is not confirmed
@@ -219,21 +219,6 @@ class OasisMarketMakerKeeper:
                                            our_buy_balance=self.our_available_balance(self.token_buy),
                                            our_sell_balance=self.our_available_balance(self.token_sell),
                                            target_price=target_price)[0])
-
-    def cancel_all_orders(self):
-        # Wait for the order book to stabilize
-        while True:
-            order_book = self.order_book_manager.get_order_book()
-            if not order_book.orders_being_cancelled and not order_book.orders_being_placed:
-                break
-
-        # Cancel all open orders
-        self.cancel_orders(self.order_book_manager.get_order_book().orders)
-        self.order_book_manager.wait_for_order_cancellation()
-
-    def cancel_orders(self, orders):
-        for order in orders:
-            self.order_book_manager.cancel_order(order.order_id, lambda order=order: self.otc.kill(order.order_id).transact(gas_price=self.gas_price).successful)
 
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed: NewOrder):
