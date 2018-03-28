@@ -98,6 +98,7 @@ class GOPAXMarketMakerKeeper:
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(self.get_orders)
         self.order_book_manager.get_balances_with(lambda: self.gopax_api.get_balances())
+        self.order_book_manager.cancel_orders_with(lambda order: self.gopax_api.cancel_order(order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -108,18 +109,7 @@ class GOPAXMarketMakerKeeper:
             lifecycle.on_shutdown(self.shutdown)
 
     def shutdown(self):
-        #TODO I don't think this approach makes sure all orders will always get cancelled!!
-        while True:
-            try:
-                our_orders = self.gopax_api.get_orders(self.pair())
-            except:
-                continue
-
-            if len(our_orders) == 0:
-                break
-
-            self.cancel_orders(our_orders)
-            self.order_book_manager.wait_for_order_cancellation()
+        self.order_book_manager.cancel_all_orders()
 
     def pair(self):
         return self.arguments.pair.upper()
@@ -152,7 +142,7 @@ class GOPAXMarketMakerKeeper:
                                                       our_sell_orders=self.our_sell_orders(order_book.orders),
                                                       target_price=target_price)
         if len(cancellable_orders) > 0:
-            self.cancel_orders(cancellable_orders)
+            self.order_book_manager.cancel_orders(cancellable_orders)
             return
 
         # Do not place new orders if order book state is not confirmed
@@ -166,10 +156,6 @@ class GOPAXMarketMakerKeeper:
                                            our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
                                            our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
                                            target_price=target_price)[0])
-
-    def cancel_orders(self, orders):
-        for order in orders:
-            self.order_book_manager.cancel_order(order.order_id, lambda order=order: self.gopax_api.cancel_order(order.order_id))
 
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
