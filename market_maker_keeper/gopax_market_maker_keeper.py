@@ -75,6 +75,9 @@ class GOPAXMarketMakerKeeper:
         parser.add_argument("--order-history-every", type=int, default=30,
                             help="Frequency of reporting active orders (in seconds, default: 30)")
 
+        parser.add_argument("--refresh-frequency", type=int, default=3,
+                            help="Order book refresh frequency (in seconds, default: 3)")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -92,7 +95,7 @@ class GOPAXMarketMakerKeeper:
         self.spread_feed = create_spread_feed(self.arguments)
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
-        self.order_book_manager = OrderBookManager(refresh_frequency=10)
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(self.get_orders)
         self.order_book_manager.get_balances_with(lambda: self.gopax_api.get_balances())
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
