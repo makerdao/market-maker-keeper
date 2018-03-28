@@ -101,6 +101,7 @@ class GateIOMarketMakerKeeper:
 
     def main(self):
         with Lifecycle() as lifecycle:
+            lifecycle.initial_delay(10)
             lifecycle.every(10, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
