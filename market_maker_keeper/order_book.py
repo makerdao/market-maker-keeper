@@ -255,9 +255,14 @@ class OrderBookManager:
             self.cancel_orders(self.get_order_book().orders)
             self.wait_for_stable_order_book()
 
-        # Wait for the background thread to refresh the order book at least once,
-        # so we are 99.9% sure there are no orders left in the backend.
-        self.logger.info("No open orders. Waiting for the order book to refresh just to be sure...")
+        # Wait for the background thread to refresh the order book twice, so we are 99.9% sure
+        # that there are no orders left in the backend.
+        #
+        # The reason we wait twice for the order book refresh is that the first refresh might have
+        # started still while the orders were still being cancelled. By waiting twice we are sure that the
+        # second refresh has started after the whole order cancellation process was already finished.
+        self.logger.info("No open orders. Waiting for the order book to refresh twice just to be sure...")
+        self.wait_for_order_book_refresh()
         self.wait_for_order_book_refresh()
 
         orders = self.get_order_book().orders
