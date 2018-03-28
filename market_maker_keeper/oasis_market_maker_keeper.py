@@ -107,6 +107,9 @@ class OasisMarketMakerKeeper:
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
+        parser.add_argument("--refresh-frequency", type=int, default=3,
+                            help="Order book refresh frequency (in seconds, default: 3)")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -132,7 +135,7 @@ class OasisMarketMakerKeeper:
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
-        self.order_book_manager = OrderBookManager(refresh_frequency=3)
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.our_orders())
         self.order_book_manager.cancel_orders_with(lambda order: self.otc.kill(order.order_id).transact(gas_price=self.gas_price).successful)
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
