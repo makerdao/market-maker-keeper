@@ -26,6 +26,7 @@ from retry import retry
 
 from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.limit import History
+from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.order_history_reporter import create_order_history_reporter
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -80,6 +81,9 @@ class GateIOMarketMakerKeeper:
         parser.add_argument("--order-history-every", type=int, default=30,
                             help="Frequency of reporting active orders (in seconds, default: 30)")
 
+        parser.add_argument("--refresh-frequency", type=int, default=3,
+                            help="Order book refresh frequency (in seconds, default: 3)")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -97,17 +101,23 @@ class GateIOMarketMakerKeeper:
                                     secret_key=self.arguments.gateio_secret_key,
                                     timeout=self.arguments.gateio_timeout)
 
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
+        self.order_book_manager.get_orders_with(lambda: self.gateio_api.get_orders(self.pair()))
+        self.order_book_manager.get_balances_with(lambda: self.gateio_api.get_balances())
+        self.order_book_manager.cancel_orders_with(lambda order: self.gateio_api.cancel_order(self.pair(), order.order_id))
+        self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
+        self.order_book_manager.start()
+
         self._last_order_creation = 0
 
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
-            lifecycle.every(10, self.synchronize_orders)
+            lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
-    @retry(delay=5, logger=logger)
     def shutdown(self):
-        self.gateio_api.cancel_all_orders(self.pair())
+        self.order_book_manager.cancel_all_orders()
 
     def pair(self):
         return self.arguments.pair.lower()
@@ -118,17 +128,11 @@ class GateIOMarketMakerKeeper:
     def token_buy(self) -> str:
         return self.arguments.pair.split('_')[1].upper()
 
-    def our_balances(self) -> dict:
-        return self.gateio_api.get_balances()
-
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
         try:
             return Wad.from_number(our_balances['available'][token])
         except KeyError:
             return Wad(0)
-
-    def our_orders(self) -> list:
-        return self.gateio_api.get_orders(self.pair())
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -138,23 +142,27 @@ class GateIOMarketMakerKeeper:
 
     def synchronize_orders(self):
         bands = Bands(self.bands_config, self.spread_feed, self.history)
-        our_balances = self.our_balances()
-        our_orders = self.our_orders()
+        order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 
         # Cancel orders
-        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                                      our_sell_orders=self.our_sell_orders(our_orders),
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                      our_sell_orders=self.our_sell_orders(order_book.orders),
                                                       target_price=target_price)
         if len(cancellable_orders) > 0:
-            self.cancel_orders(cancellable_orders)
+            self.order_book_manager.cancel_orders(cancellable_orders)
+            return
+
+        # Do not place new orders if order book state is not confirmed
+        if order_book.orders_being_placed or order_book.orders_being_cancelled:
+            self.logger.debug("Order book is in progress, not placing new orders")
             return
 
         # Place new orders
-        new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                      our_sell_orders=self.our_sell_orders(our_orders),
-                                      our_buy_balance=self.our_available_balance(our_balances, self.token_buy()),
-                                      our_sell_balance=self.our_available_balance(our_balances, self.token_sell()),
+        new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                      our_sell_orders=self.our_sell_orders(order_book.orders),
+                                      our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
+                                      our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
                                       target_price=target_price)[0]
 
         if len(new_orders) > 0:
@@ -172,14 +180,25 @@ class GateIOMarketMakerKeeper:
     def register_order_creation(self):
         self._last_order_creation = time.time()
 
-    def cancel_orders(self, orders: List[Order]):
-        for order in orders:
-            self.gateio_api.cancel_order(self.pair(), order.order_id)
-
     def place_orders(self, new_orders: List[NewOrder]):
+        def place_order_function(new_order_to_be_placed):
+            amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
+            order_id = self.gateio_api.place_order(self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
+
+            return Order(order_id=order_id,
+                         timestamp=0,
+                         pair=self.pair(),
+                         is_sell=new_order_to_be_placed.is_sell,
+                         price=new_order_to_be_placed.price,
+                         amount=amount,
+                         amount_symbol=self.token_sell(),
+                         money=amount * new_order_to_be_placed.price,
+                         money_symbol=self.token_buy(),
+                         initial_amount=amount,
+                         filled_amount=Wad(0))
+
         for new_order in new_orders:
-            amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
-            self.gateio_api.place_order(self.pair(), new_order.is_sell, new_order.price, amount)
+            self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
 
 if __name__ == '__main__':
