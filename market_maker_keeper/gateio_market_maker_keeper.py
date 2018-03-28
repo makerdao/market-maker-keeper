@@ -101,15 +101,8 @@ class GateIOMarketMakerKeeper:
 
     def main(self):
         with Lifecycle() as lifecycle:
-            lifecycle.on_startup(self.startup)
             lifecycle.every(10, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
-
-    def startup(self):
-        self.our_orders()
-        self.our_balances()
-        self.logger.info(f"Gate.io API key seems to be valid")
-        self.logger.info(f"Keeper configured to work on the '{self.pair()}' pair")
 
     @retry(delay=5, logger=logger)
     def shutdown(self):
