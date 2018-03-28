@@ -142,7 +142,7 @@ class OasisMarketMakerKeeper:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
             lifecycle.on_block(self.on_block)
-            lifecycle.every(3, self.synchronize_orders)
+            lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
