@@ -137,7 +137,7 @@ class OasisMarketMakerKeeper:
         self.history = History()
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.our_orders())
-        self.order_book_manager.cancel_orders_with(lambda order: self.otc.kill(order.order_id).transact(gas_price=self.gas_price).successful)
+        self.order_book_manager.cancel_orders_with(self.cancel_order_function)
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -222,6 +222,10 @@ class OasisMarketMakerKeeper:
                                            our_buy_balance=self.our_available_balance(self.token_buy),
                                            our_sell_balance=self.our_available_balance(self.token_sell),
                                            target_price=target_price)[0])
+
+    def cancel_order_function(self, order):
+        transact = self.otc.kill(order.order_id).transact(gas_price=self.gas_price)
+        return transact is not None and transact.successful
 
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed: NewOrder):
