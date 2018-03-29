@@ -75,20 +75,20 @@ class EthGasStation:
             self._fastest_price = int(data['fastest']*self.SCALE)
             self._last_refresh = int(time.time())
 
-            self.logger.debug(f"Fetched data from {self.URL}: {data}")
+            self.logger.debug(f"Fetched current gas prices from {self.URL}: {data}")
 
             if self._expired:
-                self.logger.info(f"Data feed from 'ethgasstation.info' became available")
+                self.logger.info(f"Current gas prices information from 'ethgasstation.info' became available")
                 self._expired = False
         except:
-            self.logger.warning(f"Failed to fetch data from {self.URL}")
+            self.logger.warning(f"Failed to fetch current gas prices from {self.URL}")
 
     def _return_value_if_valid(self, value: int) -> Optional[int]:
         if int(time.time()) - self._last_refresh <= self.expiry:
             return value
         else:
             if not self._expired:
-                self.logger.warning(f"Data feed from 'ethgasstation.info' has expired")
+                self.logger.warning(f"Current gas prices information from 'ethgasstation.info' has expired")
                 self._expired = True
             return None
 
