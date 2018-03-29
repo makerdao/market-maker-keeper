@@ -81,7 +81,7 @@ class EthGasStation:
                 self.logger.info(f"Current gas prices information from 'ethgasstation.info' became available")
                 self._expired = False
         except:
-            self.logger.info(f"Failed to fetch current gas prices from {self.URL}")
+            self.logger.warning(f"Failed to fetch current gas prices from {self.URL}")
 
     def _return_value_if_valid(self, value: int) -> Optional[int]:
         if int(time.time()) - self._last_refresh <= self.expiry:
