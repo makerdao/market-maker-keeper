@@ -86,10 +86,16 @@ class EthGasStation:
     def _return_value_if_valid(self, value: int) -> Optional[int]:
         if int(time.time()) - self._last_refresh <= self.expiry:
             return value
+
         else:
+            if self._last_refresh == 0:
+                self.logger.warning(f"Current gas prices information from 'ethgasstation.info' is unavailable")
+                self._last_refresh = 1
+
             if not self._expired:
                 self.logger.warning(f"Current gas prices information from 'ethgasstation.info' has expired")
                 self._expired = True
+
             return None
 
     def safe_low_price(self) -> Optional[int]:
