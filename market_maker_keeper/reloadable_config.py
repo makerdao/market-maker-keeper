@@ -43,7 +43,8 @@ class ReloadableConfig:
         assert(isinstance(filename, str))
 
         self.filename = filename
-        self._checksum = None
+        self._checksum_file = None
+        self._checksum_config = None
         self._config = None
         self._mtime = None
         self._spread_feed = None
@@ -68,7 +69,7 @@ class ReloadableConfig:
 
         mtime = os.path.getmtime(self.filename)
 
-        # If the modification time has not change since the last time we have read the file,
+        # If the modification time has not changed since the last time we have read the file,
         # we return the last content without opening and parsing it. It saves us around ~ 30ms.
         #
         # Ultimately something like `watchdog` (<https://pythonhosted.org/watchdog/index.html>)
@@ -84,15 +85,20 @@ class ReloadableConfig:
             result = json.loads(content_config)
 
             # Report if file has been newly loaded or reloaded
-            checksum = zlib.crc32(content_config.encode('utf-8'))
-            if self._checksum is None:
+            checksum_file = zlib.crc32(content_file.encode('utf-8'))
+            checksum_config = zlib.crc32(content_config.encode('utf-8'))
+            if self._checksum_file is None:
                 self.logger.info(f"Loaded configuration from '{self.filename}'")
                 self.logger.debug(f"Config file is: " + json.dumps(result, indent=4))
-            elif self._checksum != checksum:
+            elif self._checksum_file != checksum_file:
                 self.logger.info(f"Reloaded configuration from '{self.filename}'")
                 self.logger.debug(f"Reloaded config file is: " + json.dumps(result, indent=4))
+            elif self._checksum_config != checksum_config:
+                self.logger.debug(f"Parsed configuration from '{self.filename}'")
+                self.logger.debug(f"Parsed config file is: " + json.dumps(result, indent=4))
 
-            self._checksum = checksum
+            self._checksum_file = checksum_file
+            self._checksum_config = checksum_config
             self._config = result
             self._mtime = mtime
             self._spread_feed = spread_feed

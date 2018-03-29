@@ -63,6 +63,7 @@ class TestReloadableConfig:
     def test_should_read_file_again_if_changed(self, tmpdir):
         # given
         reloadable_config = ReloadableConfig(self.write_advanced_config(tmpdir, "b"))
+        reloadable_config.logger = MagicMock()
 
         # when
         config = reloadable_config.get_config({})
@@ -70,12 +71,20 @@ class TestReloadableConfig:
         # then
         assert config["a"] == "b"
 
+        # and
+        # [a log message that the config was loaded gets generated]
+        assert reloadable_config.logger.info.call_count == 1
+
         # when
         self.write_advanced_config(tmpdir, "z")
         config = reloadable_config.get_config({})
 
         # then
         assert config["a"] == "z"
+
+        # and
+        # [a log message that the config was reloaded gets generated]
+        assert reloadable_config.logger.info.call_count == 2
 
     def test_should_import_spreads(self, tmpdir):
         # given
@@ -124,5 +133,6 @@ class TestReloadableConfig:
         assert config["usedSellSpread"] == 1.5
 
         # and
-        # [a log message that the config was reloaded gets generated]
-        assert reloadable_config.logger.info.call_count == 2
+        # [no log message that the config was reloaded gets generated]
+        # [as it was only parsed again]
+        assert reloadable_config.logger.info.call_count == 1
