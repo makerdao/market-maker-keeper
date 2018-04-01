@@ -148,7 +148,7 @@ class ParadexMarketMakerKeeper:
                                       self.arguments.paradex_api_key,
                                       self.arguments.paradex_api_timeout)
 
-        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency, max_workers=1)
         self.order_book_manager.get_orders_with(lambda: self.paradex_api.get_orders(self.pair))
         self.order_book_manager.cancel_orders_with(lambda order: self.paradex_api.cancel_order(order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
