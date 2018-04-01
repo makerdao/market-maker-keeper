@@ -212,6 +212,11 @@ class OrderBookManager:
         threading.Thread(target=self._thread_place_order(place_order_function)).start()
 
     def cancel_orders(self, orders: list):
+        """Cancels existing orders. Order cancellation will happen in a background thread.
+
+        Args:
+            orders: Collection of orders to cancel.
+        """
         assert(isinstance(orders, list))
         assert(callable(self.cancel_order_function))
 
