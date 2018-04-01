@@ -211,25 +211,6 @@ class OrderBookManager:
 
         threading.Thread(target=self._thread_place_order(place_order_function)).start()
 
-    #TODO deprecated
-    def cancel_order(self, order_id: int, cancel_order_function):
-        """Cancels an existing order. Order cancellation will happen in a background thread.
-
-        Args:
-            order_id: Identified of the order to cancel. It is only used to hide the order
-                from the order book snapshot during the cancellation takes place, and to permanently
-                remove it from there if the cancellation is successful.
-
-            cancel_order_function: Function used to cancel the order.
-        """
-        assert(isinstance(order_id, int))
-        assert(callable(cancel_order_function))
-
-        with self._lock:
-            self._order_ids_cancelling.add(order_id)
-
-        threading.Thread(target=self._thread_cancel_order(order_id, cancel_order_function)).start()
-
     def cancel_orders(self, orders: list):
         assert(isinstance(orders, list))
         assert(callable(self.cancel_order_function))
