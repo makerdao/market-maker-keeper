@@ -208,7 +208,16 @@ class OasisMarketMakerKeeper:
                                                       target_price=target_price)
 
         if len(cancellable_orders) > 0:
-            self.order_book_manager.cancel_orders(cancellable_orders)
+            simulated_book = list(set(order_book.orders) - set(cancellable_orders))
+
+            new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(simulated_book),
+                                          our_sell_orders=self.our_sell_orders(simulated_book),
+                                          our_buy_balance=self.our_available_balance(self.token_buy),
+                                          our_sell_balance=self.our_available_balance(self.token_sell),
+                                          target_price=target_price)[0]
+
+            self.order_book_manager.replace_orders(cancellable_orders, new_orders)
+
             return
 
         # Do not place new orders if order book state is not confirmed

@@ -253,6 +253,30 @@ class OrderBookManager:
         for order in orders:
             threading.Thread(target=self._thread_cancel_order(order.order_id, partial(self.cancel_order_function, order))).start()
 
+    def replace_orders(self, orders: list, new_orders: list):
+        """Replaces existing orders with new ones.
+
+        Args:
+            orders: List of orders to cancel.
+            new_orders: List of new orders to place.
+        """
+        assert(isinstance(orders, list))
+        assert(isinstance(new_orders, list))
+        assert(callable(self.place_order_function))
+        assert(callable(self.cancel_order_function))
+
+        with self._lock:
+            for order in orders:
+                self._order_ids_cancelling.add(order.order_id)
+
+            self._currently_placing_orders += len(new_orders)
+
+        for order in orders:
+            threading.Thread(target=self._thread_cancel_order(order.order_id, partial(self.cancel_order_function, order))).start()
+
+        for new_order in new_orders:
+            threading.Thread(target=self._thread_place_order(partial(self.place_order_function, new_order))).start()
+
     def cancel_all_orders(self, final_wait_time: int = None):
         # Cancel all orders straight away, repeat until the internal order book state confirms
         # that there are no open orders left.
