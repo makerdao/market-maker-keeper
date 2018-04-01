@@ -241,7 +241,7 @@ class OrderBookManager:
         """Cancels existing orders. Order cancellation will happen in a background thread.
 
         Args:
-            orders: Collection of orders to cancel.
+            orders: List of orders to cancel.
         """
         assert(isinstance(orders, list))
         assert(callable(self.cancel_order_function))
