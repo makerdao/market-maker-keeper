@@ -19,6 +19,7 @@ import logging
 import threading
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
 from market_maker_keeper.order_history_reporter import OrderHistoryReporter
@@ -90,8 +91,9 @@ class OrderBookManager:
 
     logger = logging.getLogger()
 
-    def __init__(self, refresh_frequency: int):
+    def __init__(self, refresh_frequency: int, max_workers: int = 5):
         assert(isinstance(refresh_frequency, int))
+        assert(isinstance(max_workers, int))
 
         self.refresh_frequency = refresh_frequency
         self.get_orders_function = None
@@ -102,6 +104,7 @@ class OrderBookManager:
         self.buy_filter_function = None
         self.sell_filter_function = None
 
+        self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._lock = threading.Lock()
         self._state = None
         self._refresh_count = 0
@@ -220,7 +223,7 @@ class OrderBookManager:
         with self._lock:
             self._currently_placing_orders += 1
 
-        threading.Thread(target=self._thread_place_order(place_order_function)).start()
+        self._executor.submit(self._thread_place_order(place_order_function))
 
     def place_orders(self, new_orders: list):
         """Places new orders. Order placement will happen in a background thread.
@@ -235,7 +238,7 @@ class OrderBookManager:
             self._currently_placing_orders += len(new_orders)
 
         for new_order in new_orders:
-            threading.Thread(target=self._thread_place_order(partial(self.place_order_function, new_order))).start()
+            self._executor.submit(self._thread_place_order(partial(self.place_order_function, new_order)))
 
     def cancel_orders(self, orders: list):
         """Cancels existing orders. Order cancellation will happen in a background thread.
@@ -251,7 +254,7 @@ class OrderBookManager:
                 self._order_ids_cancelling.add(order.order_id)
 
         for order in orders:
-            threading.Thread(target=self._thread_cancel_order(order.order_id, partial(self.cancel_order_function, order))).start()
+            self._executor.submit(self._thread_cancel_order(order.order_id, partial(self.cancel_order_function, order)))
 
     def replace_orders(self, orders: list, new_orders: list):
         """Replaces existing orders with new ones.
@@ -272,10 +275,10 @@ class OrderBookManager:
             self._currently_placing_orders += len(new_orders)
 
         for order in orders:
-            threading.Thread(target=self._thread_cancel_order(order.order_id, partial(self.cancel_order_function, order))).start()
+            self._executor.submit(self._thread_cancel_order(order.order_id, partial(self.cancel_order_function, order)))
 
         for new_order in new_orders:
-            threading.Thread(target=self._thread_place_order(partial(self.place_order_function, new_order))).start()
+            self._executor.submit(self._thread_place_order(partial(self.place_order_function, new_order)))
 
     def cancel_all_orders(self, final_wait_time: int = None):
         # Cancel all orders straight away, repeat until the internal order book state confirms
