@@ -18,16 +18,14 @@
 import argparse
 import logging
 import sys
-import time
 
-from retry import retry
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
-from market_maker_keeper.order_history_reporter import OrderHistoryReporter, create_order_history_reporter
+from market_maker_keeper.order_history_reporter import create_order_history_reporter
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
@@ -39,7 +37,8 @@ from pymaker.numeric import Wad
 from pymaker.oasis import Order, MatchingMarket
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
-from pymaker.util import synchronize, eth_balance
+from pymaker.transactional import TxManager
+from pymaker.util import eth_balance
 
 
 class OasisMarketMakerKeeper:
@@ -137,6 +136,7 @@ class OasisMarketMakerKeeper:
         self.history = History()
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.our_orders())
+        self.order_book_manager.place_orders_with(self.place_order_function)
         self.order_book_manager.cancel_orders_with(self.cancel_order_function)
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
@@ -217,44 +217,40 @@ class OasisMarketMakerKeeper:
             return
 
         # Place new orders
-        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                           our_sell_orders=self.our_sell_orders(order_book.orders),
-                                           our_buy_balance=self.our_available_balance(self.token_buy),
-                                           our_sell_balance=self.our_available_balance(self.token_sell),
-                                           target_price=target_price)[0])
+        self.order_book_manager.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                              our_sell_orders=self.our_sell_orders(order_book.orders),
+                                                              our_buy_balance=self.our_available_balance(self.token_buy),
+                                                              our_sell_balance=self.our_available_balance(self.token_sell),
+                                                              target_price=target_price)[0])
+
+    def place_order_function(self, new_order: NewOrder):
+        assert(isinstance(new_order, NewOrder))
+
+        if new_order.is_sell:
+            pay_token = self.token_sell.address
+            buy_token = self.token_buy.address
+        else:
+            pay_token = self.token_buy.address
+            buy_token = self.token_sell.address
+
+        transact = self.otc.make(pay_token=pay_token, pay_amount=new_order.pay_amount,
+                                 buy_token=buy_token, buy_amount=new_order.buy_amount).transact(gas_price=self.gas_price)
+
+        if transact is not None and transact.successful and transact.result is not None:
+            return Order(market=self.otc,
+                         order_id=transact.result,
+                         maker=self.our_address,
+                         pay_token=pay_token,
+                         pay_amount=new_order.pay_amount,
+                         buy_token=buy_token,
+                         buy_amount=new_order.buy_amount,
+                         timestamp=0)
+        else:
+            return None
 
     def cancel_order_function(self, order):
         transact = self.otc.kill(order.order_id).transact(gas_price=self.gas_price)
         return transact is not None and transact.successful
-
-    def place_orders(self, new_orders):
-        def place_order_function(new_order_to_be_placed: NewOrder):
-            assert(isinstance(new_order_to_be_placed, NewOrder))
-
-            if new_order_to_be_placed.is_sell:
-                pay_token = self.token_sell.address
-                buy_token = self.token_buy.address
-            else:
-                pay_token = self.token_buy.address
-                buy_token = self.token_sell.address
-
-            transact = self.otc.make(pay_token=pay_token, pay_amount=new_order_to_be_placed.pay_amount,
-                                     buy_token=buy_token, buy_amount=new_order_to_be_placed.buy_amount).transact(gas_price=self.gas_price)
-
-            if transact is not None and transact.successful and transact.result is not None:
-                return Order(market=self.otc,
-                             order_id=transact.result,
-                             maker=self.our_address,
-                             pay_token=pay_token,
-                             pay_amount=new_order_to_be_placed.pay_amount,
-                             buy_token=buy_token,
-                             buy_amount=new_order_to_be_placed.buy_amount,
-                             timestamp=0)
-            else:
-                return None
-
-        for new_order in new_orders:
-            self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
 
 if __name__ == '__main__':

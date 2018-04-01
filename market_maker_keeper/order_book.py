@@ -96,6 +96,7 @@ class OrderBookManager:
         self.refresh_frequency = refresh_frequency
         self.get_orders_function = None
         self.get_balances_function = None
+        self.place_order_function = None
         self.cancel_order_function = None
         self.order_history_reporter = None
         self.buy_filter_function = None
@@ -131,6 +132,16 @@ class OrderBookManager:
         assert(callable(get_balances_function))
 
         self.get_balances_function = get_balances_function
+
+    def place_orders_with(self, place_order_function):
+        """Configures the function used to place orders.
+
+        Args:
+            place_order_function: The function which will be called in order to place new orders.
+        """
+        assert(callable(place_order_function))
+
+        self.place_order_function = place_order_function
 
     def cancel_orders_with(self, cancel_order_function):
         """Configures the function used to cancel orders.
@@ -210,6 +221,21 @@ class OrderBookManager:
             self._currently_placing_orders += 1
 
         threading.Thread(target=self._thread_place_order(place_order_function)).start()
+
+    def place_orders(self, new_orders: list):
+        """Places new orders. Order placement will happen in a background thread.
+
+        Args:
+            new_orders: List of new orders to place.
+        """
+        assert(isinstance(new_orders, list))
+        assert(callable(self.place_order_function))
+
+        with self._lock:
+            self._currently_placing_orders += len(new_orders)
+
+        for new_order in new_orders:
+            threading.Thread(target=self._thread_place_order(partial(self.place_order_function, new_order))).start()
 
     def cancel_orders(self, orders: list):
         """Cancels existing orders. Order cancellation will happen in a background thread.
