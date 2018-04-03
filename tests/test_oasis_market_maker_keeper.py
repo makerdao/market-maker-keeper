@@ -26,6 +26,7 @@ from pymaker.feed import DSValue
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.token import DSToken, ERC20Token
+from pymaker.transactional import TxManager
 from tests.band_config import BandConfig
 from tests.helper import args
 
@@ -47,6 +48,11 @@ class TestOasisMarketMakerKeeper:
     @staticmethod
     def orders_sorted(orders: list) -> list:
         return sorted(orders, key=lambda order: (order.pay_amount, order.buy_amount))
+
+    @staticmethod
+    def synchronize_orders_once(keeper: OasisMarketMakerKeeper):
+        keeper.synchronize_orders()
+        keeper.order_book_manager.wait_for_stable_order_book()
 
     @staticmethod
     def synchronize_orders_twice(keeper: OasisMarketMakerKeeper):
@@ -779,6 +785,74 @@ class TestOasisMarketMakerKeeper:
         # then
         assert len(deployment.otc.get_orders()) == 0
         assert not keeper.lifecycle.terminated_internally
+
+    def test_should_send_replacement_orders_the_moment_old_ones_get_cancelled(self, deployment: Deployment, tmpdir):
+        # given
+        config_file = BandConfig.sample_config(tmpdir)
+
+        # and
+        keeper = OasisMarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} "
+                                                  f"--tub-address {deployment.tub.address} "
+                                                  f"--oasis-address {deployment.otc.address} "
+                                                  f"--buy-token-address {deployment.sai.address} "
+                                                  f"--sell-token-address {deployment.gem.address} "
+                                                  f"--price-feed tub "
+                                                  f"--config {config_file}"),
+                                        web3=deployment.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
+
+        # and
+        self.mint_tokens(deployment)
+
+        # and
+        keeper.approve()
+
+        # when
+        self.set_price(deployment, Wad.from_number(100))
+        self.synchronize_orders_once(keeper)
+
+        # then
+        assert len(deployment.otc.get_orders()) == 2
+
+        # and
+        assert self.orders_by_token(deployment, deployment.sai)[0].maker == deployment.our_address
+        assert self.orders_by_token(deployment, deployment.sai)[0].pay_amount == Wad.from_number(75)
+        assert self.orders_by_token(deployment, deployment.sai)[0].pay_token == deployment.sai.address
+        assert self.orders_by_token(deployment, deployment.sai)[0].buy_amount == Wad.from_number(0.78125)
+        assert self.orders_by_token(deployment, deployment.sai)[0].buy_token == deployment.gem.address
+
+        # and
+        assert self.orders_by_token(deployment, deployment.gem)[0].maker == deployment.our_address
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_token == deployment.gem.address
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_amount == Wad.from_number(780)
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_token == deployment.sai.address
+
+        # when
+        self.set_price(deployment, Wad.from_number(200))
+        block_number_before = deployment.web3.eth.blockNumber
+        self.synchronize_orders_once(keeper)
+        block_number_after = deployment.web3.eth.blockNumber
+
+        # then
+        assert len(deployment.otc.get_orders()) == 2
+
+        # and
+        assert block_number_after - block_number_before == 4
+
+        # and
+        assert self.orders_by_token(deployment, deployment.sai)[0].maker == deployment.our_address
+        assert self.orders_by_token(deployment, deployment.sai)[0].pay_amount == Wad.from_number(75)
+        assert self.orders_by_token(deployment, deployment.sai)[0].pay_token == deployment.sai.address
+        assert self.orders_by_token(deployment, deployment.sai)[0].buy_amount == Wad.from_number(0.78125/2)
+        assert self.orders_by_token(deployment, deployment.sai)[0].buy_token == deployment.gem.address
+
+        # and
+        assert self.orders_by_token(deployment, deployment.gem)[0].maker == deployment.our_address
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_amount == Wad.from_number(7.5)
+        assert self.orders_by_token(deployment, deployment.gem)[0].pay_token == deployment.gem.address
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_amount == Wad.from_number(780*2)
+        assert self.orders_by_token(deployment, deployment.gem)[0].buy_token == deployment.sai.address
 
     @staticmethod
     def leave_only_some_eth(deployment: Deployment, amount_of_eth_to_leave: Wad):
