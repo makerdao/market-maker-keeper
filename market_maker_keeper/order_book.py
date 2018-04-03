@@ -188,6 +188,7 @@ class OrderBookManager:
             self.logger.debug(f"Orders placed since then: {[order.order_id for order in self._orders_placed]}")
             self.logger.debug(f"Orders cancelled since then: {[order_id for order_id in self._order_ids_cancelled]}")
             self.logger.debug(f"Orders being cancelled: {[order_id for order_id in self._order_ids_cancelling]}")
+            self.logger.debug(f"Orders being placed: {self._currently_placing_orders} order(s)")
 
             # TODO: below we remove orders which are being or have been cancelled, and orders
             # which have been placed, but we to not update the balances accordingly. it will
