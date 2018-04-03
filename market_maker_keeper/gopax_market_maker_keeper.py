@@ -164,6 +164,9 @@ class GOPAXMarketMakerKeeper:
             price = new_order_to_be_placed.price
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
 
+            if self.token_buy() == 'KRW':
+                price = round(price / Wad.from_number(500)) * Wad.from_number(500)
+
             new_order_id = self.gopax_api.place_order(pair=pair,
                                                       is_sell=is_sell,
                                                       price=price,
