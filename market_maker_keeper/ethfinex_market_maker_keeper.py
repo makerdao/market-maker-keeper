@@ -95,7 +95,7 @@ class EthfinexMarketMakerKeeper:
         self.spread_feed = create_spread_feed(self.arguments)
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
-        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency, max_workers=1)
         self.order_book_manager.get_orders_with(lambda: self.ethfinex_api.get_orders(self.pair()))
         self.order_book_manager.get_balances_with(lambda: self.ethfinex_api.get_balances())
         self.order_book_manager.place_orders_with(self.place_order_function)
