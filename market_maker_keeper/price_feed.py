@@ -297,10 +297,14 @@ class BackupPriceFeed(PriceFeed):
 class PriceFeedFactory:
     @staticmethod
     def create_price_feed(arguments, tub: Tub = None) -> PriceFeed:
+        return PriceFeedFactory._create_price_feed(arguments.price_feed, arguments.price_feed_expiry, tub)
+
+    @staticmethod
+    def _create_price_feed(price_feed_argument: str, price_feed_expiry_argument: int, tub: Optional[Tub]):
+        assert(isinstance(price_feed_argument, str))
+        assert(isinstance(price_feed_expiry_argument, int))
         assert(isinstance(tub, Tub) or tub is None)
 
-        price_feed_argument = arguments.price_feed
-        price_feed_expiry_argument = arguments.price_feed_expiry
         gdax_ws_url = "wss://ws-feed.gdax.com"
 
         if price_feed_argument == 'eth_dai':
@@ -324,6 +328,12 @@ class PriceFeedFactory:
             return GdaxPriceFeed(ws_url=gdax_ws_url,
                                  product_id="BTC-USD",
                                  expiry=price_feed_expiry_argument)
+
+        elif price_feed_argument == 'dai_eth':
+            return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai', price_feed_expiry_argument, tub))
+
+        elif price_feed_argument == 'dai_btc':
+            return ReversePriceFeed(PriceFeedFactory._create_price_feed('btc_dai', price_feed_expiry_argument, tub))
 
         elif price_feed_argument == 'tub':
             if tub is not None:
