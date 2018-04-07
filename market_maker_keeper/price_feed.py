@@ -265,6 +265,19 @@ class AveragePriceFeed(PriceFeed):
         return Price(buy_price=buy_price, sell_price=sell_price)
 
 
+class ReversePriceFeed(PriceFeed):
+    def __init__(self, price_feed: PriceFeed):
+        assert(isinstance(price_feed, PriceFeed))
+        self.price_feed = price_feed
+
+    def get_price(self) -> Price:
+        parent_price = self.price_feed.get_price()
+
+        buy_price = Wad.from_number(1) / parent_price.buy_price if parent_price.buy_price is not None else None
+        sell_price = Wad.from_number(1) / parent_price.sell_price if parent_price.sell_price is not None else None
+        return Price(buy_price=buy_price, sell_price=sell_price)
+
+
 class BackupPriceFeed(PriceFeed):
     logger = logging.getLogger()
 

@@ -20,7 +20,8 @@ from typing import Optional
 from typing import Tuple
 
 from market_maker_keeper.feed import Feed
-from market_maker_keeper.price_feed import PriceFeed, BackupPriceFeed, AveragePriceFeed, Price, WebSocketPriceFeed
+from market_maker_keeper.price_feed import PriceFeed, BackupPriceFeed, AveragePriceFeed, Price, WebSocketPriceFeed, \
+    ReversePriceFeed
 from pymaker.numeric import Wad
 
 
@@ -146,6 +147,29 @@ class TestAveragePriceFeed:
         # expect
         assert average_price_feed.get_price().buy_price == Wad.from_number(14.0)
         assert average_price_feed.get_price().sell_price == Wad.from_number(14.0)
+
+
+class TestReversePriceFeed:
+    def test_no_values(self):
+        # given
+        price_feed = FakePriceFeed()
+        reverse_price_feed = ReversePriceFeed(price_feed)
+
+        # expect
+        assert reverse_price_feed.get_price().buy_price is None
+        assert reverse_price_feed.get_price().sell_price is None
+
+    def test_values(self):
+        # given
+        price_feed = FakePriceFeed()
+        reverse_price_feed = ReversePriceFeed(price_feed)
+
+        # and
+        price_feed.set_price(Wad.from_number(500))
+
+        # expect
+        assert reverse_price_feed.get_price().buy_price == Wad.from_number(0.002)
+        assert reverse_price_feed.get_price().sell_price == Wad.from_number(0.002)
 
 
 class TestBackupPriceFeed:
