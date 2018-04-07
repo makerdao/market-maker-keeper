@@ -400,6 +400,8 @@ class OrderBookManager:
                 if new_order is not None:
                     with self._lock:
                         self._orders_placed.append(new_order)
+            except BaseException as exception:
+                self.logger.exception(exception)
             finally:
                 with self._lock:
                     self._currently_placing_orders -= 1
@@ -416,6 +418,8 @@ class OrderBookManager:
                     with self._lock:
                         self._order_ids_cancelled.add(order_id)
                         self._order_ids_cancelling.remove(order_id)
+            except BaseException as exception:
+                self.logger.exception(exception)
             finally:
                 with self._lock:
                     try:
