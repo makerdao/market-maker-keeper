@@ -408,8 +408,7 @@ class OrderBookManager:
 
         return func
 
-    def _thread_cancel_order(self, order_id: int, cancel_order_function):
-        assert(isinstance(order_id, int))
+    def _thread_cancel_order(self, order_id, cancel_order_function):
         assert(callable(cancel_order_function))
 
         def func():
