@@ -162,11 +162,11 @@ class DdexMarketMakerKeeper:
 
         # Get maximum number of decimals for prices and amounts.
         # Ddex API enforces it.
-        markets = self.ddex_api.get_markets()
-        market = next(filter(lambda item: item['symbol'] == self.pair, markets))
+        markets = self.ddex_api.get_markets()['data']['markets']
+        market = next(filter(lambda item: item['id'] == self.pair, markets))
 
-        self.price_max_decimals = market['priceMaxDecimals']
-        self.amount_max_decimals = market['amountMaxDecimals']
+        self.price_max_decimals = market['pricePrecision']
+        self.amount_max_decimals = market['amountDecimals']
         #TODO minOrderSize ?
 
     def shutdown(self):
@@ -225,12 +225,10 @@ class DdexMarketMakerKeeper:
             price = round(new_order_to_be_placed.price, self.price_max_decimals)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             amount = round(amount, self.amount_max_decimals)
-            order_id = '123456'
-            #order_id = self.ddex_api.place_order(pair=self.pair,
-            #TODO                                        is_sell=new_order_to_be_placed.is_sell,
-            #TODO                                        price=price,
-            #TODO                                        amount=amount,
-            #TODO                                        expiry=self.arguments.order_expiry)
+            order_id = self.ddex_api.place_order(pair=self.pair,
+                                                 is_sell=new_order_to_be_placed.is_sell,
+                                                 price=price,
+                                                 amount=amount)
 
             return Order(order_id, self.pair, new_order_to_be_placed.is_sell, price, amount, amount)
 
