@@ -167,7 +167,6 @@ class DdexMarketMakerKeeper:
 
         self.price_max_decimals = market['pricePrecision']
         self.amount_max_decimals = market['amountDecimals']
-        #TODO minOrderSize ?
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
@@ -176,7 +175,7 @@ class DdexMarketMakerKeeper:
         self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
     def our_total_balance(self, token: ERC20Token) -> Wad:
-        return token.balance_of(self.our_address) #TODO use ddex_api.get_balances ?
+        return token.balance_of(self.our_address)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -207,7 +206,6 @@ class DdexMarketMakerKeeper:
             self.logger.debug("Order book is in progress, not placing new orders")
             return
 
-        #TODO balances handling !
         # In case of Ddex, balances returned by `our_total_balance` still contain amounts "locked"
         # by currently open orders, so we need to explicitly subtract these amounts.
         our_buy_balance = self.our_total_balance(self.token_buy) - Bands.total_amount(self.our_buy_orders(order_book.orders))
