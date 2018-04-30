@@ -100,9 +100,6 @@ class DdexMarketMakerKeeper:
         parser.add_argument("--order-history-every", type=int, default=30,
                             help="Frequency of reporting active orders (in seconds, default: 30)")
 
-        parser.add_argument("--order-expiry", type=int, required=True,
-                            help="Expiration time of created orders (in seconds)")
-
         parser.add_argument("--min-eth-balance", type=float, default=0,
                             help="Minimum ETH balance below which keeper will cease operation")
 
