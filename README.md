@@ -40,6 +40,7 @@ This project uses *Python 3.6.2*.
 In order to clone the project and install required third-party packages please execute:
 ```
 git clone https://github.com/makerdao/market-maker-keeper.git
+cd market-maker-keeper
 git submodule update --init --recursive
 pip3 install -r requirements.txt
 ```
@@ -81,7 +82,7 @@ When started, keepers places orders for the average amounts (`avgAmount`) in eac
 using use `avgMargin` to calculate the order price.
 
 As long as the price of orders stays within the band (i.e. is in the <minMargin,maxMargin>
-range from the current price, which can be of course constantly moving), the keepers
+range from the current price, which can of course be moving constantly), the keepers
 keep them open. If some orders leave the band, they either enter another adjacent band
 or fall outside all bands. In case of the latter, they get immediately cancelled. In case of
 the former, keepers can keep these orders open as long as their amount is within the
@@ -817,7 +818,7 @@ optional arguments:
 
 * The gate.io API sometimes does not acknowledge order creation, returning following error message:
   `Oops... reloading...<font color=white> 29.148 </font> <script> function
-  r(){window.location.reload();}setTimeout('r()',3000);</script>`. What's interesting this error
+  r(){window.location.reload();}setTimeout('r()',3000);</script>`. This error
   seems to depend on the API address of the caller. Despite these errors, orders get properly
   created and registered in the backend, the keeper will find out about it the next time it
   queries the open orders list (which happens every few seconds).
