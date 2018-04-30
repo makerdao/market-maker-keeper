@@ -85,8 +85,14 @@ class DdexMarketMakerKeeper:
         parser.add_argument("--price-feed", type=str, required=True,
                             help="Source of price feed")
 
+        parser.add_argument("--price-feed-expiry", type=int, default=120,
+                            help="Maximum age of the price feed (in seconds, default: 120)")
+
         parser.add_argument("--spread-feed", type=str,
                             help="Source of spread feed")
+
+        parser.add_argument("--spread-feed-expiry", type=int, default=3600,
+                            help="Maximum age of the spread feed (in seconds, default: 3600)")
 
         parser.add_argument("--order-history", type=str,
                             help="Endpoint to report active orders to")
