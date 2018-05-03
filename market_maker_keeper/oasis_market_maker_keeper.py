@@ -199,39 +199,20 @@ class OasisMarketMakerKeeper:
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 
-        # If there are any orders to be cancelled, cancel them. It is deliberate that we wait with topping-up
-        # bands until the next block. This way we would create new orders based on the most recent price and
-        # order book state. We could theoretically retrieve both (`target_price` and `our_orders`) again here,
-        # but it just seems cleaner to do it in one place instead of in two.
+        # Cancel orders
         cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                                       our_sell_orders=self.our_sell_orders(order_book.orders),
                                                       target_price=target_price)
-
         if len(cancellable_orders) > 0:
-            # Do not place new orders if order book state is not confirmed
-            if order_book.orders_being_placed or order_book.orders_being_cancelled:
-                self.logger.debug("Order book is in progress, not placing new orders on cancellation")
-
-                new_orders = []
-
-            else:
-                # See how the book will look like after the cancellation is successful, and place them
-                # straight away with the cancellation transactions
-                simulated_book = list(set(order_book.orders) - set(cancellable_orders))
-
-                new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(simulated_book),
-                                              our_sell_orders=self.our_sell_orders(simulated_book),
-                                              our_buy_balance=self.our_available_balance(self.token_buy),
-                                              our_sell_balance=self.our_available_balance(self.token_sell),
-                                              target_price=target_price)[0]
-
-            self.order_book_manager.replace_orders(cancellable_orders, new_orders)
-
+            self.order_book_manager.cancel_orders(cancellable_orders)
             return
 
-        # Do not place new orders if order book state is not confirmed
-        if order_book.orders_being_placed or order_book.orders_being_cancelled:
-            self.logger.debug("Order book is in progress, not placing new orders")
+        # Do not place new orders if other new orders are being placed. In contrary to other keepers,
+        # we allow placing new orders when other orders are being cancelled. This is because Ethereum
+        # transactions are ordered so we are sure that the order placement will not 'overtake'
+        # order cancellation.
+        if order_book.orders_being_placed:
+            self.logger.debug("Other orders are being placed, not placing new orders")
             return
 
         # Place new orders
