@@ -208,13 +208,22 @@ class OasisMarketMakerKeeper:
                                                       target_price=target_price)
 
         if len(cancellable_orders) > 0:
-            simulated_book = list(set(order_book.orders) - set(cancellable_orders))
+            # Do not place new orders if order book state is not confirmed
+            if order_book.orders_being_placed or order_book.orders_being_cancelled:
+                self.logger.debug("Order book is in progress, not placing new orders on cancellation")
 
-            new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(simulated_book),
-                                          our_sell_orders=self.our_sell_orders(simulated_book),
-                                          our_buy_balance=self.our_available_balance(self.token_buy),
-                                          our_sell_balance=self.our_available_balance(self.token_sell),
-                                          target_price=target_price)[0]
+                new_orders = []
+
+            else:
+                # See how the book will look like after the cancellation is successful, and place them
+                # straight away with the cancellation transactions
+                simulated_book = list(set(order_book.orders) - set(cancellable_orders))
+
+                new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(simulated_book),
+                                              our_sell_orders=self.our_sell_orders(simulated_book),
+                                              our_buy_balance=self.our_available_balance(self.token_buy),
+                                              our_sell_balance=self.our_available_balance(self.token_sell),
+                                              target_price=target_price)[0]
 
             self.order_book_manager.replace_orders(cancellable_orders, new_orders)
 
