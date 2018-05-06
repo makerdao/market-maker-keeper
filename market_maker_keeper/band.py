@@ -289,7 +289,7 @@ class Bands:
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, limit_amount)
                 buy_amount = pay_amount * price
                 missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new sell order")
 
                     our_sell_balance = our_sell_balance - pay_amount
@@ -318,7 +318,7 @@ class Bands:
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance, limit_amount)
                 buy_amount = pay_amount / price
                 missing_amount += Wad.max((band.avg_amount - total_amount) - our_buy_balance, Wad(0))
-                if (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.debug(f"Using price {price} for new buy order")
 
                     our_buy_balance = our_buy_balance - pay_amount
