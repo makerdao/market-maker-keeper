@@ -231,7 +231,7 @@ and then run the keeper with:
 ```
 bin/oasis-market-maker-keeper \
     --rpc-host 127.0.0.1 \
-    --rpc-port 8080 \
+    --rpc-port 8180 \
     --rpc-timeout 30 \
     --eth-from [address of the generated Ethereum account] \
     --tub-address 0x448a5065aebb8e423f0896e6c5d525c040f59af3 \
