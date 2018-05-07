@@ -12,6 +12,9 @@ market making on the following exchanges:
 * EtherDelta (`etherdelta-market-maker-keeper`),
 * RadarRelay and ERCdEX (`0x-market-maker-keeper`),
 * Paradex (`paradex-market-maker-keeper`),
+* DDEX (`ddex-market-maker-keeper`),
+* Ethfinex (`ethfinex-market-maker-keeper`),
+* GoPax (`gopax-market-maker-keeper`),
 * IDEX (`idex-market-maker-keeper`),
 * Bibox (`bibox-market-maker-keeper`),
 * OKEX (`okex-market-maker-keeper`),
@@ -595,6 +598,192 @@ optional arguments:
   and also to constantly monitor token balances so it knows the maximum amount of orders it can place.
   In addition to that, it uses the `eth_sign` JSON RPC call to sign all API requests.
 
+
+## `ddex-market-maker-keeper`
+
+This keeper supports market-making on the [DDEX](http://ddex.io/) exchange.
+
+### Usage
+
+```
+usage: ddex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
+                                [--rpc-port RPC_PORT]
+                                [--rpc-timeout RPC_TIMEOUT] --eth-from
+                                ETH_FROM --exchange-address EXCHANGE_ADDRESS
+                                [--ddex-api-server DDEX_API_SERVER]
+                                [--ddex-api-timeout DDEX_API_TIMEOUT] --pair
+                                PAIR --buy-token-address BUY_TOKEN_ADDRESS
+                                --sell-token-address SELL_TOKEN_ADDRESS
+                                --config CONFIG --price-feed PRICE_FEED
+                                [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                [--spread-feed SPREAD_FEED]
+                                [--spread-feed-expiry SPREAD_FEED_EXPIRY]
+                                [--order-history ORDER_HISTORY]
+                                [--order-history-every ORDER_HISTORY_EVERY]
+                                [--min-eth-balance MIN_ETH_BALANCE]
+                                [--gas-price GAS_PRICE] [--smart-gas-price]
+                                [--refresh-frequency REFRESH_FREQUENCY]
+                                [--debug]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
+  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
+  --rpc-timeout RPC_TIMEOUT
+                        JSON-RPC timeout (in seconds, default: 10)
+  --eth-from ETH_FROM   Ethereum account from which to send transactions
+  --exchange-address EXCHANGE_ADDRESS
+                        Ethereum address of the 0x Exchange contract
+  --ddex-api-server DDEX_API_SERVER
+                        Address of the Ddex API (default:
+                        'https://api.ddex.io')
+  --ddex-api-timeout DDEX_API_TIMEOUT
+                        Timeout for accessing the Ddex API (in seconds,
+                        default: 9.5)
+  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
+  --buy-token-address BUY_TOKEN_ADDRESS
+                        Ethereum address of the buy token
+  --sell-token-address SELL_TOKEN_ADDRESS
+                        Ethereum address of the sell token
+  --config CONFIG       Bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of the price feed (in seconds, default:
+                        120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
+  --order-history ORDER_HISTORY
+                        Endpoint to report active orders to
+  --order-history-every ORDER_HISTORY_EVERY
+                        Frequency of reporting active orders (in seconds,
+                        default: 30)
+  --min-eth-balance MIN_ETH_BALANCE
+                        Minimum ETH balance below which keeper will cease
+                        operation
+  --gas-price GAS_PRICE
+                        Gas price (in Wei)
+  --smart-gas-price     Use smart gas pricing strategy, based on the
+                        ethgasstation.info feed
+  --refresh-frequency REFRESH_FREQUENCY
+                        Order book refresh frequency (in seconds, default: 3)
+  --debug               Enable debug output
+```
+
+
+## `ethfinex-market-maker-keeper`
+
+This keeper supports market-making on the [IDEX](http://ethfinex.com/) exchange.
+
+### Usage
+
+```
+usage: ethfinex-market-maker-keeper [-h]
+                                    [--ethfinex-api-server ETHFINEX_API_SERVER]
+                                    --ethfinex-api-key ETHFINEX_API_KEY
+                                    --ethfinex-api-secret ETHFINEX_API_SECRET
+                                    [--ethfinex-timeout ETHFINEX_TIMEOUT]
+                                    --pair PAIR --config CONFIG --price-feed
+                                    PRICE_FEED
+                                    [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                    [--spread-feed SPREAD_FEED]
+                                    [--spread-feed-expiry SPREAD_FEED_EXPIRY]
+                                    [--order-history ORDER_HISTORY]
+                                    [--order-history-every ORDER_HISTORY_EVERY]
+                                    [--refresh-frequency REFRESH_FREQUENCY]
+                                    [--debug]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --ethfinex-api-server ETHFINEX_API_SERVER
+                        Address of the Ethfinex API server (default:
+                        'https://api.ethfinex.com')
+  --ethfinex-api-key ETHFINEX_API_KEY
+                        API key for the Ethfinex API
+  --ethfinex-api-secret ETHFINEX_API_SECRET
+                        API secret for the Ethfinex API
+  --ethfinex-timeout ETHFINEX_TIMEOUT
+                        Timeout for accessing the Ethfinex API (in seconds,
+                        default: 9.5)
+  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
+  --config CONFIG       Bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of the price feed (in seconds, default:
+                        120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
+  --order-history ORDER_HISTORY
+                        Endpoint to report active orders to
+  --order-history-every ORDER_HISTORY_EVERY
+                        Frequency of reporting active orders (in seconds,
+                        default: 30)
+  --refresh-frequency REFRESH_FREQUENCY
+                        Order book refresh frequency (in seconds, default: 3)
+  --debug               Enable debug output
+```
+
+
+## `gopax-market-maker-keeper`
+
+This keeper supports market-making on the [GoPax](https://www.gopax.co.kr/) exchange.
+
+### Usage
+
+```
+usage: gopax-market-maker-keeper [-h] [--gopax-api-server GOPAX_API_SERVER]
+                                 --gopax-api-key GOPAX_API_KEY
+                                 --gopax-api-secret GOPAX_API_SECRET
+                                 [--gopax-timeout GOPAX_TIMEOUT] --pair PAIR
+                                 --config CONFIG --price-feed PRICE_FEED
+                                 [--price-feed-expiry PRICE_FEED_EXPIRY]
+                                 [--spread-feed SPREAD_FEED]
+                                 [--spread-feed-expiry SPREAD_FEED_EXPIRY]
+                                 [--order-history ORDER_HISTORY]
+                                 [--order-history-every ORDER_HISTORY_EVERY]
+                                 [--refresh-frequency REFRESH_FREQUENCY]
+                                 [--debug]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --gopax-api-server GOPAX_API_SERVER
+                        Address of the GOPAX API server (default:
+                        'https://api.gopax.co.kr')
+  --gopax-api-key GOPAX_API_KEY
+                        API key for the GOPAX API
+  --gopax-api-secret GOPAX_API_SECRET
+                        API secret for the GOPAX API
+  --gopax-timeout GOPAX_TIMEOUT
+                        Timeout for accessing the GOPAX API (in seconds,
+                        default: 9.5)
+  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
+  --config CONFIG       Bands configuration file
+  --price-feed PRICE_FEED
+                        Source of price feed
+  --price-feed-expiry PRICE_FEED_EXPIRY
+                        Maximum age of the price feed (in seconds, default:
+                        120)
+  --spread-feed SPREAD_FEED
+                        Source of spread feed
+  --spread-feed-expiry SPREAD_FEED_EXPIRY
+                        Maximum age of the spread feed (in seconds, default:
+                        3600)
+  --order-history ORDER_HISTORY
+                        Endpoint to report active orders to
+  --order-history-every ORDER_HISTORY_EVERY
+                        Frequency of reporting active orders (in seconds,
+                        default: 30)
+  --refresh-frequency REFRESH_FREQUENCY
+                        Order book refresh frequency (in seconds, default: 3)
+  --debug               Enable debug output
+```
 
 ## `idex-market-maker-keeper`
 
