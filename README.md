@@ -208,7 +208,9 @@ As of today there are four possible values of this argument:
 * `eth_dai` - uses the price from the GDAX WebSocket ETH/USD price feed, if it becomes unavailable then uses
   the average of Kraken and Gemini ETH/USD prices, if both of them become unavailable uses the price feed
   from `Tub`;
+* `dai_eth` - inverse of the `eth_dai` price feed,
 * `btc_dai` - uses the price from the GDAX WebSocket BTC/USD price feed;
+* `dai_btc` - inverse of the `btc_dai` price feed,
 * `tub` - uses the price feed from `Tub` (only works for keepers being able access an Ethereum node);
 * `fixed:1.56` - uses a fixed price, `1.56` in this example.
 
