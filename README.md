@@ -210,9 +210,7 @@ As of today there are four possible values of this argument:
   from `Tub`;
 * `btc_dai` - uses the price from the GDAX WebSocket BTC/USD price feed;
 * `tub` - uses the price feed from `Tub` (only works for keepers being able access an Ethereum node);
-* `fixed:1.56` - uses a fixed price, `1.56` in this example;
-* `file:filename.json` - continuously loads the price from a specified file, which should be a simple
-  JSON document with only a `price` property.
+* `fixed:1.56` - uses a fixed price, `1.56` in this example.
 
 
 ## `oasis-market-maker-keeper`
