@@ -212,7 +212,9 @@ As of today there are four possible values of this argument:
 * `btc_dai` - uses the price from the GDAX WebSocket BTC/USD price feed;
 * `dai_btc` - inverse of the `btc_dai` price feed,
 * `tub` - uses the price feed from `Tub` (only works for keepers being able access an Ethereum node);
-* `fixed:1.56` - uses a fixed price, `1.56` in this example.
+* `fixed:1.56` - uses a fixed price, `1.56` in this example,
+* `ws://...` or `wss://...` - uses a price feed from [streamer](https://github.com/LiquidityProviders/streamer),
+   maintaining a WebSocket connection to it.
 
 
 ## `oasis-market-maker-keeper`
