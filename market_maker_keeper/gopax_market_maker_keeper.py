@@ -167,6 +167,9 @@ class GOPAXMarketMakerKeeper:
             if self.token_buy() == 'KRW':
                 price = round(price / Wad.from_number(500)) * Wad.from_number(500)
 
+            if self.token_buy() == 'DAI':
+                price = round(price, 2)
+
             new_order_id = self.gopax_api.place_order(pair=pair,
                                                       is_sell=is_sell,
                                                       price=price,
