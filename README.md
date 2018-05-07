@@ -910,12 +910,6 @@ optional arguments:
   --debug               Enable debug output
 ```
 
-### Known limitations
-
-* The keeper does not handle depositing any cryptocurrency to the exchange, so the deposits
-  have to be done manually in the Bibox UI. The keeper does not have to be shut down during
-  deposits, it will pick up new balances automatically and place new orders if needed.
-
 
 ## `okex-market-maker-keeper`
 
