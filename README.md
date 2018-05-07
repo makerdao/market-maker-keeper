@@ -217,6 +217,39 @@ As of today there are four possible values of this argument:
    maintaining a WebSocket connection to it.
 
 
+## Running keepers
+
+Each keeper is a commandline tool which takes some generic commandline arguments (like `--config`, `--price-feed`,
+`--price-feed-expiry`, `--debug` etc.) and also some arguments which are specific to that particular keeper
+(Ethereum node parameters and addresses, exchange API keys etc.). All accepted commandline arguments are listed\
+in sections below, they can also be discovered by trying to start a keeper with the `--help` argument.
+
+For example, in order to run `oasis-market-maker-keeper` you would first need to deploy an Ethereum node (we
+recommend using Parity), generate an account in it, permanently unlock that account, transfer some tokens to it
+and then run the keeper with:
+
+```
+bin/oasis-market-maker-keeper \
+    --rpc-host 127.0.0.1 \
+    --rpc-port 8080 \
+    --rpc-timeout 30 \
+    --eth-from [address of the generated Ethereum account] \
+    --tub-address 0x448a5065aebb8e423f0896e6c5d525c040f59af3 \
+    --oasis-address 0x14fbca95be7e99c15cc2996c6c9d841e54b79425 \
+    --price-feed eth_dai \
+    --buy-token-address [address of the quote token, could be DAI] \
+    --sell-token-address [address of the base token, could be WETH] \
+    --config [path to the json bands configuration file] \
+    --smart-gas-price \
+    --min-eth-balance 0.2
+``` 
+
+For the centralized exchanges, an account will need to be created with the exchange itself, a set of API keys
+with trading permissions will usually need to be generated as well and also some tokens
+will need to be deposited to the exchange, as the keepers do not handle deposits and withdrawals
+themselves.
+
+
 ## `oasis-market-maker-keeper`
 
 This keeper supports market-making on the [OasisDEX](https://oasisdex.com/) exchange.
