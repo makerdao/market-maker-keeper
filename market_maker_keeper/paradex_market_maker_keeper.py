@@ -106,9 +106,6 @@ class ParadexMarketMakerKeeper:
         parser.add_argument("--order-expiry", type=int, required=True,
                             help="Expiration time of created orders (in seconds)")
 
-        parser.add_argument("--min-eth-balance", type=float, default=0,
-                            help="Minimum ETH balance below which keeper will cease operation")
-
         parser.add_argument("--gas-price", type=int, default=0,
                             help="Gas price (in Wei)")
 
@@ -132,7 +129,6 @@ class ParadexMarketMakerKeeper:
         self.pair = self.arguments.pair.upper()
         self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
         self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
-        self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_max_decimals = None
         self.amount_max_decimals = None
@@ -188,11 +184,6 @@ class ParadexMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
-            self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
-            self.order_book_manager.cancel_all_orders()
-            return
-
         bands = Bands(self.bands_config, self.spread_feed, self.history)
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
