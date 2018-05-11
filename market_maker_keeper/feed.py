@@ -32,7 +32,10 @@ from market_maker_keeper.util import sanitize_url
 
 class Feed(object):
     def get(self) -> Tuple[dict, float]:
-        raise NotImplementedError("Please implement this method")
+        raise NotImplementedError()
+
+    def on_update(self, on_update_function):
+        raise NotImplementedError()
 
 
 class EmptyFeed(Feed):
@@ -54,6 +57,7 @@ class WebSocketFeed(Feed):
         self._sanitized_url = sanitize_url(ws_url)
         self._last = {}, 0.0
         self._lock = threading.Lock()
+        self._on_update_function = None
 
         threading.Thread(target=self._background_run, daemon=True).start()
 
@@ -90,6 +94,9 @@ class WebSocketFeed(Feed):
             with self._lock:
                 self._last = data, timestamp
 
+            if self._on_update_function is not None:
+                self._on_update_function()
+
             self.logger.debug(f"WebSocket '{self._sanitized_url}' received message: '{message}'")
         except:
             self.logger.warning(f"WebSocket '{self._sanitized_url}' received invalid message: '{message}'")
@@ -100,6 +107,11 @@ class WebSocketFeed(Feed):
     def get(self) -> Tuple[dict, float]:
         with self._lock:
             return self._last
+
+    def on_update(self, on_update_function):
+        assert(callable(on_update_function))
+
+        self._on_update_function = on_update_function
 
 
 class ExpiringFeed(Feed):
@@ -117,3 +129,6 @@ class ExpiringFeed(Feed):
             return data, timestamp
         else:
             return {}, 0.0
+
+    def on_update(self, on_update_function):
+        self.feed.on_update(on_update_function)
