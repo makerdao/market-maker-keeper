@@ -146,6 +146,7 @@ class ParadexMarketMakerKeeper:
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency, max_workers=1)
         self.order_book_manager.get_orders_with(lambda: self.paradex_api.get_orders(self.pair))
+        self.order_book_manager.get_balances_with(lambda: self.get_balances())
         self.order_book_manager.cancel_orders_with(lambda order: self.paradex_api.cancel_order(order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
@@ -174,8 +175,14 @@ class ParadexMarketMakerKeeper:
     def approve(self):
         self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
-    def our_total_balance(self, token: ERC20Token) -> Wad:
-        return token.balance_of(self.our_address)
+    def get_balances(self):
+        return self.token_sell.balance_of(self.our_address), self.token_buy.balance_of(self.our_address)
+
+    def our_total_sell_balance(self, balances) -> Wad:
+        return balances[0]
+
+    def our_total_buy_balance(self, balances) -> Wad:
+        return balances[1]
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -203,8 +210,8 @@ class ParadexMarketMakerKeeper:
 
         # In case of Paradex, balances returned by `our_total_balance` still contain amounts "locked"
         # by currently open orders, so we need to explicitly subtract these amounts.
-        our_buy_balance = self.our_total_balance(self.token_buy) - Bands.total_amount(self.our_buy_orders(order_book.orders))
-        our_sell_balance = self.our_total_balance(self.token_sell) - Bands.total_amount(self.our_sell_orders(order_book.orders))
+        our_buy_balance = self.our_total_buy_balance(order_book.balances) - Bands.total_amount(self.our_buy_orders(order_book.orders))
+        our_sell_balance = self.our_total_sell_balance(order_book.balances) - Bands.total_amount(self.our_sell_orders(order_book.orders))
 
         # Place new orders
         self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
