@@ -103,6 +103,7 @@ class OrderBookManager:
         self.order_history_reporter = None
         self.buy_filter_function = None
         self.sell_filter_function = None
+        self.on_update_function = None
 
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._lock = threading.Lock()
@@ -166,6 +167,11 @@ class OrderBookManager:
             self.buy_filter_function = buy_filter_function
             self.sell_filter_function = sell_filter_function
 
+    def on_update(self, on_update_function):
+        assert(callable(on_update_function))
+
+        self.on_update_function = on_update_function
+
     def start(self):
         """Start the background refresh of active keeper orders."""
         threading.Thread(target=self._thread_refresh_order_book, daemon=True).start()
@@ -224,6 +230,8 @@ class OrderBookManager:
         with self._lock:
             self._currently_placing_orders += 1
 
+        self._report_order_book_updated()
+
         self._executor.submit(self._thread_place_order(place_order_function))
 
     def place_orders(self, new_orders: list):
@@ -237,6 +245,8 @@ class OrderBookManager:
 
         with self._lock:
             self._currently_placing_orders += len(new_orders)
+
+        self._report_order_book_updated()
 
         for new_order in new_orders:
             self._executor.submit(self._thread_place_order(partial(self.place_order_function, new_order)))
@@ -253,6 +263,8 @@ class OrderBookManager:
         with self._lock:
             for order in orders:
                 self._order_ids_cancelling.add(order.order_id)
+
+        self._report_order_book_updated()
 
         for order in orders:
             self._executor.submit(self._thread_cancel_order(order.order_id, partial(self.cancel_order_function, order)))
@@ -274,6 +286,8 @@ class OrderBookManager:
                 self._order_ids_cancelling.add(order.order_id)
 
             self._currently_placing_orders += len(new_orders)
+
+        self._report_order_book_updated()
 
         for order in orders:
             self._executor.submit(self._thread_cancel_order(order.order_id, partial(self.cancel_order_function, order)))
@@ -355,6 +369,10 @@ class OrderBookManager:
                 break
             time.sleep(0.1)
 
+    def _report_order_book_updated(self):
+        if self.on_update_function is not None:
+            self.on_update_function()
+
     def _thread_refresh_order_book(self):
         while True:
             try:
@@ -383,6 +401,8 @@ class OrderBookManager:
                     self._state = {'orders': orders, 'balances': balances}
                     self._refresh_count += 1
 
+                self._report_order_book_updated()
+
                 self.logger.debug(f"Fetched the order book"
                                   f" (orders: {[order.order_id for order in orders]})")
             except Exception as e:
@@ -406,6 +426,8 @@ class OrderBookManager:
                 with self._lock:
                     self._currently_placing_orders -= 1
 
+                self._report_order_book_updated()
+
         return func
 
     def _thread_cancel_order(self, order_id, cancel_order_function):
@@ -425,5 +447,7 @@ class OrderBookManager:
                         self._order_ids_cancelling.remove(order_id)
                     except KeyError:
                         pass
+
+                self._report_order_book_updated()
 
         return func
