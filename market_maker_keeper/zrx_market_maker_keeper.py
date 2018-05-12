@@ -19,19 +19,20 @@ import argparse
 import logging
 import sys
 import time
+from threading import Lock
 
-from retry import retry
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.band import Bands
+from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
+from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.order_history_reporter import create_order_history_reporter
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
-from pymaker import Address, synchronize
+from pymaker import Address
 from pymaker.approval import directly
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
@@ -114,6 +115,9 @@ class ZrxMarketMakerKeeper:
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
+        parser.add_argument("--refresh-frequency", type=int, default=3,
+                            help="Order book refresh frequency (in seconds, default: 3)")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
@@ -137,39 +141,62 @@ class ZrxMarketMakerKeeper:
         self.history = History()
         self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.zrx_relayer_api = ZrxRelayerApi(exchange=self.zrx_exchange, api_server=self.arguments.relayer_api_server)
+
         self.placed_orders = []
+        self.placed_orders_lock = Lock()
+
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
+        self.order_book_manager.get_orders_with(lambda: self.get_orders())
+        self.order_book_manager.get_balances_with(lambda: self.get_balances())
+        self.order_book_manager.place_orders_with(self.place_order_function)
+        self.order_book_manager.cancel_orders_with(self.cancel_order_function)
+        self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
+        self.order_book_manager.start()
 
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
             lifecycle.initial_delay(10)
             lifecycle.on_startup(self.startup)
-            lifecycle.every(15, self.synchronize_orders)
+            lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
         self.approve()
 
-    @retry(delay=5, logger=logger)
     def shutdown(self):
-        if self.arguments.cancel_on_shutdown:
-            self.cancel_orders(self.our_orders())
+        self.order_book_manager.cancel_all_orders(final_wait_time=60)
 
     def approve(self):
         self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
-    def our_total_balance(self, token: ERC20Token) -> Wad:
-        return token.balance_of(self.our_address)
+    def get_orders(self) -> list:
+        def remove_old_orders(orders: list) -> list:
+            current_timestamp = int(time.time())
+            orders = list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, orders))
+            orders = list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, orders))
+            return orders
 
-    def our_orders(self) -> list:
-        api_orders = self.zrx_relayer_api.get_orders_by_maker(self.our_address, self.arguments.relayer_per_page)
-        all_orders = list(set(self.placed_orders + api_orders))
-        return self.remove_old_orders(all_orders)
+        with self.placed_orders_lock:
+            self.placed_orders = remove_old_orders(self.placed_orders)
 
-    def remove_old_orders(self, orders: list) -> list:
-        current_timestamp = int(time.time())
-        orders = list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, orders))
-        orders = list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, orders))
-        return orders
+        api_orders = remove_old_orders(self.zrx_relayer_api.get_orders_by_maker(self.our_address, self.arguments.relayer_per_page))
+
+        with self.placed_orders_lock:
+            return list(set(self.placed_orders + api_orders))
+
+    def get_balances(self):
+        return self.token_sell.balance_of(self.our_address), \
+               self.token_buy.balance_of(self.our_address), \
+               eth_balance(self.web3, self.our_address)
+
+    def our_total_sell_balance(self, balances) -> Wad:
+        return balances[0]
+
+    def our_total_buy_balance(self, balances) -> Wad:
+        return balances[1]
+
+    def our_eth_balance(self, balances) -> Wad:
+        return balances[2]
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.buy_token == self.token_buy.address and
@@ -180,53 +207,65 @@ class ZrxMarketMakerKeeper:
                                          order.pay_token == self.token_buy.address, our_orders))
 
     def synchronize_orders(self):
-        if eth_balance(self.web3, self.our_address) < self.min_eth_balance:
-            self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
-            self.cancel_orders(self.our_orders())
-            return
-
         bands = Bands(self.bands_config, self.spread_feed, self.history)
-        our_orders = self.our_orders()
+        order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 
-        # Cancel orders
-        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                                      our_sell_orders=self.our_sell_orders(our_orders),
-                                                      target_price=target_price)
-        if len(cancellable_orders) > 0:
-            self.cancel_orders(cancellable_orders)
+        if self.our_eth_balance(order_book.balances) < self.min_eth_balance:
+            self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
+            self.order_book_manager.cancel_all_orders()
             return
 
-        # Balances returned by `our_total_balance` still contain amounts "locked"
+        # Cancel orders
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                      our_sell_orders=self.our_sell_orders(order_book.orders),
+                                                      target_price=target_price)
+        if len(cancellable_orders) > 0:
+            self.order_book_manager.cancel_orders(cancellable_orders)
+            return
+
+        # Do not place new orders if order book state is not confirmed
+        if order_book.orders_being_placed or order_book.orders_being_cancelled:
+            self.logger.debug("Order book is in progress, not placing new orders")
+            return
+
+        # Balances returned by `our_total_***_balance` still contain amounts "locked"
         # by currently open orders, so we need to explicitly subtract these amounts.
-        our_buy_balance = self.our_total_balance(self.token_buy) - Bands.total_amount(self.our_buy_orders(our_orders))
-        our_sell_balance = self.our_total_balance(self.token_sell) - Bands.total_amount(self.our_sell_orders(our_orders))
+        our_buy_balance = self.our_total_buy_balance(order_book.balances) - Bands.total_amount(self.our_buy_orders(order_book.orders))
+        our_sell_balance = self.our_total_sell_balance(order_book.balances) - Bands.total_amount(self.our_sell_orders(order_book.orders))
 
         # Place new orders
-        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(our_orders),
-                                           our_sell_orders=self.our_sell_orders(our_orders),
-                                           our_buy_balance=our_buy_balance,
-                                           our_sell_balance=our_sell_balance,
-                                           target_price=target_price)[0])
+        self.order_book_manager.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                              our_sell_orders=self.our_sell_orders(order_book.orders),
+                                                              our_buy_balance=our_buy_balance,
+                                                              our_sell_balance=our_sell_balance,
+                                                              target_price=target_price)[0])
 
-    def cancel_orders(self, orders):
-        synchronize([self.zrx_exchange.cancel_order(order).transact_async(gas_price=self.gas_price) for order in orders])
+    def place_order_function(self, new_order: NewOrder):
+        assert(isinstance(new_order, NewOrder))
 
-    def place_orders(self, new_orders):
-        for new_order in new_orders:
-            pay_token = self.token_sell if new_order.is_sell else self.token_buy
-            buy_token = self.token_buy if new_order.is_sell else self.token_sell
+        pay_token = self.token_sell if new_order.is_sell else self.token_buy
+        buy_token = self.token_buy if new_order.is_sell else self.token_sell
 
-            zrx_order = self.zrx_exchange.create_order(pay_token=pay_token.address, pay_amount=new_order.pay_amount,
-                                                       buy_token=buy_token.address, buy_amount=new_order.buy_amount,
-                                                       expiration=int(time.time()) + self.arguments.order_expiry)
+        zrx_order = self.zrx_exchange.create_order(pay_token=pay_token.address, pay_amount=new_order.pay_amount,
+                                                   buy_token=buy_token.address, buy_amount=new_order.buy_amount,
+                                                   expiration=int(time.time()) + self.arguments.order_expiry)
 
-            zrx_order = self.zrx_relayer_api.calculate_fees(zrx_order)
-            zrx_order = self.zrx_exchange.sign_order(zrx_order)
+        zrx_order = self.zrx_relayer_api.calculate_fees(zrx_order)
+        zrx_order = self.zrx_exchange.sign_order(zrx_order)
 
-            if self.zrx_relayer_api.submit_order(zrx_order):
-                self.placed_orders = self.remove_old_orders(self.placed_orders)
+        if self.zrx_relayer_api.submit_order(zrx_order):
+            with self.placed_orders_lock:
                 self.placed_orders.append(zrx_order)
+
+            return zrx_order
+
+        else:
+            return None
+
+    def cancel_order_function(self, order):
+        transact = self.zrx_exchange.cancel_order(order).transact(gas_price=self.gas_price)
+        return transact is not None and transact.successful
 
 
 if __name__ == '__main__':
