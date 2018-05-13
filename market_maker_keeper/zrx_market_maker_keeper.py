@@ -169,12 +169,16 @@ class ZrxMarketMakerKeeper:
     def approve(self):
         self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
+    def remove_expired_orders(self, orders: list) -> list:
+        current_timestamp = int(time.time())
+        return list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, orders))
+
+    def remove_filled_or_cancelled_orders(self, orders: list) -> list:
+        return list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, orders))
+
     def get_orders(self) -> list:
         def remove_old_orders(orders: list) -> list:
-            current_timestamp = int(time.time())
-            orders = list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, orders))
-            orders = list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, orders))
-            return orders
+            return self.remove_filled_or_cancelled_orders(self.remove_expired_orders(orders))
 
         with self.placed_orders_lock:
             self.placed_orders = remove_old_orders(self.placed_orders)
@@ -211,14 +215,24 @@ class ZrxMarketMakerKeeper:
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 
+        # We filter out expired orders from the order book snapshot. The reason for that is that
+        # it allows us to replace expired orders faster. Without it, we would have to wait
+        # for the next order book refresh in order to realize an order has expired. Unfortunately,
+        # in case of 0x order book refresh can be quite slow as it involves making multiple calls
+        # to the Ethereum node.
+        #
+        # By filtering out expired orders here, we can replace them the next `synchronize_orders`
+        # tick after they expire. Which is ~ 1s delay, instead of avg ~ 5s without this trick.
+        orders = self.remove_expired_orders(order_book.orders)
+
         if self.our_eth_balance(order_book.balances) < self.min_eth_balance:
             self.logger.warning("Keeper ETH balance below minimum. Cancelling all orders.")
             self.order_book_manager.cancel_all_orders()
             return
 
         # Cancel orders
-        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                                      our_sell_orders=self.our_sell_orders(order_book.orders),
+        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(orders),
+                                                      our_sell_orders=self.our_sell_orders(orders),
                                                       target_price=target_price)
         if len(cancellable_orders) > 0:
             self.order_book_manager.cancel_orders(cancellable_orders)
@@ -231,12 +245,12 @@ class ZrxMarketMakerKeeper:
 
         # Balances returned by `our_total_***_balance` still contain amounts "locked"
         # by currently open orders, so we need to explicitly subtract these amounts.
-        our_buy_balance = self.our_total_buy_balance(order_book.balances) - Bands.total_amount(self.our_buy_orders(order_book.orders))
-        our_sell_balance = self.our_total_sell_balance(order_book.balances) - Bands.total_amount(self.our_sell_orders(order_book.orders))
+        our_buy_balance = self.our_total_buy_balance(order_book.balances) - Bands.total_amount(self.our_buy_orders(orders))
+        our_sell_balance = self.our_total_sell_balance(order_book.balances) - Bands.total_amount(self.our_sell_orders(orders))
 
         # Place new orders
-        self.order_book_manager.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                                              our_sell_orders=self.our_sell_orders(order_book.orders),
+        self.order_book_manager.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(orders),
+                                                              our_sell_orders=self.our_sell_orders(orders),
                                                               our_buy_balance=our_buy_balance,
                                                               our_sell_balance=our_sell_balance,
                                                               target_price=target_price)[0])
