@@ -191,7 +191,7 @@ class ParadexMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        bands = Bands(self.bands_config, self.spread_feed, self.history)
+        bands = Bands.read(self.bands_config, self.spread_feed, self.history)
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 

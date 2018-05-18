@@ -164,5 +164,5 @@ class TestBands:
     @staticmethod
     def create_bands(config_file):
         config = ReloadableConfig(str(config_file))
-        return Bands(config, EmptyFeed(), History())
+        return Bands.read(config, EmptyFeed(), History())
 

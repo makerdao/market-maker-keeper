@@ -242,7 +242,7 @@ class EtherDeltaMarketMakerKeeper:
 
             return
 
-        bands = Bands(self.bands_config, self.spread_feed, self.history)
+        bands = Bands.read(self.bands_config, self.spread_feed, self.history)
         block_number = self.web3.eth.blockNumber
         target_price = self.price_feed.get_price()
 

@@ -174,24 +174,38 @@ class NewOrder:
 class Bands:
     logger = logging.getLogger()
 
-    def __init__(self, reloadable_config: ReloadableConfig, spread_feed: Feed, history: History):
+    @staticmethod
+    def read(reloadable_config: ReloadableConfig, spread_feed: Feed, history: History):
         assert(isinstance(reloadable_config, ReloadableConfig))
         assert(isinstance(history, History))
 
         try:
             config = reloadable_config.get_config(spread_feed.get()[0])
 
-            self.buy_bands = list(map(BuyBand, config['buyBands']))
-            self.buy_limits = SideLimits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
-            self.sell_bands = list(map(SellBand, config['sellBands']))
-            self.sell_limits = SideLimits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
+            buy_bands = list(map(BuyBand, config['buyBands']))
+            buy_limits = SideLimits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
+            sell_bands = list(map(SellBand, config['sellBands']))
+            sell_limits = SideLimits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
         except Exception as e:
-            self.logger.warning(f"Config file is invalid ({e}). Treating the config file as it has no bands.")
+            logging.getLogger().warning(f"Config file is invalid ({e}). Treating the config file as it has no bands.")
 
-            self.buy_bands = []
-            self.buy_limits = SideLimits([], history.buy_history)
-            self.sell_bands = []
-            self.sell_limits = SideLimits([], history.buy_history)
+            buy_bands = []
+            buy_limits = SideLimits([], history.buy_history)
+            sell_bands = []
+            sell_limits = SideLimits([], history.buy_history)
+
+        return Bands(buy_bands=buy_bands, buy_limits=buy_limits, sell_bands=sell_bands, sell_limits=sell_limits)
+
+    def __init__(self, buy_bands: list, buy_limits: SideLimits, sell_bands: list, sell_limits: SideLimits):
+        assert(isinstance(buy_bands, list))
+        assert(isinstance(buy_limits, SideLimits))
+        assert(isinstance(sell_bands, list))
+        assert(isinstance(sell_limits, SideLimits))
+
+        self.buy_bands = buy_bands
+        self.buy_limits = buy_limits
+        self.sell_bands = sell_bands
+        self.sell_limits = sell_limits
 
         if self._bands_overlap(self.buy_bands) or self._bands_overlap(self.sell_bands):
             self.logger.warning("Bands in the config file overlap. Treating the config file as it has no bands.")
