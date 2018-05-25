@@ -292,7 +292,10 @@ class Bands:
                     our_sell_balance = our_sell_balance - pay_amount
                     limit_amount = limit_amount - pay_amount
 
-                    new_orders.append(NewOrder(is_sell=True, price=price, pay_amount=pay_amount, buy_amount=buy_amount,
+                    new_orders.append(NewOrder(is_sell=True,
+                                               price=price,
+                                               pay_amount=pay_amount,
+                                               buy_amount=buy_amount,
                                                confirm_function=lambda: self.sell_limits.use_limit(time.time(), pay_amount)))
 
         return new_orders, missing_amount
@@ -321,7 +324,10 @@ class Bands:
                     our_buy_balance = our_buy_balance - pay_amount
                     limit_amount = limit_amount - pay_amount
 
-                    new_orders.append(NewOrder(is_sell=False, price=price, pay_amount=pay_amount, buy_amount=buy_amount,
+                    new_orders.append(NewOrder(is_sell=False,
+                                               price=price,
+                                               pay_amount=pay_amount,
+                                               buy_amount=buy_amount,
                                                confirm_function=lambda: self.buy_limits.use_limit(time.time(), pay_amount)))
 
         return new_orders, missing_amount
