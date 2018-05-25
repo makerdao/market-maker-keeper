@@ -23,15 +23,16 @@ from threading import Lock
 
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.band import Bands, NewOrder
+from market_maker_keeper.band import Bands, NewOrder, BuyBand
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.order_history_reporter import create_order_history_reporter
-from market_maker_keeper.price_feed import PriceFeedFactory
+from market_maker_keeper.price_feed import PriceFeedFactory, Price
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
+from pyexchange.zrx import ZrxApi, Pair
 from pymaker import Address
 from pymaker.approval import directly
 from pymaker.lifecycle import Lifecycle
@@ -73,8 +74,14 @@ class ZrxMarketMakerKeeper:
         parser.add_argument("--buy-token-address", type=str, required=True,
                             help="Ethereum address of the buy token")
 
+        parser.add_argument("--buy-token-decimals", type=int, default=18,
+                            help="Number of decimals of the buy token")
+
         parser.add_argument("--sell-token-address", type=str, required=True,
                             help="Ethereum address of the sell token")
+
+        parser.add_argument("--sell-token-decimals", type=int, default=18,
+                            help="Number of decimals of the sell token")
 
         parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
@@ -129,8 +136,6 @@ class ZrxMarketMakerKeeper:
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
 
-        self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
-        self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
@@ -141,9 +146,15 @@ class ZrxMarketMakerKeeper:
         self.history = History()
         self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.zrx_relayer_api = ZrxRelayerApi(exchange=self.zrx_exchange, api_server=self.arguments.relayer_api_server)
+        self.zrx_api = ZrxApi(zrx_exchange=self.zrx_exchange)
 
-        self.placed_orders = []
-        self.placed_orders_lock = Lock()
+        self.pair = Pair(sell_token_address=Address(self.arguments.sell_token_address),
+                         sell_token_decimals=self.arguments.sell_token_decimals,
+                         buy_token_address=Address(self.arguments.buy_token_address),
+                         buy_token_decimals=self.arguments.buy_token_decimals)
+
+        self.placed_zrx_orders = []
+        self.placed_zrx_orders_lock = Lock()
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.get_orders())
@@ -167,31 +178,39 @@ class ZrxMarketMakerKeeper:
         self.order_book_manager.cancel_all_orders(final_wait_time=60)
 
     def approve(self):
-        self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
+        token_buy = ERC20Token(web3=self.web3, address=Address(self.pair.buy_token_address))
+        token_sell = ERC20Token(web3=self.web3, address=Address(self.pair.sell_token_address))
+
+        self.zrx_exchange.approve([token_sell, token_buy], directly(gas_price=self.gas_price))
 
     def remove_expired_orders(self, orders: list) -> list:
         current_timestamp = int(time.time())
-        return list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, orders))
+        return list(filter(lambda order: order.zrx_order.expiration > current_timestamp - self.arguments.order_expiry_threshold, orders))
 
-    def remove_filled_or_cancelled_orders(self, orders: list) -> list:
-        return list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, orders))
+    def remove_expired_zrx_orders(self, zrx_orders: list) -> list:
+        current_timestamp = int(time.time())
+        return list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, zrx_orders))
+
+    def remove_filled_or_cancelled_zrx_orders(self, zrx_orders: list) -> list:
+        return list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, zrx_orders))
 
     def get_orders(self) -> list:
-        def remove_old_orders(orders: list) -> list:
-            return self.remove_filled_or_cancelled_orders(self.remove_expired_orders(orders))
+        def remove_old_zrx_orders(zrx_orders: list) -> list:
+            return self.remove_filled_or_cancelled_zrx_orders(self.remove_expired_zrx_orders(zrx_orders))
 
-        with self.placed_orders_lock:
-            self.placed_orders = remove_old_orders(self.placed_orders)
+        with self.placed_zrx_orders_lock:
+            self.placed_zrx_orders = remove_old_zrx_orders(self.placed_zrx_orders)
 
-        api_orders = remove_old_orders(self.zrx_relayer_api.get_orders_by_maker(self.our_address, self.arguments.relayer_per_page))
+        api_zrx_orders = remove_old_zrx_orders(self.zrx_relayer_api.get_orders_by_maker(self.our_address, self.arguments.relayer_per_page))
 
-        with self.placed_orders_lock:
-            return list(set(self.placed_orders + api_orders))
+        with self.placed_zrx_orders_lock:
+            zrx_orders = list(set(self.placed_zrx_orders + api_zrx_orders))
+
+        return self.zrx_api.get_orders(self.pair, zrx_orders)
 
     def get_balances(self):
-        return self.token_sell.balance_of(self.our_address), \
-               self.token_buy.balance_of(self.our_address), \
-               eth_balance(self.web3, self.our_address)
+        balances = self.zrx_api.get_balances(self.pair)
+        return balances[0], balances[1], eth_balance(self.web3, self.our_address)
 
     def our_total_sell_balance(self, balances) -> Wad:
         return balances[0]
@@ -203,12 +222,10 @@ class ZrxMarketMakerKeeper:
         return balances[2]
 
     def our_sell_orders(self, our_orders: list) -> list:
-        return list(filter(lambda order: order.buy_token == self.token_buy.address and
-                                         order.pay_token == self.token_sell.address, our_orders))
+        return list(filter(lambda order: order.is_sell, our_orders))
 
     def our_buy_orders(self, our_orders: list) -> list:
-        return list(filter(lambda order: order.buy_token == self.token_sell.address and
-                                         order.pay_token == self.token_buy.address, our_orders))
+        return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.history)
@@ -258,27 +275,28 @@ class ZrxMarketMakerKeeper:
     def place_order_function(self, new_order: NewOrder):
         assert(isinstance(new_order, NewOrder))
 
-        pay_token = self.token_sell if new_order.is_sell else self.token_buy
-        buy_token = self.token_buy if new_order.is_sell else self.token_sell
-
-        zrx_order = self.zrx_exchange.create_order(pay_token=pay_token.address, pay_amount=new_order.pay_amount,
-                                                   buy_token=buy_token.address, buy_amount=new_order.buy_amount,
-                                                   expiration=int(time.time()) + self.arguments.order_expiry)
+        zrx_order = self.zrx_api.place_order(pair=self.pair,
+                                             is_sell=new_order.is_sell,
+                                             price=new_order.price,
+                                             amount=new_order.amount,
+                                             expiration=int(time.time()) + self.arguments.order_expiry)
 
         zrx_order = self.zrx_relayer_api.calculate_fees(zrx_order)
         zrx_order = self.zrx_exchange.sign_order(zrx_order)
 
         if self.zrx_relayer_api.submit_order(zrx_order):
-            with self.placed_orders_lock:
-                self.placed_orders.append(zrx_order)
+            with self.placed_zrx_orders_lock:
+                self.placed_zrx_orders.append(zrx_order)
 
-            return zrx_order
+            order = self.zrx_api.get_orders(self.pair, [zrx_order])[0]
+
+            return order
 
         else:
             return None
 
     def cancel_order_function(self, order):
-        transact = self.zrx_exchange.cancel_order(order).transact(gas_price=self.gas_price)
+        transact = self.zrx_exchange.cancel_order(order.zrx_order).transact(gas_price=self.gas_price)
         return transact is not None and transact.successful
 
 
