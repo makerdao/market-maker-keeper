@@ -15,6 +15,7 @@ market making on the following exchanges:
 * DDEX (`ddex-market-maker-keeper`),
 * Ethfinex (`ethfinex-market-maker-keeper`),
 * GoPax (`gopax-market-maker-keeper`),
+* HitBTC (`hitbtc-market-maker-keeper`),
 * IDEX (`idex-market-maker-keeper`),
 * Bibox (`bibox-market-maker-keeper`),
 * OKEX (`okex-market-maker-keeper`),
