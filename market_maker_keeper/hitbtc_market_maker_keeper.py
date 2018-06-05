@@ -106,8 +106,6 @@ class HitBTCMarketMakerKeeper:
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
-        self._last_order_creation = 0
-
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
@@ -164,19 +162,7 @@ class HitBTCMarketMakerKeeper:
                                       our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
                                       target_price=target_price)[0]
 
-        if len(new_orders) > 0:
-            if self.can_create_orders():
-                self.place_orders(new_orders)
-                self.register_order_creation()
-            else:
-                self.logger.info("Too little time elapsed from last order creation, waiting...")
-
-    # We explicitly wait some time here to wait for API Update to propagate
-    def can_create_orders(self) -> bool:
-        return time.time() - self._last_order_creation > 5
-
-    def register_order_creation(self):
-        self._last_order_creation = time.time()
+        self.place_orders(new_orders)
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
