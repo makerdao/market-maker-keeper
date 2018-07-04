@@ -87,9 +87,9 @@ class Band:
 
 class BuyBand(Band):
     def __init__(self, dictionary: dict):
-        super().__init__(min_margin=dictionary['minMargin'],
-                         avg_margin=dictionary['avgMargin'],
-                         max_margin=dictionary['maxMargin'],
+        super().__init__(min_margin=float(dictionary['minMargin']),
+                         avg_margin=float(dictionary['avgMargin']),
+                         max_margin=float(dictionary['maxMargin']),
                          min_amount=Wad.from_number(dictionary['minAmount']),
                          avg_amount=Wad.from_number(dictionary['avgAmount']),
                          max_amount=Wad.from_number(dictionary['maxAmount']),
@@ -111,9 +111,9 @@ class BuyBand(Band):
 
 class SellBand(Band):
     def __init__(self, dictionary: dict):
-        super().__init__(min_margin=dictionary['minMargin'],
-                         avg_margin=dictionary['avgMargin'],
-                         max_margin=dictionary['maxMargin'],
+        super().__init__(min_margin=float(dictionary['minMargin']),
+                         avg_margin=float(dictionary['avgMargin']),
+                         max_margin=float(dictionary['maxMargin']),
                          min_amount=Wad.from_number(dictionary['minAmount']),
                          avg_amount=Wad.from_number(dictionary['avgAmount']),
                          max_amount=Wad.from_number(dictionary['maxAmount']),
