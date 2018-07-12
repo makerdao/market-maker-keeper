@@ -125,6 +125,7 @@ class TheOceanMarketMakerKeeper:
         self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
         self.pair = Pair(self.token_sell.address, self.token_buy.address)
         self.bands_config = ReloadableConfig(self.arguments.config)
+        self.price_max_decimals = None
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
@@ -155,6 +156,15 @@ class TheOceanMarketMakerKeeper:
 
     def startup(self):
         self.approve()
+
+        # Get maximum number of decimals for prices.
+        market = self.theocean_api.get_market(self.pair)
+
+        assert(int(market['baseToken']['decimals']) == 18)
+        assert(int(market['quoteToken']['decimals']) == 18)
+        assert(int(market['baseToken']['precision']) == int(market['quoteToken']['precision']))
+
+        self.price_max_decimals = int(market['baseToken']['precision'])
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
@@ -207,7 +217,7 @@ class TheOceanMarketMakerKeeper:
 
         pair = self.pair
         is_sell = new_order.is_sell
-        price = new_order.price
+        price = round(new_order.price, self.price_max_decimals)
         amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
 
         new_order_id = self.theocean_api.place_order(pair=pair, is_sell=is_sell, price=price, amount=amount)
