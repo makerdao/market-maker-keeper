@@ -118,11 +118,14 @@ class HitBTCMarketMakerKeeper:
     def pair(self):
         return self.arguments.pair
 
+    def pair_separator(self) -> int:
+        return 4 if self.arguments.pair.startswith('TUSD') else 3
+
     def token_sell(self) -> str:
-        return self.arguments.pair[:3]
+        return self.arguments.pair[:self.pair_separator()]
 
     def token_buy(self) -> str:
-        return self.arguments.pair[3:]
+        return self.arguments.pair[self.pair_separator():]
 
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
         token_balances = list(filter(lambda coin: coin['currency'].upper() == token, our_balances))
