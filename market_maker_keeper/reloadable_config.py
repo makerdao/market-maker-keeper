@@ -55,7 +55,7 @@ class ReloadableConfig:
 
         def callback(path, file):
             if file == "spread-feed":
-                return path, json.dumps(dict(map(lambda kv: (kv[0], float(kv[1])), spread_feed.items())))
+                return file, json.dumps(dict(map(lambda kv: (kv[0], float(kv[1])), spread_feed.items())))
 
         return callback
 
