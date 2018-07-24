@@ -4,5 +4,6 @@
 __pycache__
 .cache
 .coverage
+.pytest_cache/
 
 .DS_Store
