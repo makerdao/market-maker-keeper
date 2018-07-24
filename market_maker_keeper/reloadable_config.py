@@ -20,7 +20,7 @@ import json
 import logging
 import os
 import zlib
-from typing import Optional
+from typing import Optional, List
 
 
 class ReloadableConfig:
@@ -47,17 +47,34 @@ class ReloadableConfig:
         self._checksum_config = None
         self._config = None
         self._mtime = None
+        self._imported_paths_to_mtimes = {}
         self._spread_feed = None
 
-    @staticmethod
-    def _spread_feed_import_callback(spread_feed: dict):
+    def _import_callback(self, paths: list, spread_feed: dict):
         assert(isinstance(spread_feed, dict))
 
         def callback(path, file):
             if file == "spread-feed":
                 return file, json.dumps(dict(map(lambda kv: (kv[0], float(kv[1])), spread_feed.items())))
 
+            elif file.startswith("./"):
+                abs_path = os.path.join(os.path.dirname(self.filename), file)
+                paths.append(abs_path)
+
+                with open(abs_path) as file_obj:
+                    return file, file_obj.read()
+
         return callback
+
+    def _load_mtimes(self, imported_paths: List[str]) -> dict:
+        return {path: os.path.getmtime(path) for path in imported_paths}
+
+    def _mtimes_changed(self, imported_paths_to_mtimes: dict) -> bool:
+        try:
+            return any(os.path.getmtime(path) != mtime for path, mtime in imported_paths_to_mtimes.items())
+
+        except:
+            return True
 
     def get_config(self, spread_feed: dict):
         """Reads the JSON config file from disk and returns it as a Python object.
@@ -75,13 +92,17 @@ class ReloadableConfig:
         # Ultimately something like `watchdog` (<https://pythonhosted.org/watchdog/index.html>)
         # should be used to watch the filesystem changes asynchronously.
         if self._config is not None and self._mtime is not None:
-            if mtime == self._mtime and spread_feed == self._spread_feed:
+            if mtime == self._mtime \
+                    and spread_feed == self._spread_feed \
+                    and not self._mtimes_changed(self._imported_paths_to_mtimes):
                 return self._config
 
         with open(self.filename) as data_file:
+            imported_paths = []
+
             content_file = data_file.read()
             content_config = _jsonnet.evaluate_snippet("snippet", content_file, ext_vars={},
-                                                       import_callback=self._spread_feed_import_callback(spread_feed))
+                                                       import_callback=self._import_callback(imported_paths, spread_feed))
             result = json.loads(content_config)
 
             # Report if file has been newly loaded or reloaded
@@ -93,6 +114,9 @@ class ReloadableConfig:
             elif self._checksum_file != checksum_file:
                 self.logger.info(f"Reloaded configuration from '{self.filename}'")
                 self.logger.debug(f"Reloaded config file is: " + json.dumps(result, indent=4))
+            elif self._imported_paths_to_mtimes != self._load_mtimes(imported_paths):
+                self.logger.info(f"Reloaded configuration from '{self.filename}' (due to imported file changed)")
+                self.logger.debug(f"Reloaded config file is: " + json.dumps(result, indent=4))
             elif self._checksum_config != checksum_config:
                 self.logger.debug(f"Parsed configuration from '{self.filename}'")
                 self.logger.debug(f"Parsed config file is: " + json.dumps(result, indent=4))
@@ -101,6 +125,7 @@ class ReloadableConfig:
             self._checksum_config = checksum_config
             self._config = result
             self._mtime = mtime
+            self._imported_paths_to_mtimes = self._load_mtimes(imported_paths)
             self._spread_feed = spread_feed
 
             return result
