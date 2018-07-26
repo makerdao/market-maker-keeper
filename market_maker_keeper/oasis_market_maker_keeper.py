@@ -67,6 +67,9 @@ class OasisMarketMakerKeeper:
         parser.add_argument("--oasis-address", type=str, required=True,
                             help="Ethereum address of the OasisDEX contract")
 
+        parser.add_argument("--oasis-support-address", type=str, required=False,
+                            help="Ethereum address of the OasisDEX support contract")
+
         parser.add_argument("--buy-token-address", type=str, required=True,
                             help="Ethereum address of the buy token")
 
@@ -119,7 +122,10 @@ class OasisMarketMakerKeeper:
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
-        self.otc = MatchingMarket(web3=self.web3, address=Address(self.arguments.oasis_address))
+        self.otc = MatchingMarket(web3=self.web3,
+                                  address=Address(self.arguments.oasis_address),
+                                  support_address=Address(self.arguments.oasis_support_address)
+                                    if self.arguments.oasis_support_address else None)
 
         tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address)) \
             if self.arguments.tub_address is not None else None
