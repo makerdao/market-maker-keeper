@@ -106,8 +106,8 @@ class OasisMarketMakerKeeper:
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
-        parser.add_argument("--refresh-frequency", type=int, default=3,
-                            help="Order book refresh frequency (in seconds, default: 3)")
+        parser.add_argument("--refresh-frequency", type=int, default=10,
+                            help="Order book refresh frequency (in seconds, default: 10)")
 
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
