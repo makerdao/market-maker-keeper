@@ -19,6 +19,7 @@ market making on the following exchanges:
 * IDEX (`idex-market-maker-keeper`),
 * Bibox (`bibox-market-maker-keeper`),
 * OKEX (`okex-market-maker-keeper`),
+* TheOcean (`theocean-market-maker-keeper`),
 * gate.io (`gateio-market-maker-keeper`).
 
 All these three keepers share some logic and operate in a similar way. They create
