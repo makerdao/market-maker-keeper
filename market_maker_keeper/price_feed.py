@@ -23,6 +23,7 @@ from typing import Optional, List
 
 import websocket
 
+from gdax_client.price import GdaxPriceClient, GDAX_WS_URL
 from market_maker_keeper.feed import ExpiringFeed, WebSocketFeed, Feed
 from market_maker_keeper.setzer import Setzer
 from pymaker.feed import DSValue
@@ -122,82 +123,22 @@ class SetzerPriceFeed(PriceFeed):
 class GdaxPriceFeed(PriceFeed):
     logger = logging.getLogger()
 
-    def __init__(self, ws_url: str, product_id: str, expiry: int):
-        assert(isinstance(ws_url, str))
+    def __init__(self, product_id: str, expiry: int):
         assert(isinstance(product_id, str))
         assert(isinstance(expiry, int))
 
-        self.ws_url = ws_url
-        self.product_id = product_id
-        self.expiry = expiry
-        self._last_price = None
-        self._last_timestamp = 0
-        self._expired = True
-        threading.Thread(target=self._background_run, daemon=True).start()
-
-    def _background_run(self):
-        while True:
-            ws = websocket.WebSocketApp(url=self.ws_url,
-                                        on_message=self._on_message,
-                                        on_error=self._on_error,
-                                        on_open=self._on_open,
-                                        on_close=self._on_close)
-            ws.run_forever(ping_interval=15, ping_timeout=10)
-            time.sleep(1)
-
-    def _on_open(self, ws):
-        self.logger.info(f"GDAX {self.product_id} WebSocket connected")
-        ws.send("""{
-            "type": "subscribe",
-            "channels": [
-                { "name": "ticker", "product_ids": ["%s"] },
-                { "name": "heartbeat", "product_ids": ["%s"] }
-            ]}""" % (self.product_id, self.product_id))
-
-    def _on_close(self, ws):
-        self.logger.info(f"GDAX {self.product_id} WebSocket disconnected")
-
-    def _on_message(self, ws, message):
-        try:
-            message_obj = json.loads(message)
-            if message_obj['type'] == 'subscriptions':
-                pass
-            elif message_obj['type'] == 'ticker':
-                self._process_ticker(message_obj)
-            elif message_obj['type'] == 'heartbeat':
-                self._process_heartbeat()
-            else:
-                self.logger.warning(f"GDAX {self.product_id} WebSocket received unknown message type: '{message}'")
-        except:
-            self.logger.warning(f"GDAX {self.product_id} WebSocket received invalid message: '{message}'")
-
-    def _on_error(self, ws, error):
-        self.logger.info(f"GDAX {self.product_id} WebSocket error: '{error}'")
+        self.gdax_price_client = GdaxPriceClient(ws_url=GDAX_WS_URL,
+                                                 product_id=product_id,
+                                                 expiry=expiry)
 
     def get_price(self) -> Price:
-        if time.time() - self._last_timestamp > self.expiry:
-            if not self._expired:
-                self.logger.warning(f"Price feed from GDAX ({self.product_id}) has expired")
-                self._expired = True
+        gdax_price = self.gdax_price_client.get_price()
 
-            return Price(buy_price=None, sell_price=None)
+        if gdax_price:
+            return Price(buy_price=gdax_price, sell_price=gdax_price)
 
         else:
-            value = self._last_price
-            return Price(buy_price=value, sell_price=value)
-
-    def _process_ticker(self, message_obj):
-        self._last_price = Wad.from_number(message_obj['price'])
-        self._last_timestamp = time.time()
-
-        self.logger.debug(f"Price feed from GDAX is {self._last_price} ({self.product_id})")
-
-        if self._expired:
-            self.logger.info(f"Price feed from GDAX ({self.product_id}) became available")
-            self._expired = False
-
-    def _process_heartbeat(self):
-        self._last_timestamp = time.time()
+            return Price(buy_price=None, sell_price=None)
 
 
 class WebSocketPriceFeed(PriceFeed):
@@ -304,12 +245,9 @@ class PriceFeedFactory:
         assert(isinstance(price_feed_expiry_argument, int))
         assert(isinstance(tub, Tub) or tub is None)
 
-        gdax_ws_url = "wss://ws-feed.gdax.com"
-
         if price_feed_argument == 'eth_dai':
             # main price feed
-            main_price_feed = GdaxPriceFeed(ws_url=gdax_ws_url,
-                                            product_id="ETH-USD",
+            main_price_feed = GdaxPriceFeed(product_id="ETH-USD",
                                             expiry=price_feed_expiry_argument)
 
             # emergency price feed
@@ -324,8 +262,7 @@ class PriceFeedFactory:
                 price_feed = BackupPriceFeed([main_price_feed, emergency_price_feed])
 
         elif price_feed_argument == 'btc_dai':
-            return GdaxPriceFeed(ws_url=gdax_ws_url,
-                                 product_id="BTC-USD",
+            return GdaxPriceFeed(product_id="BTC-USD",
                                  expiry=price_feed_expiry_argument)
 
         elif price_feed_argument == 'dai_eth':
