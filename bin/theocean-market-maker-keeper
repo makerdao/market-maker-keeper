@@ -1,4 +1,3 @@
-
 #!/bin/sh
 dir="$(dirname "$0")"/..
 export PYTHONPATH=$PYTHONPATH:$dir:$dir/lib/pymaker:$dir/lib/pyexchange:$dir/lib/gdax-client
