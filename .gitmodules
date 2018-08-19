@@ -4,6 +4,9 @@
 [submodule "lib/pyexchange"]
 	path = lib/pyexchange
 	url = https://github.com/makerdao/pyexchange.git
+[submodule "lib/ethgasstation-client"]
+	path = lib/ethgasstation-client
+	url = https://github.com/makerdao/ethgasstation-client.git
 [submodule "lib/gdax-client"]
 	path = lib/gdax-client
 	url = git@github.com:LiquidityProviders/gdax-client.git

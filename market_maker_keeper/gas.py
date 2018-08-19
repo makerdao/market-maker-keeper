@@ -17,7 +17,7 @@
 
 from typing import Optional
 
-from market_maker_keeper.gas_station import EthGasStation
+from ethgasstation_client import EthGasStation
 from pymaker.gas import GasPrice, IncreasingGasPrice, FixedGasPrice, DefaultGasPrice
 
 
