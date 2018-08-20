@@ -51,7 +51,7 @@ git submodule update --init --recursive
 pip3 install -r requirements.txt
 ```
 
-For some known macOS issues see the [pymaker](https://github.com/makerdao/pymaker) README.
+For some known Ubuntu and macOS issues see the [pymaker](https://github.com/makerdao/pymaker) README.
 
 ### Installation of `etherdelta-client`
 
