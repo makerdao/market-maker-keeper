@@ -158,14 +158,8 @@ class DdexMarketMakerKeeper:
         markets = self.ddex_api.get_markets()['data']['markets']
         market = next(filter(lambda item: item['id'] == self.pair, markets))
 
-        self.price_max_decimals = market['pricePrecision']
+        self.price_max_decimals = market['priceDecimals']
         self.amount_max_decimals = market['amountDecimals']
-
-        # For some reason, DDEX returns `pricePrecision == 5` for the `DAI-ETH` pair, although they allow
-        # prices with precision of `7` both in the UI and in the API. So I did temporarily set it to `7`
-        # so we can start testing the keeper, as precision of `5` gives us a 'step' of ~ 3.40 USD,
-        # which is definitely too much!
-        self.price_max_decimals = 7
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
