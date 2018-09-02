@@ -9,4 +9,4 @@
 	url = https://github.com/makerdao/ethgasstation-client.git
 [submodule "lib/gdax-client"]
 	path = lib/gdax-client
-	url = git@github.com:LiquidityProviders/gdax-client.git
+	url = https://github.com/makerdao/gdax-client.git
