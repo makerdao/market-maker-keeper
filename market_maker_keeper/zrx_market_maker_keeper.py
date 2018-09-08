@@ -110,6 +110,9 @@ class ZrxMarketMakerKeeper:
         parser.add_argument("--order-expiry-threshold", type=int, default=0,
                             help="How long before order expiration it is considered already expired (in seconds)")
 
+        parser.add_argument("--use-full-balances", dest='use_full_balances', action='store_true',
+                            help="Do not subtract the amounts locked by current orders from available balances")
+
         parser.add_argument("--min-eth-balance", type=float, default=0,
                             help="Minimum ETH balance below which keeper will cease operation")
 
@@ -262,8 +265,12 @@ class ZrxMarketMakerKeeper:
 
         # Balances returned by `our_total_***_balance` still contain amounts "locked"
         # by currently open orders, so we need to explicitly subtract these amounts.
-        our_buy_balance = self.our_total_buy_balance(order_book.balances) - Bands.total_amount(self.our_buy_orders(orders))
-        our_sell_balance = self.our_total_sell_balance(order_book.balances) - Bands.total_amount(self.our_sell_orders(orders))
+        if self.arguments.use_full_balances:
+            our_buy_balance = self.our_total_buy_balance(order_book.balances)
+            our_sell_balance = self.our_total_sell_balance(order_book.balances)
+        else:
+            our_buy_balance = self.our_total_buy_balance(order_book.balances) - Bands.total_amount(self.our_buy_orders(orders))
+            our_sell_balance = self.our_total_sell_balance(order_book.balances) - Bands.total_amount(self.our_sell_orders(orders))
 
         # Place new orders
         self.order_book_manager.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(orders),
