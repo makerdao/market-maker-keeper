@@ -2,7 +2,6 @@ web3 == 4.5.0
 jsonnet == 0.9.5
 retry == 0.9.2
 requests == 2.18.4
-websockets == 5.0.0
 websocket-client == 0.46.0
 python-dateutil == 2.6.1
 pytz == 2017.3
