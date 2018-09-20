@@ -164,7 +164,7 @@ class TheOceanMarketMakerKeeper:
         assert(int(market['quoteToken']['decimals']) == 18)
         assert(int(market['baseToken']['precision']) == int(market['quoteToken']['precision']))
 
-        self.price_max_decimals = int(market['baseToken']['precision'])
+        self.price_max_decimals = 0 - int(market['baseToken']['precision'])
 
         assert(self.price_max_decimals >= 0)
 
