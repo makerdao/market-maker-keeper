@@ -166,6 +166,8 @@ class TheOceanMarketMakerKeeper:
 
         self.price_max_decimals = int(market['baseToken']['precision'])
 
+        assert(self.price_max_decimals >= 0)
+
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
 
