@@ -119,6 +119,9 @@ class ZrxMarketMakerKeeper:
         parser.add_argument('--cancel-on-shutdown', dest='cancel_on_shutdown', action='store_true',
                             help="Whether should cancel all open orders on keeper shutdown")
 
+        parser.add_argument("--remember-own-orders", dest='remember_own_orders', action='store_true',
+                            help="Whether should the keeper remember his own submitted orders")
+
         parser.add_argument("--gas-price", type=int, default=0,
                             help="Gas price (in Wei)")
 
@@ -147,14 +150,13 @@ class ZrxMarketMakerKeeper:
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
-        self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
-        self.zrx_relayer_api = ZrxRelayerApi(exchange=self.zrx_exchange, api_server=self.arguments.relayer_api_server)
-        self.zrx_api = ZrxApi(zrx_exchange=self.zrx_exchange)
 
-        self.pair = Pair(sell_token_address=Address(self.arguments.sell_token_address),
-                         sell_token_decimals=self.arguments.sell_token_decimals,
-                         buy_token_address=Address(self.arguments.buy_token_address),
-                         buy_token_decimals=self.arguments.buy_token_decimals)
+        # Delegate 0x specific init to a function to permit overload for 0xv2
+        self.zrx_exchange = None
+        self.zrx_relayer_api = None
+        self.zrx_api = None
+        self.pair = None
+        self.init_zrx()
 
         self.placed_zrx_orders = []
         self.placed_zrx_orders_lock = Lock()
@@ -166,6 +168,17 @@ class ZrxMarketMakerKeeper:
         self.order_book_manager.cancel_orders_with(self.cancel_order_function)
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
+
+    def init_zrx(self):
+        self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
+        self.zrx_relayer_api = ZrxRelayerApi(exchange=self.zrx_exchange, api_server=self.arguments.relayer_api_server)
+        self.zrx_api = ZrxApi(zrx_exchange=self.zrx_exchange)
+
+        self.pair = Pair(sell_token_address=Address(self.arguments.sell_token_address),
+                         sell_token_decimals=self.arguments.sell_token_decimals,
+                         buy_token_address=Address(self.arguments.buy_token_address),
+                         buy_token_decimals=self.arguments.buy_token_decimals)
+
 
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
@@ -292,8 +305,9 @@ class ZrxMarketMakerKeeper:
         zrx_order = self.zrx_exchange.sign_order(zrx_order)
 
         if self.zrx_relayer_api.submit_order(zrx_order):
-            with self.placed_zrx_orders_lock:
-                self.placed_zrx_orders.append(zrx_order)
+            if self.arguments.remember_own_orders:
+                with self.placed_zrx_orders_lock:
+                    self.placed_zrx_orders.append(zrx_order)
 
             order = self.zrx_api.get_orders(self.pair, [zrx_order])[0]
 
