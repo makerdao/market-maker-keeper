@@ -119,6 +119,9 @@ class ZrxMarketMakerKeeper:
         parser.add_argument('--cancel-on-shutdown', dest='cancel_on_shutdown', action='store_true',
                             help="Whether should cancel all open orders on keeper shutdown")
 
+        parser.add_argument("--remember-own-orders", dest='remember_own_orders', action='store_true',
+                            help="Whether should the keeper remember his own submitted orders")
+
         parser.add_argument("--gas-price", type=int, default=0,
                             help="Gas price (in Wei)")
 
@@ -302,8 +305,9 @@ class ZrxMarketMakerKeeper:
         zrx_order = self.zrx_exchange.sign_order(zrx_order)
 
         if self.zrx_relayer_api.submit_order(zrx_order):
-            with self.placed_zrx_orders_lock:
-                self.placed_zrx_orders.append(zrx_order)
+            if self.arguments.remember_own_orders:
+                with self.placed_zrx_orders_lock:
+                    self.placed_zrx_orders.append(zrx_order)
 
             order = self.zrx_api.get_orders(self.pair, [zrx_order])[0]
 

@@ -48,8 +48,9 @@ class ZrxV2MarketMakerKeeper(ZrxMarketMakerKeeper):
                                              expiration=int(time.time()) + self.arguments.order_expiry)
 
         if zrx_order:
-            with self.placed_zrx_orders_lock:
-                self.placed_zrx_orders.append(zrx_order)
+            if self.arguments.remember_own_orders:
+                with self.placed_zrx_orders_lock:
+                    self.placed_zrx_orders.append(zrx_order)
 
             order = self.zrx_api.get_orders(self.pair, [zrx_order])[0]
 
