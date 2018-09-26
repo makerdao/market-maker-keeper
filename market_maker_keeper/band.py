@@ -65,7 +65,6 @@ class Band:
         assert(self.min_margin <= self.avg_margin)
         assert(self.avg_margin <= self.max_margin)
         assert(self.min_margin < self.max_margin)
-        assert(self.avg_margin > 0)
 
     def includes(self, order, target_price: Wad) -> bool:
         raise NotImplemented()
