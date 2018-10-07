@@ -38,7 +38,7 @@ from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
-from pymaker.zrx import ZrxExchange
+from pymaker.zrxv2 import ZrxExchangeV2
 
 
 class ParadexMarketMakerKeeper:
@@ -138,7 +138,7 @@ class ParadexMarketMakerKeeper:
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
-        self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
+        self.zrx_exchange = ZrxExchangeV2(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.paradex_api = ParadexApi(self.zrx_exchange,
                                       self.arguments.paradex_api_server,
                                       self.arguments.paradex_api_key,
