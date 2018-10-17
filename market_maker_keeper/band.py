@@ -171,7 +171,7 @@ class Bands:
             sell_bands = list(map(SellBand, config['sellBands']))
             sell_limits = SideLimits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
         except Exception as e:
-            logging.getLogger().warning(f"Config file is invalid ({e}). Treating the config file as it has no bands.")
+            logging.getLogger().exception(f"Config file is invalid ({e}). Treating the config file as it has no bands.")
 
             buy_bands = []
             buy_limits = SideLimits([], history.buy_history)
