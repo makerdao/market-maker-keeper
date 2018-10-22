@@ -70,7 +70,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -110,7 +110,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -140,7 +140,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -173,7 +173,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -209,7 +209,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -237,7 +237,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -293,7 +293,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -346,7 +346,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                              web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -386,7 +386,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -439,7 +439,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -479,7 +479,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -516,7 +516,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -556,7 +556,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -620,7 +620,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file} "
                                                   f"--gas-price 70000000000"),
                                         web3=deployment.web3)
@@ -653,7 +653,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file} "
                                                   f"--min-eth-balance 100.0"),
                                         web3=deployment.web3)
@@ -691,7 +691,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file} "
                                                   f"--min-eth-balance 100.0"),
                                         web3=deployment.web3)
@@ -723,7 +723,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -759,7 +759,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)
@@ -796,7 +796,7 @@ class TestOasisMarketMakerKeeper:
                                                   f"--oasis-address {deployment.otc.address} "
                                                   f"--buy-token-address {deployment.sai.address} "
                                                   f"--sell-token-address {deployment.gem.address} "
-                                                  f"--price-feed tub "
+                                                  f"--price-feed eth_dai-tub "
                                                   f"--config {config_file}"),
                                         web3=deployment.web3)
         keeper.lifecycle = Lifecycle(web3=keeper.web3)

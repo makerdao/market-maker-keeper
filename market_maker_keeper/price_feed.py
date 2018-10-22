@@ -237,7 +237,8 @@ class BackupPriceFeed(PriceFeed):
 class PriceFeedFactory:
     @staticmethod
     def create_price_feed(arguments, tub: Tub = None) -> PriceFeed:
-        return PriceFeedFactory._create_price_feed(arguments.price_feed, arguments.price_feed_expiry, tub)
+        return BackupPriceFeed([PriceFeedFactory._create_price_feed(price_feed, arguments.price_feed_expiry, tub)
+                                for price_feed in arguments.price_feed.split(",")])
 
     @staticmethod
     def _create_price_feed(price_feed_argument: str, price_feed_expiry_argument: int, tub: Optional[Tub]):
@@ -246,20 +247,18 @@ class PriceFeedFactory:
         assert(isinstance(tub, Tub) or tub is None)
 
         if price_feed_argument == 'eth_dai':
-            # main price feed
-            main_price_feed = GdaxPriceFeed(product_id="ETH-USD",
-                                            expiry=price_feed_expiry_argument)
+            return GdaxPriceFeed(product_id="ETH-USD",
+                                 expiry=price_feed_expiry_argument)
 
-            # emergency price feed
-            emergency_price_feed = AveragePriceFeed([SetzerPriceFeed('kraken', expiry=price_feed_expiry_argument),
-                                                     SetzerPriceFeed('gemini', expiry=price_feed_expiry_argument)])
+        elif price_feed_argument == 'eth_dai-setzer':
+            return AveragePriceFeed([SetzerPriceFeed('kraken', expiry=price_feed_expiry_argument),
+                                     SetzerPriceFeed('gemini', expiry=price_feed_expiry_argument)])
 
+        elif price_feed_argument == 'eth_dai-tub':
             if tub is not None:
-                # last resort price feed
-                last_resort_price_feed = TubPriceFeed(tub)
-                price_feed = BackupPriceFeed([main_price_feed, emergency_price_feed, last_resort_price_feed])
+                price_feed = TubPriceFeed(tub)
             else:
-                price_feed = BackupPriceFeed([main_price_feed, emergency_price_feed])
+                raise Exception(f"'--price-feed eth_dai-tub' cannot be used as this keeper does not know about 'Tub'")
 
         elif price_feed_argument == 'btc_dai':
             return GdaxPriceFeed(product_id="BTC-USD",
@@ -268,14 +267,14 @@ class PriceFeedFactory:
         elif price_feed_argument == 'dai_eth':
             return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai', price_feed_expiry_argument, tub))
 
+        elif price_feed_argument == 'dai_eth-setzer':
+            return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai-setzer', price_feed_expiry_argument, tub))
+
+        elif price_feed_argument == 'dai_eth-tub':
+            return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai-tub', price_feed_expiry_argument, tub))
+
         elif price_feed_argument == 'dai_btc':
             return ReversePriceFeed(PriceFeedFactory._create_price_feed('btc_dai', price_feed_expiry_argument, tub))
-
-        elif price_feed_argument == 'tub':
-            if tub is not None:
-                price_feed = TubPriceFeed(tub)
-            else:
-                raise Exception(f"'--price-feed tub' cannot be used as this keeper does not know about 'Tub'")
 
         elif price_feed_argument.startswith("fixed:"):
             price_feed = FixedPriceFeed(Wad.from_number(price_feed_argument[6:]))

@@ -63,13 +63,9 @@ This step is not necessary if you only want to use the other keepers from this p
 
 ### Installation of `setzer`
 
-Some market maker keepers use `setzer` in order to access price feeds like Gemini, Kraken etc. This interface
-is built on top of `setzer` so in order for it to work correctly, `setzer` and its dependencies
+`eth_dai-setzer` and `dai_eth-setzer` price feeds use `setzer` in order to prices Gemini and Kraken.
+It is built on top of `setzer` so in order for it to work correctly, `setzer` and its dependencies
 must be installed and available to the keepers. Please see: <https://github.com/makerdao/setzer>.
-
-Without `setzer` installed, the `--price-feed eth_dai` will lack reliability when the main price feed
-(which is currently the GDAX ETH/USD WebSocket feed) will become unavailable. It will not impact the
-reliability of `--price-feed btc_dai` which currently depends only on the GDAX BTC/USD WebSocket feed.
 
 
 ## Bands configuration
@@ -206,16 +202,22 @@ for the configuration file.
 ## Price feed configuration
 
 Each keeper takes a `--price-feed` commandline argument which determines the price used for market-making.
-As of today there are four possible values of this argument:
-* `eth_dai` - uses the price from the GDAX WebSocket ETH/USD price feed, if it becomes unavailable then uses
-  the average of Kraken and Gemini ETH/USD prices, if both of them become unavailable uses the price feed
-  from `Tub`;
+As of today these are the possible values of this argument:
+* `eth_dai` - uses the price from the GDAX WebSocket ETH/USD price feed,
+* `eth_dai-setzer` - uses the average of Kraken and Gemini ETH/USD prices,
+* `eth_dai-tub` - uses the price feed from `Tub` (only works for keepers being able access an Ethereum node),
 * `dai_eth` - inverse of the `eth_dai` price feed,
+* `dai_eth-setzer` - inverse of the `eth_dai-setzer` price feed,
+* `dai_eth-tub` - inverse of the `eth_dai-tub` price feed,
 * `btc_dai` - uses the price from the GDAX WebSocket BTC/USD price feed;
 * `dai_btc` - inverse of the `btc_dai` price feed,
-* `tub` - uses the price feed from `Tub` (only works for keepers being able access an Ethereum node);
 * `fixed:1.56` - uses a fixed price, `1.56` in this example,
 * `ws://...` or `wss://...` - uses a price feed advertised over a WebSocket connection (custom protocol).
+
+The `--price-feed` commandline argument can also contain a comma-separated list of several different price feeds.
+In this case, if one of them becomes unavailable, the next one in the list will be used instead. All listed price
+feeds will be constantly running in background, the second one and following ones ready to take over
+when the first one becomes unavailable.
 
 
 ## Running keepers
