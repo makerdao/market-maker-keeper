@@ -159,17 +159,36 @@ class Bands:
     logger = logging.getLogger()
 
     @staticmethod
-    def read(reloadable_config: ReloadableConfig, spread_feed: Feed, history: History):
+    def read(reloadable_config: ReloadableConfig, spread_feed: Feed, control_feed: Feed, history: History):
         assert(isinstance(reloadable_config, ReloadableConfig))
+        assert(isinstance(spread_feed, Feed))
+        assert(isinstance(control_feed, Feed))
         assert(isinstance(history, History))
 
         try:
             config = reloadable_config.get_config(spread_feed.get()[0])
+            control_feed_value = control_feed.get()[0]
 
             buy_bands = list(map(BuyBand, config['buyBands']))
             buy_limits = SideLimits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
             sell_bands = list(map(SellBand, config['sellBands']))
             sell_limits = SideLimits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
+
+            if 'canBuy' not in control_feed_value or 'canSell' not in control_feed_value:
+                logging.getLogger().warning("Control feed expired. Assuming no buy bands and no sell bands.")
+
+                buy_bands = []
+                sell_bands = []
+
+            else:
+                if not control_feed_value['canBuy']:
+                    logging.getLogger().warning("Control feed says we shall not buy. Assuming no buy bands.")
+                    buy_bands = []
+
+                if not control_feed_value['canSell']:
+                    logging.getLogger().warning("Control feed says we shall not sell. Assuming no sell bands.")
+                    sell_bands = []
+
         except Exception as e:
             logging.getLogger().exception(f"Config file is invalid ({e}). Treating the config file as it has no bands.")
 

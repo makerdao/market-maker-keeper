@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from market_maker_keeper.band import Bands
-from market_maker_keeper.feed import EmptyFeed
+from market_maker_keeper.feed import EmptyFeed, FixedFeed
 from market_maker_keeper.limit import History
 from market_maker_keeper.price_feed import Price
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -164,5 +164,5 @@ class TestBands:
     @staticmethod
     def create_bands(config_file):
         config = ReloadableConfig(str(config_file))
-        return Bands.read(config, EmptyFeed(), History())
+        return Bands.read(config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 

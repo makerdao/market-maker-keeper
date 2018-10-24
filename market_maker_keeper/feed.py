@@ -43,6 +43,16 @@ class EmptyFeed(Feed):
         return {}, 0.0
 
 
+class FixedFeed(Feed):
+    def __init__(self, value: dict):
+        assert(isinstance(value, dict))
+
+        self.value = value
+
+    def get(self) -> Tuple[dict, float]:
+        return self.value, time.time()
+
+
 class WebSocketFeed(Feed):
     logger = logging.getLogger()
 

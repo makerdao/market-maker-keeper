@@ -23,6 +23,7 @@ from retry import retry
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
+from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
@@ -94,6 +95,12 @@ class DdexMarketMakerKeeper:
         parser.add_argument("--spread-feed-expiry", type=int, default=3600,
                             help="Maximum age of the spread feed (in seconds, default: 3600)")
 
+        parser.add_argument("--control-feed", type=str,
+                            help="Source of control feed")
+
+        parser.add_argument("--control-feed-expiry", type=int, default=86400,
+                            help="Maximum age of the control feed (in seconds, default: 86400)")
+
         parser.add_argument("--order-history", type=str,
                             help="Endpoint to report active orders to")
 
@@ -129,6 +136,7 @@ class DdexMarketMakerKeeper:
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
+        self.control_feed = create_control_feed(self.arguments)
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
@@ -177,7 +185,7 @@ class DdexMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        bands = Bands.read(self.bands_config, self.spread_feed, self.history)
+        bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 
