@@ -35,6 +35,7 @@ from market_maker_keeper.util import setup_logging
 from pymaker import Address, synchronize
 from pymaker.approval import directly
 from pymaker.etherdelta import EtherDelta, EtherDeltaApi, Order
+from pymaker.keys import register_keys
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.sai import Tub
@@ -61,6 +62,9 @@ class EtherDeltaMarketMakerKeeper:
 
         parser.add_argument("--eth-from", type=str, required=True,
                             help="Ethereum account from which to send transactions")
+
+        parser.add_argument("--eth-key", type=str, nargs='*',
+                            help="Ethereum private key(s) to use (e.g. 'key_file=aaa.json,pass_file=aaa.pass')")
 
         parser.add_argument("--tub-address", type=str, required=True,
                             help="Ethereum address of the Tub contract")
@@ -154,6 +158,8 @@ class EtherDeltaMarketMakerKeeper:
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
+        register_keys(self.web3, self.arguments.eth_key)
+
         self.tub = Tub(web3=self.web3, address=Address(self.arguments.tub_address))
         self.sai = ERC20Token(web3=self.web3, address=self.tub.sai())
         self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())

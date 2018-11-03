@@ -23,6 +23,7 @@ from web3 import Web3, HTTPProvider
 
 from pymaker import Address
 from pymaker.gas import FixedGasPrice, DefaultGasPrice
+from pymaker.keys import register_keys
 from pymaker.oasis import MatchingMarket
 from pymaker.util import synchronize
 
@@ -36,6 +37,7 @@ class OasisMarketMakerCancel:
         parser.add_argument("--rpc-port", help="JSON-RPC port (default: `8545')", default=8545, type=int)
         parser.add_argument("--rpc-timeout", help="JSON-RPC timeout (in seconds, default: 10)", default=10, type=int)
         parser.add_argument("--eth-from", help="Ethereum account from which to send transactions", required=True, type=str)
+        parser.add_argument("--eth-key", type=str, nargs='*', help="Ethereum private key(s) to use")
         parser.add_argument("--oasis-address", help="Ethereum address of the OasisDEX contract", required=True, type=str)
         parser.add_argument("--gas-price", help="Gas price in Wei (default: node default)", default=0, type=int)
         self.arguments = parser.parse_args(args)
@@ -44,6 +46,7 @@ class OasisMarketMakerCancel:
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
+        register_keys(self.web3, self.arguments.eth_key)
         self.otc = MatchingMarket(web3=self.web3, address=Address(self.arguments.oasis_address))
 
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s', level=logging.INFO)

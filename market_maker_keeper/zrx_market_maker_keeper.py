@@ -36,6 +36,7 @@ from market_maker_keeper.util import setup_logging
 from pyexchange.zrx import ZrxApi, Pair
 from pymaker import Address
 from pymaker.approval import directly
+from pymaker.keys import register_keys
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.token import ERC20Token
@@ -62,6 +63,9 @@ class ZrxMarketMakerKeeper:
 
         parser.add_argument("--eth-from", type=str, required=True,
                             help="Ethereum account from which to send transactions")
+
+        parser.add_argument("--eth-key", type=str, nargs='*',
+                            help="Ethereum private key(s) to use (e.g. 'key_file=aaa.json,pass_file=aaa.pass')")
 
         parser.add_argument("--exchange-address", type=str, required=True,
                             help="Ethereum address of the 0x Exchange contract")
@@ -148,6 +152,7 @@ class ZrxMarketMakerKeeper:
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
+        register_keys(self.web3, self.arguments.eth_key)
 
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
