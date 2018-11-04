@@ -135,7 +135,7 @@ class GdaxPriceFeed(PriceFeed):
         gdax_price = self.gdax_price_client.get_price()
 
         if gdax_price:
-            return Price(buy_price=gdax_price, sell_price=gdax_price)
+            return Price(buy_price=Wad.from_number(gdax_price), sell_price=Wad.from_number(gdax_price))
 
         else:
             return Price(buy_price=None, sell_price=None)
