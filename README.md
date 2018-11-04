@@ -41,14 +41,14 @@ keeper gets stuck or dies for some reason, or if the network becomes congested.
 
 ## Installation
 
-This project uses *Python 3.6.2*.
+This project uses *Python 3.6.6* and requires *virtualenv* to be installed.
 
 In order to clone the project and install required third-party packages please execute:
 ```
 git clone https://github.com/makerdao/market-maker-keeper.git
 cd market-maker-keeper
 git submodule update --init --recursive
-pip3 install -r requirements.txt
+./install.sh
 ```
 
 For some known Ubuntu and macOS issues see the [pymaker](https://github.com/makerdao/pymaker) README.
