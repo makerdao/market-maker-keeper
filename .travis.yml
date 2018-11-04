@@ -13,7 +13,7 @@ before_cache:
 
 install:
   - pip install virtualenv --upgrade
-  - pip install -r requirements.txt
+  - ./install.sh
   - pip install -r requirements-dev.txt
 
 script:
