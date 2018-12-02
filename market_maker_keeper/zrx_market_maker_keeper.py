@@ -308,11 +308,13 @@ class ZrxMarketMakerKeeper:
     def place_order_function(self, new_order: NewOrder):
         assert(isinstance(new_order, NewOrder))
 
+        order_expiry = int(new_order.band.params.get('orderExpiry', self.arguments.order_expiry))
+
         zrx_order = self.zrx_api.place_order(pair=self.pair,
                                              is_sell=new_order.is_sell,
                                              price=new_order.price,
                                              amount=new_order.amount,
-                                             expiration=int(time.time()) + self.arguments.order_expiry)
+                                             expiration=int(time.time()) + order_expiry)
 
         zrx_order = self.zrx_relayer_api.calculate_fees(zrx_order)
         zrx_order = self.zrx_exchange.sign_order(zrx_order)

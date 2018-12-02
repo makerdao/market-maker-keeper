@@ -39,7 +39,8 @@ class Band:
                  min_amount: Wad,
                  avg_amount: Wad,
                  max_amount: Wad,
-                 dust_cutoff: Wad):
+                 dust_cutoff: Wad,
+                 params: dict):
         assert(isinstance(min_margin, float))
         assert(isinstance(avg_margin, float))
         assert(isinstance(max_margin, float))
@@ -47,6 +48,7 @@ class Band:
         assert(isinstance(avg_amount, Wad))
         assert(isinstance(max_amount, Wad))
         assert(isinstance(dust_cutoff, Wad))
+        assert(isinstance(params, dict))
 
         self.min_margin = min_margin
         self.avg_margin = avg_margin
@@ -55,6 +57,7 @@ class Band:
         self.avg_amount = avg_amount
         self.max_amount = max_amount
         self.dust_cutoff = dust_cutoff
+        self.params = params
 
         assert(self.min_amount >= Wad(0))
         assert(self.avg_amount >= Wad(0))
@@ -92,7 +95,8 @@ class BuyBand(Band):
                          min_amount=Wad.from_number(dictionary['minAmount']),
                          avg_amount=Wad.from_number(dictionary['avgAmount']),
                          max_amount=Wad.from_number(dictionary['maxAmount']),
-                         dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
+                         dust_cutoff=Wad.from_number(dictionary['dustCutoff']),
+                         params=dictionary.get('params', {}))
 
     def includes(self, order, target_price: Wad) -> bool:
         price = order.sell_to_buy_price
@@ -116,7 +120,8 @@ class SellBand(Band):
                          min_amount=Wad.from_number(dictionary['minAmount']),
                          avg_amount=Wad.from_number(dictionary['avgAmount']),
                          max_amount=Wad.from_number(dictionary['maxAmount']),
-                         dust_cutoff=Wad.from_number(dictionary['dustCutoff']))
+                         dust_cutoff=Wad.from_number(dictionary['dustCutoff']),
+                         params=dictionary.get('params', {}))
 
     def includes(self, order, target_price: Wad) -> bool:
         price = order.buy_to_sell_price
@@ -133,12 +138,13 @@ class SellBand(Band):
 
 
 class NewOrder:
-    def __init__(self, is_sell: bool, price: Wad, amount: Wad, pay_amount: Wad, buy_amount: Wad, confirm_function):
+    def __init__(self, is_sell: bool, price: Wad, amount: Wad, pay_amount: Wad, buy_amount: Wad, band: Band, confirm_function):
         assert(isinstance(is_sell, bool))
         assert(isinstance(price, Wad))
         assert(isinstance(amount, Wad))
         assert(isinstance(pay_amount, Wad))
         assert(isinstance(buy_amount, Wad))
+        assert(isinstance(band, Band))
         assert(callable(confirm_function))
 
         self.is_sell = is_sell
@@ -146,10 +152,11 @@ class NewOrder:
         self.amount = amount
         self.pay_amount = pay_amount
         self.buy_amount = buy_amount
-        self.confirm_function = confirm_function
+        self.band = band
+        self._confirm_function = confirm_function
 
     def confirm(self):
-        self.confirm_function()
+        self._confirm_function()
 
     def __repr__(self):
         return pformat(vars(self))
@@ -317,6 +324,7 @@ class Bands:
                                                amount=pay_amount,
                                                pay_amount=pay_amount,
                                                buy_amount=buy_amount,
+                                               band=band,
                                                confirm_function=lambda: self.sell_limits.use_limit(time.time(), pay_amount)))
 
         return new_orders, missing_amount
@@ -350,6 +358,7 @@ class Bands:
                                                amount=buy_amount,
                                                pay_amount=pay_amount,
                                                buy_amount=buy_amount,
+                                               band=band,
                                                confirm_function=lambda: self.buy_limits.use_limit(time.time(), pay_amount)))
 
         return new_orders, missing_amount
