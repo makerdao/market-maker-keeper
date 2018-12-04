@@ -72,11 +72,15 @@ class Band:
     def includes(self, order, target_price: Wad) -> bool:
         raise NotImplemented()
 
+    def type(self) -> str:
+        raise NotImplemented()
+
     def excessive_orders(self, orders: list, target_price: Wad):
         """Return orders which need to be cancelled to bring the total order amount in the band below maximum."""
 
         # Get all orders which are currently present in the band.
         orders_in_band = [order for order in orders if self.includes(order, target_price)]
+        orders_total = Bands.total_amount(orders_in_band)
 
         # Keep removing orders starting from the smallest one until their total amount
         # stops being greater than `maxAmount`.
@@ -84,7 +88,15 @@ class Band:
         while Bands.total_amount(orders_to_leave) > self.max_amount:
             orders_to_leave.pop()
 
-        return set(orders_in_band) - set(orders_to_leave)
+        result = set(orders_in_band) - set(orders_to_leave)
+
+        if len(result) > 0:
+            logger = logging.getLogger()
+            logger.info(f"{self.type().capitalize()} band (spread <{self.min_margin}, {self.max_margin}>,"
+                        f" amount <{self.min_amount}, {self.max_amount}>) has amount {orders_total}, scheduling"
+                        f" {len(result)} order(s) for cancellation: {', '.join(map(lambda o: '#' + str(o.order_id), result))}")
+
+        return result
 
 
 class BuyBand(Band):
@@ -103,6 +115,9 @@ class BuyBand(Band):
         price_min = self._apply_margin(target_price, self.min_margin)
         price_max = self._apply_margin(target_price, self.max_margin)
         return (price > price_max) and (price <= price_min)
+
+    def type(self) -> str:
+        return "buy"
 
     def avg_price(self, target_price: Wad) -> Wad:
         return self._apply_margin(target_price, self.avg_margin)
@@ -128,6 +143,9 @@ class SellBand(Band):
         price_min = self._apply_margin(target_price, self.min_margin)
         price_max = self._apply_margin(target_price, self.max_margin)
         return (price > price_min) and (price <= price_max)
+
+    def type(self) -> str:
+        return "sell"
 
     def avg_price(self, target_price: Wad) -> Wad:
         return self._apply_margin(target_price, self.avg_margin)
@@ -249,6 +267,8 @@ class Bands:
 
         for order in orders:
             if not any(band.includes(order, target_price) for band in bands):
+                self.logger.info(f"Order #{order.order_id} doesn't belong to any band, scheduling it for cancellation")
+
                 yield order
 
     def cancellable_orders(self, our_buy_orders: list, our_sell_orders: list, target_price: Price) -> list:
@@ -314,7 +334,9 @@ class Bands:
                 buy_amount = pay_amount * price
                 missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
                 if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new sell order")
+                    self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
+                                     f" amount <{band.min_amount}, {band.max_amount}>) has amount {total_amount},"
+                                     f" creating new sell order with price {price}")
 
                     our_sell_balance = our_sell_balance - pay_amount
                     limit_amount = limit_amount - pay_amount
@@ -348,7 +370,9 @@ class Bands:
                 buy_amount = pay_amount / price
                 missing_amount += Wad.max((band.avg_amount - total_amount) - our_buy_balance, Wad(0))
                 if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.debug(f"Using price {price} for new buy order")
+                    self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
+                                     f" amount <{band.min_amount}, {band.max_amount}>) has amount {total_amount},"
+                                     f" creating new buy order with price {price}")
 
                     our_buy_balance = our_buy_balance - pay_amount
                     limit_amount = limit_amount - pay_amount
