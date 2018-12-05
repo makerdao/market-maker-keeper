@@ -69,22 +69,40 @@ class Band:
         assert(self.avg_margin <= self.max_margin)
         assert(self.min_margin < self.max_margin)
 
+    def order_price(self, order) -> Wad:
+        raise NotImplemented()
+
     def includes(self, order, target_price: Wad) -> bool:
         raise NotImplemented()
 
     def type(self) -> str:
         raise NotImplemented()
 
-    def excessive_orders(self, orders: list, target_price: Wad):
+    def excessive_orders(self, orders: list, target_price: Wad, is_first_band: bool, is_last_band: bool):
         """Return orders which need to be cancelled to bring the total order amount in the band below maximum."""
 
         # Get all orders which are currently present in the band.
         orders_in_band = [order for order in orders if self.includes(order, target_price)]
         orders_total = Bands.total_amount(orders_in_band)
 
-        # Keep removing orders starting from the smallest one until their total amount
-        # stops being greater than `maxAmount`.
-        orders_to_leave = sorted(orders_in_band, key=lambda order: order.remaining_sell_amount, reverse=True)
+        # The sorting in which we remove orders depends on which band we are in.
+        # * In the first band we start cancelling with orders closest to the target price.
+        # * In the last band we start cancelling with orders furthest from the target price.
+        # * In remaining cases we remove orders starting from the smallest one.
+        if is_first_band:
+            sorting = lambda order: abs(self.order_price(order) - target_price)
+            reverse = True
+
+        elif is_last_band:
+            sorting = lambda order: abs(self.order_price(order) - target_price)
+            reverse = False
+
+        else:
+            sorting = lambda order: order.remaining_sell_amount
+            reverse = True
+
+        # Keep removing orders until their total amount stops being greater than `maxAmount`.
+        orders_to_leave = sorted(orders_in_band, key=sorting, reverse=reverse)
         while Bands.total_amount(orders_to_leave) > self.max_amount:
             orders_to_leave.pop()
 
@@ -110,8 +128,11 @@ class BuyBand(Band):
                          dust_cutoff=Wad.from_number(dictionary['dustCutoff']),
                          params=dictionary.get('params', {}))
 
+    def order_price(self, order) -> Wad:
+        return order.sell_to_buy_price
+
     def includes(self, order, target_price: Wad) -> bool:
-        price = order.sell_to_buy_price
+        price = self.order_price(order)
         price_min = self._apply_margin(target_price, self.min_margin)
         price_max = self._apply_margin(target_price, self.max_margin)
         return (price > price_max) and (price <= price_min)
@@ -138,8 +159,11 @@ class SellBand(Band):
                          dust_cutoff=Wad.from_number(dictionary['dustCutoff']),
                          params=dictionary.get('params', {}))
 
+    def order_price(self, order) -> Wad:
+        return order.buy_to_sell_price
+
     def includes(self, order, target_price: Wad) -> bool:
-        price = order.buy_to_sell_price
+        price = self.order_price(order)
         price_min = self._apply_margin(target_price, self.min_margin)
         price_max = self._apply_margin(target_price, self.max_margin)
         return (price > price_min) and (price <= price_max)
@@ -246,8 +270,10 @@ class Bands:
         assert(isinstance(our_sell_orders, list))
         assert(isinstance(target_price, Wad))
 
-        for band in self.sell_bands:
-            for order in band.excessive_orders(our_sell_orders, target_price):
+        bands = self.sell_bands
+
+        for band in bands:
+            for order in band.excessive_orders(our_sell_orders, target_price, band == bands[0], band == bands[-1]):
                 yield order
 
     def _excessive_buy_orders(self, our_buy_orders: list, target_price: Wad):
@@ -255,8 +281,10 @@ class Bands:
         assert(isinstance(our_buy_orders, list))
         assert(isinstance(target_price, Wad))
 
-        for band in self.buy_bands:
-            for order in band.excessive_orders(our_buy_orders, target_price):
+        bands = self.buy_bands
+
+        for band in bands:
+            for order in band.excessive_orders(our_buy_orders, target_price, band == bands[0], band == bands[-1]):
                 yield order
 
     def _outside_any_band_orders(self, orders: list, bands: list, target_price: Wad):
