@@ -104,7 +104,6 @@ by setting the margin and amount ranges wide enough and also by making sure that
 are always adjacent to each other and that their <min,max> amount ranges overlap.
 
 ### File format
-
 Bands configuration file consists of two main sections: *buyBands* and *sellBands*.
 Each section is an array containing one object per each band.
 
@@ -168,7 +167,16 @@ Sample bands configuration file:
     "sellLimits": []
 }
 ```
+ ### Band examples
+Let's create some example interactions using the bands above, suppose it is denominated in Dai and the price of one Dai is $1.00 USD :
+* If we look at the first buy band, the initial buy order will be 30 Dai ( *avgAmount* ) with a price of -> `price - (price * avgMargin)` -> `1.00 -   (1.00 * 0.01)` -> $0.90 USD per Dai.
+* If our buy order above (30 DAI @ $0.90) gets partially filled (15 Dai are purchased), we will have (15 Dai remaining in the order). This number is   below the band's *minAmount* (20 Dai), therefore another whole order of 15 Dai will be placed on the exchange each at the same price ($0.90).
+* In addition to buy orders, when the keeper starts up two sell orders will also be placed. For ease of explanation, lets say we are selling ETH       priced at $100.00 USD (5 ETH @ $101.0, 6 ETH @ $102.5). Now imagine the price of ETH suddenly drops to $75.00, which will push the bands down. The second band is now responsible for both sell orders since they fit inbetween band 2's *minMargin* and *maxMargin*. The keeper will now reset it's bands by:
+    1. creating an order in band 1 (5 ETH @ $75.75) using *avgMargin* and *avgAmount*.
+    2. cancelling the first order (5 ETH @ $101.0) (which is now in band 2) becuase *maxAmount* has been breached (total is 11 *maxAmount* is 8)
 
+Leaving us with (5 ETH @ $75.75) in band 1 and (6 ETH @ $102.5) in band 2.
+ 
 ### Order rate limitation
 
 Two optional sections (*buyLimits* and *sendLimits*) can be used for limiting the maximum rate of orders
