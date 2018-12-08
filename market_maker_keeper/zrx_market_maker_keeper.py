@@ -214,11 +214,11 @@ class ZrxMarketMakerKeeper:
 
     def remove_expired_orders(self, orders: list) -> list:
         current_timestamp = int(time.time())
-        return list(filter(lambda order: order.zrx_order.expiration > current_timestamp - self.arguments.order_expiry_threshold, orders))
+        return list(filter(lambda order: order.zrx_order.expiration > current_timestamp + self.arguments.order_expiry_threshold, orders))
 
     def remove_expired_zrx_orders(self, zrx_orders: list) -> list:
         current_timestamp = int(time.time())
-        return list(filter(lambda order: order.expiration > current_timestamp - self.arguments.order_expiry_threshold, zrx_orders))
+        return list(filter(lambda order: order.expiration > current_timestamp + self.arguments.order_expiry_threshold, zrx_orders))
 
     def remove_filled_or_cancelled_zrx_orders(self, zrx_orders: list) -> list:
         return list(filter(lambda order: self.zrx_exchange.get_unavailable_buy_amount(order) < order.buy_amount, zrx_orders))
