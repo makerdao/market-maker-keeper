@@ -119,6 +119,7 @@ class KucoinMarketMakerKeeper:
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
+            lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
