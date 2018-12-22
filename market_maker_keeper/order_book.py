@@ -440,7 +440,7 @@ class OrderBookManager:
                         self._order_ids_cancelled.add(order_id)
                         self._order_ids_cancelling.remove(order_id)
             except BaseException as exception:
-                self.logger.exception(exception)
+                self.logger.exception(f"Failed to cancel {order_id}")
             finally:
                 with self._lock:
                     try:
