@@ -144,7 +144,7 @@ class KucoinMarketMakerKeeper:
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
         token_balances = list(filter(lambda coin: coin['coinType'].upper() == token, our_balances))
         if token_balances:
-            return self.round_down(Wad.from_number(token_balances[0])['balance'], self.amount_precision)
+            return Wad.from_number(self.round_down(token_balances[0]['balance'], self.amount_precision))
         else:
             return Wad(0)
 
@@ -199,7 +199,7 @@ class KucoinMarketMakerKeeper:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
     @staticmethod
-    def round_down(precision, num):
+    def round_down(num, precision):
         multiplier = pow(10, precision)
         return floor(num * multiplier) / multiplier
 
