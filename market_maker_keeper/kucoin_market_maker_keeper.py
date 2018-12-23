@@ -183,9 +183,9 @@ class KucoinMarketMakerKeeper:
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
-            price = self.round_down(new_order_to_be_placed.price, self.price_precision)
+            price = round(new_order_to_be_placed.price, self.price_precision)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            amount = self.round_down(amount, self.amount_precision)
+            amount = round(amount, self.amount_precision)
 
             order_id = self.kucoin_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
 
