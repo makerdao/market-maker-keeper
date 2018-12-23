@@ -144,7 +144,7 @@ class KucoinMarketMakerKeeper:
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
         token_balances = list(filter(lambda coin: coin['coinType'].upper() == token, our_balances))
         if token_balances:
-            return Wad.from_number(token_balances[0]['balance'])
+            return Wad.from_number(self.round_down(token_balances[0]['balance'], self.amount_precision))
         else:
             return Wad(0)
 
