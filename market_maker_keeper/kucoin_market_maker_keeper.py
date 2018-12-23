@@ -32,6 +32,7 @@ from market_maker_keeper.util import setup_logging
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pyexchange.kucoin import KucoinApi, Order
+from math import floor
 
 
 class KucoinMarketMakerKeeper:
@@ -143,7 +144,7 @@ class KucoinMarketMakerKeeper:
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
         token_balances = list(filter(lambda coin: coin['coinType'].upper() == token, our_balances))
         if token_balances:
-            return Wad.from_number(token_balances[0]['balance'])
+            return self.round_down(Wad.from_number(token_balances[0])['balance'], self.amount_precision)
         else:
             return Wad(0)
 
@@ -182,9 +183,9 @@ class KucoinMarketMakerKeeper:
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
-            price = round(new_order_to_be_placed.price, self.price_precision)
+            price = self.round_down(new_order_to_be_placed.price, self.price_precision)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            amount = round(amount, self.amount_precision)
+            amount = self.round_down(amount, self.amount_precision)
 
             order_id = self.kucoin_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
 
@@ -196,6 +197,11 @@ class KucoinMarketMakerKeeper:
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
+
+    @staticmethod
+    def round_down(precision, num):
+        multiplier = pow(10, precision)
+        return floor(num * multiplier) / multiplier
 
 
 if __name__ == '__main__':
