@@ -103,7 +103,7 @@ class CoinbaseMarketMakerKeeper:
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
-        print(f'PASSWORD FROM KEEPER-> {self.arguments.coinbase_password}')
+
         self.coinbase_api = CoinbaseApi(api_server=self.arguments.coinbase_api_server,
                                         api_key=self.arguments.coinbase_api_key,
                                         secret_key=self.arguments.coinbase_secret_key,
