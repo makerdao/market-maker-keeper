@@ -174,13 +174,15 @@ class BitinkaMarketMakerKeeper:
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
+            price = new_order_to_be_placed.price
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            order_id = self.bitinka_api.place_order(self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
+
+            order_id = self.bitinka_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
 
             return Order(order_id=order_id,
                          pair=self.pair(),
                          is_sell=new_order_to_be_placed.is_sell,
-                         price=new_order_to_be_placed.price,
+                         price=price,
                          amount=amount)
 
         for new_order in new_orders:
