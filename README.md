@@ -22,7 +22,7 @@ market making on the following exchanges:
 * TheOcean (`theocean-market-maker-keeper`),
 * gate.io (`gateio-market-maker-keeper`).
 
-All these three keepers share some logic and operate in a similar way. They create
+All these keepers share some logic and operate in a similar way. They create
 a series of orders in so called _bands_, which are configured with a JSON file
 containing parameters like spreads, maximum engagement etc. Please see the
 _"Bands configuration"_ section below for more details regarding keeper mechanics.
