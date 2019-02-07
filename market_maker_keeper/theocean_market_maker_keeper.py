@@ -38,7 +38,7 @@ from pymaker.keys import register_keys
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.token import ERC20Token
-from pymaker.zrx import ZrxExchange
+from pymaker.zrxv2 import ZrxExchangeV2
 
 
 class TheOceanMarketMakerKeeper:
@@ -145,7 +145,7 @@ class TheOceanMarketMakerKeeper:
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
-        self.zrx_exchange = ZrxExchange(web3=self.web3, address=Address(self.arguments.exchange_address))
+        self.zrx_exchange = ZrxExchangeV2(web3=self.web3, address=Address(self.arguments.exchange_address))
         self.theocean_api = TheOceanApi(self.zrx_exchange,
                                         self.arguments.theocean_api_server,
                                         self.arguments.theocean_api_key,
