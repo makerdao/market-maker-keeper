@@ -67,8 +67,8 @@ class TheOceanMarketMakerKeeper:
         parser.add_argument("--exchange-address", type=str, required=True,
                             help="Ethereum address of the 0x Exchange contract")
 
-        parser.add_argument("--theocean-api-server", type=str, default='https://api.theocean.trade/api',
-                            help="Address of the TheOcean API (default: 'https://api.theocean.trade/api')")
+        parser.add_argument("--theocean-api-server", type=str, default='https://api.theocean.trade',
+                            help="Address of the TheOcean API (default: 'https://api.theocean.trade')")
 
         parser.add_argument("--theocean-api-key", type=str, required=True,
                             help="API key for the TheOcean API")
