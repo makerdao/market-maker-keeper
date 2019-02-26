@@ -32,7 +32,7 @@ from market_maker_keeper.util import setup_logging
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pyexchange.kucoin import KucoinApi, Order
-from math import floor
+from math import floor, log10
 
 
 class KucoinMarketMakerKeeper:
@@ -130,8 +130,9 @@ class KucoinMarketMakerKeeper:
 
     def startup(self):
         # Get maximum number of decimals for prices and amounts.
-        self.price_precision = self.kucoin_api.get_coin_info(self.token_buy())['precision']
-        self.amount_precision = self.kucoin_api.get_coin_info(self.token_sell())['precision']
+        symbol = next(filter(lambda symbol: symbol['name'] == self.pair(), self.kucoin_api.get_symbols()))
+        self.price_precision = -(int(log10(float(symbol['priceIncrement']))))
+        self.amount_precision = -(int(log10(float(symbol['quoteIncrement']))))
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
@@ -188,9 +189,9 @@ class KucoinMarketMakerKeeper:
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
-            price = round(new_order_to_be_placed.price, 6)
+            price = round(new_order_to_be_placed.price, self.price_precision)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            amount = round(amount, 6)
+            amount = round(amount, self.amount_precision)
 
             order_id = self.kucoin_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
 
