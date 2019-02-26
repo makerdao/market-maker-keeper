@@ -43,14 +43,17 @@ class KucoinMarketMakerKeeper:
     def __init__(self, args: list):
         parser = argparse.ArgumentParser(prog='kucoin-market-maker-keeper')
 
-        parser.add_argument("--kucoin-api-server", type=str, default="https://api.kucoin.com",
-                            help="Address of the kucoin API server (default: 'https://api.kucoin.com')")
+        parser.add_argument("--kucoin-api-server", type=str, default="https://openapi-v2.kucoin.com",
+                            help="Address of the kucoin API server (default: 'https://openapi-v2.kucoin.com')")
 
         parser.add_argument("--kucoin-api-key", type=str, required=True,
                             help="API key for the kucoin API")
 
         parser.add_argument("--kucoin-secret-key", type=str, required=True,
                             help="Secret key for the kucoin API")
+
+        parser.add_argument("--kucoin-passphrase", type=str, required=True,
+                            help="Passphrase for the kucoin API")
 
         parser.add_argument("--kucoin-timeout", type=float, default=9.5,
                             help="Timeout for accessing the kucoin API (in seconds, default: 9.5)")
@@ -105,6 +108,7 @@ class KucoinMarketMakerKeeper:
         self.kucoin_api = KucoinApi(api_server=self.arguments.kucoin_api_server,
                                     api_key=self.arguments.kucoin_api_key,
                                     secret_key=self.arguments.kucoin_secret_key,
+                                    api_passphrase=self.arguments.kucoin_passphrase,
                                     timeout=self.arguments.kucoin_timeout)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
@@ -126,8 +130,8 @@ class KucoinMarketMakerKeeper:
 
     def startup(self):
         # Get maximum number of decimals for prices and amounts.
-        self.price_precision = self.kucoin_api.get_coin_info(self.token_buy())['tradePrecision']
-        self.amount_precision = self.kucoin_api.get_coin_info(self.token_sell())['tradePrecision']
+        self.price_precision = self.kucoin_api.get_coin_info(self.token_buy())['precision']
+        self.amount_precision = self.kucoin_api.get_coin_info(self.token_sell())['precision']
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
@@ -142,9 +146,10 @@ class KucoinMarketMakerKeeper:
         return self.arguments.pair.split('-')[1].upper()
 
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        token_balances = list(filter(lambda coin: coin['coinType'].upper() == token, our_balances))
+        token_balances = list(filter(lambda balance: balance['currency'].upper() == token and balance['type'] == 'trade',
+                                     our_balances))
         if token_balances:
-            return Wad.from_number(self.round_down(token_balances[0]['balance'], self.amount_precision))
+            return Wad.from_number(self.round_down(token_balances[0]['available'], self.amount_precision))
         else:
             return Wad(0)
 
