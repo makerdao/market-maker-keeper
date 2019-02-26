@@ -149,7 +149,7 @@ class KucoinMarketMakerKeeper:
         token_balances = list(filter(lambda balance: balance['currency'].upper() == token and balance['type'] == 'trade',
                                      our_balances))
         if token_balances:
-            return Wad.from_number(self.round_down(token_balances[0]['available'], self.amount_precision))
+            return Wad.from_number(self.round_down(float(token_balances[0]['available']), self.amount_precision))
         else:
             return Wad(0)
 
@@ -188,9 +188,9 @@ class KucoinMarketMakerKeeper:
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
-            price = round(new_order_to_be_placed.price, self.price_precision)
+            price = round(new_order_to_be_placed.price, 6)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            amount = round(amount, self.amount_precision)
+            amount = round(amount, 6)
 
             order_id = self.kucoin_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
 
