@@ -131,8 +131,9 @@ class KucoinMarketMakerKeeper:
     def startup(self):
         # Get maximum number of decimals for prices and amounts.
         symbol = next(filter(lambda symbol: symbol['name'] == self.pair(), self.kucoin_api.get_symbols()))
-        self.price_precision = -(int(log10(float(symbol['priceIncrement']))))
-        self.amount_precision = -(int(log10(float(symbol['quoteIncrement']))))
+        base_increment = -(int(log10(float(symbol['baseIncrement']))))
+        self.price_precision = min(-(int(log10(float(symbol['priceIncrement'])))), base_increment)
+        self.amount_precision = min(-(int(log10(float(symbol['quoteIncrement'])))), base_increment)
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
