@@ -12,8 +12,7 @@ before_cache:
   - rm -f $HOME/.cache/pip/log/debug.log
 
 install:
-  - pip install virtualenv --upgrade
-  - ./install.sh
+  - pip install $(cat requirements.txt $(find lib -name requirements.txt | sort) | sort | uniq | sed 's/ *== */==/g')
   - pip install -r requirements-dev.txt
 
 script:
