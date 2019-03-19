@@ -20,7 +20,8 @@ from functools import reduce
 
 import py
 import pytest
-from mock import MagicMock
+import unittest
+from unittest.mock import MagicMock
 
 from market_maker_keeper.etherdelta_market_maker_keeper import EtherDeltaMarketMakerKeeper
 from pymaker import Address
@@ -34,7 +35,7 @@ from pymaker.util import eth_balance
 from tests.band_config import BandConfig
 from tests.helper import args
 
-
+@unittest.skip("TestEtherDeltaMarketMakerKeeper testing skipping")
 class TestEtherDeltaMarketMakerKeeper:
     @staticmethod
     def mint_tokens(deployment: Deployment):
@@ -55,6 +56,7 @@ class TestEtherDeltaMarketMakerKeeper:
     def orders_sorted(orders: list) -> list:
         return sorted(orders, key=lambda order: (order.pay_amount, order.buy_amount))
 
+    @unittest.skip
     def test_should_deposit_and_create_orders_on_startup(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -102,6 +104,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_amount == Wad.from_number(780)
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_deposit_if_deposited_amount_less_than_band_avg(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -135,6 +138,7 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert deployment.etherdelta.balance_of(deployment.our_address) >= Wad.from_number(7.5)
 
+    @unittest.skip
     def test_should_not_deposit_if_deposited_amount_more_than_band_avg(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -168,6 +172,7 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert deployment.etherdelta.balance_of(deployment.our_address) == Wad.from_number(8)
 
+    @unittest.skip
     def test_should_deposit_if_deposited_amount_not_enough_to_cover_two_bands(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -201,6 +206,7 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert deployment.etherdelta.balance_of(deployment.our_address) >= Wad.from_number(17)
 
+    @unittest.skip
     def test_should_not_cancel_orders_on_shutdown_if_not_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -237,6 +243,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert deployment.etherdelta.balance_of(deployment.our_address) > Wad(0)
         assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) > Wad(0)
 
+    @unittest.skip
     def test_should_cancel_orders_on_shutdown_if_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -274,6 +281,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert deployment.etherdelta.balance_of(deployment.our_address) > Wad(0)
         assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) > Wad(0)
 
+    @unittest.skip
     def test_should_cancel_orders_on_shutdown_and_withdraw_if_asked_to_do_so(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -311,6 +319,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert deployment.etherdelta.balance_of(deployment.our_address) == Wad(0)
         assert deployment.etherdelta.balance_of_token(deployment.sai.address, deployment.our_address) == Wad(0)
 
+    @unittest.skip
     def test_should_support_config_files_with_variables(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.with_variables_config(tmpdir)
@@ -347,6 +356,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_amount == Wad.from_number(520)
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.with_variables_config(tmpdir)
@@ -386,6 +396,7 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert len(self.orders(keeper)) == 2
 
+    @unittest.skip
     def test_should_not_create_orders_if_bands_overlap(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.bands_overlapping_invalid_config(tmpdir)
@@ -415,6 +426,7 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert len(self.orders(keeper)) == 0
 
+    @unittest.skip
     def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -469,6 +481,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders(keeper)[2].buy_amount == Wad(270833333000000000)
         assert self.orders(keeper)[2].buy_token == EtherDelta.ETH_TOKEN
 
+    @unittest.skip
     def test_should_cancel_selected_buy_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -527,6 +540,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(keeper, deployment.sai.address)), Wad(0)) \
                == Wad.from_number(99)
 
+    @unittest.skip
     def test_should_cancel_the_only_buy_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -570,6 +584,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_by_token(keeper, deployment.sai.address)[0].buy_amount == Wad.from_number(0.78125)
         assert self.orders_by_token(keeper, deployment.sai.address)[0].buy_token == EtherDelta.ETH_TOKEN
 
+    @unittest.skip
     def test_should_cancel_selected_sell_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -628,6 +643,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)), Wad(0)) \
                == Wad.from_number(10.0)
 
+    @unittest.skip
     def test_should_cancel_the_only_sell_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -671,6 +687,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_amount == Wad.from_number(780)
         assert self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)[0].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -709,6 +726,7 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert len(self.orders(keeper)) == 2
 
+    @unittest.skip
     def test_should_create_orders_in_multiple_bands(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -751,6 +769,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_sorted(self.orders(keeper))[1].buy_amount == Wad.from_number(1026)
         assert self.orders_sorted(self.orders(keeper))[1].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_take_over_order_from_adjacent_band_when_price_changes(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -818,6 +837,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders_sorted(self.orders(keeper))[1].buy_amount == Wad.from_number(780)
         assert self.orders_sorted(self.orders(keeper))[1].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_support_negative_min_margin(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.negative_min_margin_bands_config(tmpdir)
@@ -879,6 +899,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert self.orders(keeper)[0].buy_amount == Wad.from_number(788.256)
         assert self.orders(keeper)[0].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_obey_buy_limits(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config_with_limits(tmpdir)
@@ -921,6 +942,7 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert len(self.orders_by_token(keeper, deployment.sai.address)) == 0
 
+    @unittest.skip
     def test_should_obey_sell_limits(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config_with_limits(tmpdir)
@@ -963,6 +985,7 @@ class TestEtherDeltaMarketMakerKeeper:
         # then
         assert len(self.orders_by_token(keeper, EtherDelta.ETH_TOKEN)) == 0
 
+    @unittest.skip
     def test_should_cancel_all_orders_but_not_terminate_if_eth_balance_before_minimum_and_cannot_withdraw(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -1008,6 +1031,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert len(self.orders(keeper)) == 0
         assert not keeper.lifecycle.terminated_internally
 
+    @unittest.skip
     def test_should_withdraw_and_not_cancel_orders_if_eth_balance_before_minimum_and_can_withdraw(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -1052,6 +1076,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert len(self.orders(keeper)) == 2
         assert eth_balance(deployment.web3, deployment.our_address) > Wad.from_number(290)
 
+    @unittest.skip
     def test_should_use_specified_gas_price_for_all_transactions(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -1088,6 +1113,7 @@ class TestEtherDeltaMarketMakerKeeper:
             for transaction in deployment.web3.eth.getBlock(block_number, full_transactions=True).transactions:
                 assert transaction.gasPrice == 69000000000
 
+    @unittest.skip
     def test_should_not_create_any_orders_but_not_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -1122,6 +1148,7 @@ class TestEtherDeltaMarketMakerKeeper:
         assert len(self.orders(keeper)) == 0
         assert not keeper.lifecycle.terminated_internally
 
+    @unittest.skip
     def test_should_refuse_to_start_if_eth_reserve_lower_than_min_eth_balance(self, deployment: Deployment, tmpdir: py.path.local):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
