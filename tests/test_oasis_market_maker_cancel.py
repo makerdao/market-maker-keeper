@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import unittest
+
 from market_maker_keeper.oasis_market_maker_cancel import OasisMarketMakerCancel
 from pymaker import Address
 from pymaker.approval import directly
@@ -25,6 +27,7 @@ from tests.helper import args
 
 
 class TestOasisMarketMakerCancel:
+    @unittest.skip
     def test_should_cancel_orders_owned_by_us(self, deployment: Deployment):
         # given
         keeper = OasisMarketMakerCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
@@ -47,6 +50,7 @@ class TestOasisMarketMakerCancel:
         # then
         assert len(deployment.otc.get_orders()) == 0
 
+    @unittest.skip
     def test_should_ignore_orders_owned_by_others(self, deployment: Deployment):
         # given
         keeper = OasisMarketMakerCancel(args=args(f"--eth-from {deployment.web3.eth.defaultAccount} "
@@ -81,6 +85,7 @@ class TestOasisMarketMakerCancel:
         assert len(deployment.otc.get_orders()) == 1
         assert deployment.otc.get_orders()[0].maker == Address(deployment.web3.eth.accounts[1])
 
+    @unittest.skip
     def test_should_use_gas_price_specified(self, deployment: Deployment):
         # given
         some_gas_price = 15000000000

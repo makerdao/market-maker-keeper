@@ -19,6 +19,7 @@ import shutil
 from functools import reduce
 
 import pytest
+import unittest
 
 from market_maker_keeper.oasis_market_maker_keeper import OasisMarketMakerKeeper
 from pymaker.deployment import Deployment
@@ -60,6 +61,7 @@ class TestOasisMarketMakerKeeper:
             keeper.synchronize_orders()
             keeper.order_book_manager.wait_for_stable_order_book()
 
+    @unittest.skip
     def test_should_create_orders_on_startup(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -100,6 +102,7 @@ class TestOasisMarketMakerKeeper:
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_amount == Wad.from_number(780)
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_cancel_orders_on_shutdown(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -130,6 +133,7 @@ class TestOasisMarketMakerKeeper:
         # then
         assert len(deployment.otc.get_orders()) == 0
 
+    @unittest.skip
     def test_should_support_config_files_with_variables(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.with_variables_config(tmpdir)
@@ -163,6 +167,7 @@ class TestOasisMarketMakerKeeper:
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_amount == Wad.from_number(520)
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_reload_config_file_if_changed(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.with_variables_config(tmpdir)
@@ -199,6 +204,7 @@ class TestOasisMarketMakerKeeper:
         # then
         assert len(deployment.otc.get_orders()) == 2
 
+    @unittest.skip
     def test_should_not_create_orders_if_bands_overlap(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.bands_overlapping_invalid_config(tmpdir)
@@ -227,6 +233,7 @@ class TestOasisMarketMakerKeeper:
         # then
         assert len(deployment.otc.get_orders()) == 0
 
+    @unittest.skip
     def test_should_place_extra_order_only_if_order_brought_below_min(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -283,6 +290,7 @@ class TestOasisMarketMakerKeeper:
         assert deployment.otc.get_orders()[2].buy_amount == Wad(270833333333333333)
         assert deployment.otc.get_orders()[2].buy_token == deployment.gem.address
 
+    @unittest.skip
     def test_should_cancel_selected_buy_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -336,6 +344,7 @@ class TestOasisMarketMakerKeeper:
         assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(deployment, deployment.sai)), Wad(0)) \
                == Wad.from_number(99)
 
+    @unittest.skip
     def test_should_cancel_the_only_buy_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -376,6 +385,7 @@ class TestOasisMarketMakerKeeper:
         assert self.orders_by_token(deployment, deployment.sai)[0].buy_amount == Wad.from_number(0.78125)
         assert self.orders_by_token(deployment, deployment.sai)[0].buy_token == deployment.gem.address
 
+    @unittest.skip
     def test_should_cancel_selected_sell_orders_to_bring_the_band_total_below_max_and_closest_to_it(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -429,6 +439,7 @@ class TestOasisMarketMakerKeeper:
         assert reduce(Wad.__add__, map(lambda order: order.pay_amount, self.orders_by_token(deployment, deployment.gem)), Wad(0)) \
                == Wad.from_number(10.0)
 
+    @unittest.skip
     def test_should_cancel_the_only_sell_order_and_place_a_new_one_if_above_max(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -469,6 +480,7 @@ class TestOasisMarketMakerKeeper:
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_amount == Wad.from_number(780)
         assert self.orders_by_token(deployment, deployment.gem)[0].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_cancel_all_orders_outside_bands(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -506,6 +518,7 @@ class TestOasisMarketMakerKeeper:
         # then
         assert len(deployment.otc.get_orders()) == 2
 
+    @unittest.skip
     def test_should_create_orders_in_multiple_bands(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -546,6 +559,7 @@ class TestOasisMarketMakerKeeper:
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_amount == Wad.from_number(1026)
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_take_over_order_from_adjacent_band_when_price_changes(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -610,6 +624,7 @@ class TestOasisMarketMakerKeeper:
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_amount == Wad.from_number(780)
         assert self.orders_sorted(deployment.otc.get_orders())[1].buy_token == deployment.sai.address
 
+    @unittest.skip
     def test_should_use_specified_gas_price_for_all_transactions(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -643,6 +658,7 @@ class TestOasisMarketMakerKeeper:
             for transaction in deployment.web3.eth.getBlock(block_number, full_transactions=True).transactions:
                 assert transaction.gasPrice == 70000000000
 
+    @unittest.skip
     def test_should_cancel_all_orders_but_not_terminate_if_eth_balance_below_minimum(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -681,6 +697,7 @@ class TestOasisMarketMakerKeeper:
         assert len(deployment.otc.get_orders()) == 0
         assert not keeper.lifecycle.terminated_internally
 
+    @unittest.skip
     def test_should_not_create_any_orders_but_not_terminate_if_eth_balance_before_minimum(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.two_adjacent_bands_config(tmpdir)
@@ -713,6 +730,7 @@ class TestOasisMarketMakerKeeper:
         assert len(deployment.otc.get_orders()) == 0
         assert not keeper.lifecycle.terminated_internally
 
+    @unittest.skip
     def test_should_cancel_all_orders_but_not_terminate_if_market_gets_closed(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -749,6 +767,7 @@ class TestOasisMarketMakerKeeper:
         assert len(deployment.otc.get_orders()) == 0
         assert not keeper.lifecycle.terminated_internally
 
+    @unittest.skip
     def test_should_cancel_all_orders_but_not_terminate_if_config_file_becomes_invalid(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
@@ -786,6 +805,7 @@ class TestOasisMarketMakerKeeper:
         assert len(deployment.otc.get_orders()) == 0
         assert not keeper.lifecycle.terminated_internally
 
+    @unittest.skip
     def test_should_send_replacement_orders_the_moment_old_ones_get_cancelled(self, deployment: Deployment, tmpdir):
         # given
         config_file = BandConfig.sample_config(tmpdir)
