@@ -52,6 +52,9 @@ class OkexMarketMakerKeeper:
         parser.add_argument("--okex-secret-key", type=str, required=True,
                             help="Secret key for the OKEX API")
 
+        parser.add_argument("--okex-password", type=str, required=True,
+                            help="Password for the OKEX API key")
+
         parser.add_argument("--okex-timeout", type=float, default=9.5,
                             help="Timeout for accessing the OKEX API (in seconds, default: 9.5)")
 
@@ -104,6 +107,7 @@ class OkexMarketMakerKeeper:
         self.okex_api = OKEXApi(api_server=self.arguments.okex_api_server,
                                 api_key=self.arguments.okex_api_key,
                                 secret_key=self.arguments.okex_secret_key,
+                                password=self.arguments.okex_password,
                                 timeout=self.arguments.okex_timeout)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
@@ -132,7 +136,7 @@ class OkexMarketMakerKeeper:
         return self.arguments.pair.split('_')[1].lower()
 
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        return Wad.from_number(our_balances['free'][token])
+        return Wad.from_number(our_balances[token.upper()]['available'])
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -173,7 +177,7 @@ class OkexMarketMakerKeeper:
                                                  price=new_order_to_be_placed.price,
                                                  amount=amount)
 
-            return Order(order_id, 0, self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount, Wad(0))
+            return Order(str(order_id), 0, self.pair(), "ordering", new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount, Wad(0))
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
