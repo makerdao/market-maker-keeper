@@ -177,7 +177,7 @@ class OkexMarketMakerKeeper:
                                                  price=new_order_to_be_placed.price,
                                                  amount=amount)
 
-            return Order(str(order_id), 0, self.pair(), "ordering", new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount, Wad(0))
+            return Order(str(order_id), 0, self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount, Wad(0))
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
