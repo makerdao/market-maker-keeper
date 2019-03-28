@@ -132,7 +132,11 @@ class DdexMarketMakerKeeper:
         self.our_address = Address(self.arguments.eth_from)
         register_keys(self.web3, self.arguments.eth_key)
 
-        self.pair = self.arguments.pair.upper()
+        if self.arguments.pair != 'USStocks-DAI':
+            self.pair = self.arguments.pair.upper()
+        else:
+            self.pair = self.arguments.pair
+
         self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
         self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
         self.bands_config = ReloadableConfig(self.arguments.config)
