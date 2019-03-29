@@ -104,7 +104,6 @@ by setting the margin and amount ranges wide enough and also by making sure that
 are always adjacent to each other and that their <min,max> amount ranges overlap.
 
 ### File format
-
 Bands configuration file consists of two main sections: *buyBands* and *sellBands*.
 Each section is an array containing one object per each band.
 
@@ -123,6 +122,7 @@ Sample bands configuration file:
 
 ```json
 {
+    "_buyToken": "DAI",
     "buyBands": [
         {
             "minMargin": 0.005,
@@ -145,6 +145,7 @@ Sample bands configuration file:
     ],
     "buyLimits": [],
 
+    "_sellToken": "ETH",
     "sellBands": [
         {
             "minMargin": 0.005,
@@ -158,7 +159,7 @@ Sample bands configuration file:
         {
             "minMargin": 0.02,
             "avgMargin": 0.025,
-            "maxMargin": 0.03,
+            "maxMargin": 0.05,
             "minAmount": 4.0,
             "avgAmount": 6.0,
             "maxAmount": 8.0,
@@ -168,6 +169,19 @@ Sample bands configuration file:
     "sellLimits": []
 }
 ```
+ ### Band examples
+Let's create some example interactions using the bands above, suppose it is denominated in Dai and the price of 10 Dai is 1 ETH :
+* If we look at the first buy band, the initial buy order will be 30 Dai ( *avgAmount* ) with a price of -> `price - (price * avgMargin)` -> `.1 - (.1 * 0.01)` -> 0.099 ETH per Dai.
+* If our buy order above (30 DAI @ .099 ETH) gets partially filled (15 Dai are purchased), we will have (15 Dai remaining in the order). This number is below the band's *minAmount* (20 Dai), therefore another whole order of 15 Dai will be placed on the exchange each at the same price (0.099 ETH).
+* In addition to buy orders, when the keeper starts up two sell orders will also be placed. For ease of explanation, lets say we are selling ETH priced at 100.00 DAI (5 ETH @ 101 DAI, 6 ETH @ 102.5 DAI). Now imagine the price of ETH suddenly drops to 97.50 DAI, which will push the bands down. The second band is now responsible for both sell orders since they fit inbetween band 2's *minMargin* and *maxMargin*. The keeper will now reset it's bands by:
+    1. creating an order in band 1 (5 ETH @ 98.475 DAI) using *avgMargin* and *avgAmount*.
+    2. cancelling the second order (5 ETH @ 102.5 DAI) (which is now in band 2) becuase *maxMargin* has been breached `price + (price * maxMargin) = orderPrice` -> `97.5 + (97.5 * 0.05)` -> 102.375 > 102.5
+    2. keep the first order (5 ETH @ 101 DAI) (which is now in band 2) becuase it is within *minMargin* and *maxMargin* of band 2
+    3. creating an order in band 2 (1 ETH @ 99.937 DAI) using *avgMargin* and *avgAmount*
+
+Leaving us with 3 total orders:
+  * band 1 -> (5 ETH @ 98.475 DAI)
+  * band 2 -> (5 ETH @ 101 DAI) and (1 ETH @ 99.837 DAI)
 
 ### Order rate limitation
 
@@ -245,7 +259,7 @@ bin/oasis-market-maker-keeper \
     --config [path to the json bands configuration file] \
     --smart-gas-price \
     --min-eth-balance 0.2
-``` 
+```
 
 For the centralized exchanges, an account will need to be created with the exchange itself, a set of API keys
 with trading permissions will usually need to be generated as well and also some tokens
@@ -318,8 +332,7 @@ optional arguments:
 
 ## `oasis-market-maker-cancel`
 
-This tool immediately cancels all our open orders on [OasisDEX](https://oasisdex.com/). 
-It may be used if the `oasis-market-maker-keeper` gets stuck or dies for some reason,
+This tool immediately cancels all our open orders on [OasisDEX](https://oasisdex.com/). It may be used if the `oasis-market-maker-keeper` gets stuck or dies for some reason,
 or if the network becomes congested.
 
 ### Usage
@@ -1054,4 +1067,4 @@ See [COPYING](https://github.com/makerdao/market-maker-keeper/blob/master/COPYIN
 
 YOU (MEANING ANY INDIVIDUAL OR ENTITY ACCESSING, USING OR BOTH THE SOFTWARE INCLUDED IN THIS GITHUB REPOSITORY) EXPRESSLY UNDERSTAND AND AGREE THAT YOUR USE OF THE SOFTWARE IS AT YOUR SOLE RISK.
 THE SOFTWARE IN THIS GITHUB REPOSITORY IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-YOU RELEASE AUTHORS OR COPYRIGHT HOLDERS FROM ALL LIABILITY FOR YOU HAVING ACQUIRED OR NOT ACQUIRED CONTENT IN THIS GITHUB REPOSITORY. THE AUTHORS OR COPYRIGHT HOLDERS MAKE NO REPRESENTATIONS CONCERNING ANY CONTENT CONTAINED IN OR ACCESSED THROUGH THE SERVICE, AND THE AUTHORS OR COPYRIGHT HOLDERS WILL NOT BE RESPONSIBLE OR LIABLE FOR THE ACCURACY, COPYRIGHT COMPLIANCE, LEGALITY OR DECENCY OF MATERIAL CONTAINED IN OR ACCESSED THROUGH THIS GITHUB REPOSITORY. 
+YOU RELEASE AUTHORS OR COPYRIGHT HOLDERS FROM ALL LIABILITY FOR YOU HAVING ACQUIRED OR NOT ACQUIRED CONTENT IN THIS GITHUB REPOSITORY. THE AUTHORS OR COPYRIGHT HOLDERS MAKE NO REPRESENTATIONS CONCERNING ANY CONTENT CONTAINED IN OR ACCESSED THROUGH THE SERVICE, AND THE AUTHORS OR COPYRIGHT HOLDERS WILL NOT BE RESPONSIBLE OR LIABLE FOR THE ACCURACY, COPYRIGHT COMPLIANCE, LEGALITY OR DECENCY OF MATERIAL CONTAINED IN OR ACCESSED THROUGH THIS GITHUB REPOSITORY.
