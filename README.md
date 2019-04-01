@@ -968,8 +968,10 @@ This keeper supports market-making on the [OKEX](https://www.okex.com/) centrali
 
 ```
 usage: okex-market-maker-keeper [-h] [--okex-api-server OKEX_API_SERVER]
-                                --okex-api-key OKEX_API_KEY --okex-secret-key
-                                OKEX_SECRET_KEY [--okex-timeout OKEX_TIMEOUT]
+                                --okex-api-key OKEX_API_KEY 
+                                --okex-secret-key OKEX_SECRET_KEY
+                                --okex-password OKEX_PASSWORD 
+                                [--okex-timeout OKEX_TIMEOUT]
                                 --pair PAIR --config CONFIG --price-feed
                                 PRICE_FEED
                                 [--price-feed-expiry PRICE_FEED_EXPIRY]
@@ -986,6 +988,8 @@ optional arguments:
                         API key for the OKEX API
   --okex-secret-key OKEX_SECRET_KEY
                         Secret key for the OKEX API
+  --okex-password OKEX_PASSWORD
+                        Password for the OKEX API key
   --okex-timeout OKEX_TIMEOUT
                         Timeout for accessing the OKEX API (in seconds,
                         default: 9.5)
