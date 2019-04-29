@@ -9,3 +9,7 @@ __pycache__
 .pytest_cache/
 
 .DS_Store
+airswap.json
+airswap.pass
+env
+airswap-ethdai.log
