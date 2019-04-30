@@ -21,6 +21,7 @@ import sys
 
 from retry import retry
 from web3 import Web3, HTTPProvider
+from flask import Flask, jsonify, request
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.control_feed import create_control_feed
@@ -42,6 +43,7 @@ from pymaker.token import ERC20Token
 from pymaker.util import eth_balance
 from pymaker.zrx import ZrxExchange
 
+from flask import Flask, Response
 
 class AirswapMarketMakerKeeper:
     """Keeper acting as a market maker on Airswap."""
@@ -134,6 +136,13 @@ class AirswapMarketMakerKeeper:
 
     def main(self):
         print(f"in main!")
+        order_api = Flask(__name__)
+        order_api.run(host="0.0.0.0", port=self.arguments.locahost_orderserver_port)
+
+        @order_api.route("/getOrder", methods=["POST"])
+        def get_order():
+            print(f"someone is calling getOrder!")
+
 
    # def startup(self):
 

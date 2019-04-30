@@ -2,3 +2,4 @@ jsonnet == 0.9.5
 retry == 0.9.2
 requests == 2.18.4
 websocket-client == 0.46.0
+flask == 1.0.2
