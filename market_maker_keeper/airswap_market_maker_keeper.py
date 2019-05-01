@@ -23,7 +23,7 @@ from retry import retry
 from web3 import Web3, HTTPProvider
 from flask import Flask, jsonify, request
 
-from market_maker_keeper.band import Bands
+from market_maker_keeper.airswap_band import Bands
 from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
@@ -138,24 +138,34 @@ class AirswapMarketMakerKeeper:
 
     def main(self):
         print(f"in main!")
+        bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         app.run(host="0.0.0.0", port=self.arguments.locahost_orderserver_port)
 
-    @app.route("/getOrder", methods=["POST"])
-    def get_order():
+   # def startup(self):
+
+   # def shutdown(self):
+
+   # def approve(self):
+
+    def our_total_balance(self, token: ERC20Token) -> Wad:
+        return token.balance_of(self.our_address)
+
+
+    def r_get_order(self):
+        bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         req = request.get_json()
         logging.info("Received getOrder: {req}".format(req=req))
 
-        # These parameters will be forwarded from the client server
-       # maker_address = req["makerAddress"]
-       # taker_address = req["takerAddress"]
-       # maker_token = req["makerToken"]
-       # taker_token = req["takerToken"]
+        # Only one or the other should be set
+        # Takers will usually request a makerAmount
+        # In this example, we're assuming they're requesting a makerAmount
+        maker_address = req["makerAddress"]
+        taker_address = req["params"]["takerAddress"]
+        maker_token = req["params"]["makerToken"]
+        maker_amount = req["params"]["makerAmount"]
+        taker_token = req["params"]["takerToken"]
 
-       # # Only one or the other should be set
-       # # Takers will usually request a makerAmount
-       # # In this example, we're assuming they're requesting a makerAmount
-       # maker_amount = int(req.get("makerAmount", 0))
-       # taker_amount = int(req.get("takerAmount", 0))
+       # bands.new_orders()
 
        # # Set 5-minute expiration on this order
        # expiration = str(int(time.time()) + 300)
@@ -175,17 +185,9 @@ class AirswapMarketMakerKeeper:
        # logging.info("Sending order: {order}".format(order=order))
         return jsonify({"hey!": "hello"})
 
-   # def startup(self):
-
-   # def shutdown(self):
-
-   # def approve(self):
-
-    def our_total_balance(self, token: ERC20Token) -> Wad:
-        return token.balance_of(self.our_address)
-
-
 
 
 if __name__ == '__main__':
-    AirswapMarketMakerKeeper(sys.argv[1:]).main()
+    airswap_app = AirswapMarketMakerKeeper(sys.argv[1:])
+    app.add_url_rule('/getOrder', view_func=airswap_app.r_get_order, methods=["POST"])
+    airswap_app.main()
