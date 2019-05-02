@@ -16,9 +16,9 @@ bin/airswap-market-maker-keeper \
     --eth-from ${V3_AIRSWAP_SERVER1_ADDRESS:?} \
     --eth-key ${V3_AIRSWAP_SERVER1_KEY?:} \
     --exchange-address ${EXCHANGE_ADDRESS:?} \
-    --locahost-orderserver-port ${ORDERSERVER_PORT:?} \
+    --localhost-orderserver-port ${ORDERSERVER_PORT:?} \
     --pair WETH-DAI \
-    --buy-token-address ${SAI_ADDRESS:?} \
+    --buy-token-address ${SCD_ADDRESS:?} \
     --sell-token-address ${WETH_ADDRESS:?} \
     --config ${CURRENT_DIR?:}/airswap-ethdai-bands.json \
     --price-feed eth_dai \

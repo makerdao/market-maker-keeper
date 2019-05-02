@@ -308,96 +308,89 @@ class Bands:
                 yield order
 
 
-    def new_orders(self, buy_token_amount: Wad, sell_token_amount: Wad, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Price) -> Tuple[list, Wad, Wad]:
+    def new_order(self, token_amount: Wad, side_amount: str, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Price) -> Tuple[list, Wad, Wad]:
+        assert(isinstance(side_amount, str))
+        assert(isinstance(token_amount, Wad))
         assert(isinstance(our_buy_balance, Wad))
         assert(isinstance(our_sell_balance, Wad))
         assert(isinstance(target_price, Price))
 
-        if target_price is not None:
-            new_buy_order = self._new_buy_orders(our_buy_orders, our_buy_balance, target_price.buy_price) \
+        if target_price is not None and token_amount is not None:
+
+            new_buy_order = self._new_buy_order(token_amount, our_buy_balance, target_price.buy_price) \
                 if target_price.buy_price is not None \
                 else {}
 
-            new_sell_order = self._new_sell_orders(our_sell_orders, our_sell_balance, target_price.sell_price) \
+            new_sell_order = self._new_sell_orders(token_amount, our_sell_balance, target_price.sell_price) \
                 if target_price.sell_price is not None \
                 else {}
 
-            return "Order here"
+            return new_buy_order
 
         else:
-            return [], Wad(0), Wad(0)
+            return "No orders"
 
-    def _new_sell_orders(self, our_sell_orders: list, our_sell_balance: Wad, target_price: Wad):
+    def _new_sell_orders(self, token_amount, our_sell_balance: Wad, target_price: Wad):
         """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
-        assert(isinstance(our_sell_orders, list))
         assert(isinstance(our_sell_balance, Wad))
         assert(isinstance(target_price, Wad))
 
-        new_orders = []
-        limit_amount = self.sell_limits.available_limit(time.time())
-        missing_amount = Wad(0)
+       # new_orders = []
+       # limit_amount = self.sell_limits.available_limit(time.time())
+       # missing_amount = Wad(0)
 
-        for band in self.sell_bands:
-            orders = [order for order in our_sell_orders if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, limit_amount)
-                buy_amount = pay_amount * price
-                missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
-                if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
-                                     f" amount <{band.min_amount}, {band.max_amount}>) has amount {total_amount},"
-                                     f" creating new sell order with price {price}")
+       # for band in self.sell_bands:
+       #     if total_amount < band.min_amount:
+       #         price = band.avg_price(target_price)
+       #         pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, limit_amount)
+       #         buy_amount = pay_amount * price
+       #         missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
+       #         if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+       #             self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
+       #                              f" amount <{band.min_amount}, {band.max_amount}>) has amount {total_amount},"
+       #                              f" creating new sell order with price {price}")
 
-                    our_sell_balance = our_sell_balance - pay_amount
-                    limit_amount = limit_amount - pay_amount
+       #             our_sell_balance = our_sell_balance - pay_amount
+       #             limit_amount = limit_amount - pay_amount
 
-                    new_orders.append(NewOrder(is_sell=True,
-                                               price=price,
-                                               amount=pay_amount,
-                                               pay_amount=pay_amount,
-                                               buy_amount=buy_amount,
-                                               band=band,
-                                               confirm_function=lambda: self.sell_limits.use_limit(time.time(), pay_amount)))
+       #             new_orders.append(NewOrder(is_sell=True,
+       #                                        price=price,
+       #                                        amount=pay_amount,
+       #                                        pay_amount=pay_amount,
+       #                                        buy_amount=buy_amount,
+       #                                        band=band,
+       #                                        confirm_function=lambda: self.sell_limits.use_limit(time.time(), pay_amount)))
 
-        return new_orders, missing_amount
+        return "hey"
 
-    def _new_buy_orders(self, our_buy_orders: list, our_buy_balance: Wad, target_price: Wad):
+    def _new_buy_order(self, token_amount, our_buy_balance: Wad, target_price: Wad):
         """Return buy orders which need to be placed to bring total amounts within all buy bands above minimums."""
-        assert(isinstance(our_buy_orders, list))
+        assert(isinstance(token_amount, Wad))
         assert(isinstance(our_buy_balance, Wad))
         assert(isinstance(target_price, Wad))
 
-        new_orders = []
+        new_order = {}
         limit_amount = self.buy_limits.available_limit(time.time())
         missing_amount = Wad(0)
+        band = self.buy_bands[0]
 
-        for band in self.buy_bands:
-            orders = [order for order in our_buy_orders if band.includes(order, target_price)]
-            total_amount = self.total_amount(orders)
-            if total_amount < band.min_amount:
-                price = band.avg_price(target_price)
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance, limit_amount)
-                buy_amount = pay_amount / price
-                missing_amount += Wad.max((band.avg_amount - total_amount) - our_buy_balance, Wad(0))
-                if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-                    self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
-                                     f" amount <{band.min_amount}, {band.max_amount}>) has amount {total_amount},"
-                                     f" creating new buy order with price {price}")
+        price = band.avg_price(target_price)
+        buy_amount = token_amount / price
 
-                    our_buy_balance = our_buy_balance - pay_amount
-                    limit_amount = limit_amount - pay_amount
+        if (price > Wad(0)) and (token_amount > Wad(0)) and (buy_amount > Wad(0)):
+            self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
+                             f" amount <{band.min_amount}, {band.max_amount}>) has amount {token_amount},"
+                             f" creating new buy order with price {price}")
 
-                    new_orders.append(NewOrder(is_sell=False,
-                                               price=price,
-                                               amount=buy_amount,
-                                               pay_amount=pay_amount,
-                                               buy_amount=buy_amount,
-                                               band=band,
-                                               confirm_function=lambda: self.buy_limits.use_limit(time.time(), pay_amount)))
+#           our_buy_balance = our_buy_balance - pay_amount
+#           limit_amount = limit_amount - pay_amount
 
-        return new_orders, missing_amount
+            new_order = {
+                "maker_amount": token_amount,
+                "taker_amount": buy_amount
+            }
+
+        return new_order
 
     @staticmethod
     def total_amount(orders):

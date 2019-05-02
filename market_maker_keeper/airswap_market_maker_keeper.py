@@ -18,6 +18,10 @@
 import argparse
 import logging
 import sys
+import time
+import random
+import requests
+import json
 
 from retry import retry
 from web3 import Web3, HTTPProvider
@@ -73,7 +77,7 @@ class AirswapMarketMakerKeeper:
         parser.add_argument("--exchange-address", type=str, required=True,
                             help="Ethereum address of the 0x Exchange contract")
 
-        parser.add_argument("--locahost-orderserver-port", type=str, default='5004',
+        parser.add_argument("--localhost-orderserver-port", type=str, default='5004',
                             help="Port of the order server (default: '5004')")
 
         parser.add_argument("--pair", type=str, required=True,
@@ -118,7 +122,7 @@ class AirswapMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://rinkeby.infura.io",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
@@ -139,7 +143,7 @@ class AirswapMarketMakerKeeper:
     def main(self):
         print(f"in main!")
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-        app.run(host="0.0.0.0", port=self.arguments.locahost_orderserver_port)
+        app.run(host="0.0.0.0", port=self.arguments.localhost_orderserver_port)
 
    # def startup(self):
 
@@ -150,6 +154,12 @@ class AirswapMarketMakerKeeper:
     def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
+    def _sign_order(self, order):
+        headers = {'content-type': 'application/json'}
+        r = requests.post(f"http://localhost:5005/signOrder",
+                             data=json.dumps(order),
+                             headers=headers)
+        return r.text
 
     def r_get_order(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
@@ -162,28 +172,37 @@ class AirswapMarketMakerKeeper:
         maker_address = req["makerAddress"]
         taker_address = req["params"]["takerAddress"]
         maker_token = req["params"]["makerToken"]
-        maker_amount = req["params"]["makerAmount"]
+        maker_amount = Wad(int(req["params"]["makerAmount"]))
         taker_token = req["params"]["takerToken"]
 
-       # bands.new_orders()
+        amount_side = 'buy' if maker_token == self.token_buy.address.__str__() else 'sell'
 
-       # # Set 5-minute expiration on this order
-       # expiration = str(int(time.time()) + 300)
-       # nonce = random.randint(0, 99999)
+        # V2 should adjust for signed orders we already have out there? still debating...
+        our_buy_balance = self.our_total_balance(self.token_buy)
+        our_sell_balance = self.our_total_balance(self.token_sell)
+        target_price = self.price_feed.get_price()
 
-       # price = 0.5
-       # taker_amount = int(maker_amount * price)
 
-       # order = {
-       #     "makerToken": maker_token,
-       #     "takerToken": taker_token,
-       #     "makerAmount": str(maker_amount),
-       #     "takerAmount": str(taker_amount),
-       #     "expiration": expiration,
-       #     "nonce": nonce
-       # }
-       # logging.info("Sending order: {order}".format(order=order))
-        return jsonify({"hey!": "hello"})
+        token_amnts = bands.new_order(maker_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
+
+        # Set 5-minute expiration on this order
+        expiration = str(int(time.time()) + 300)
+        nonce = random.randint(0, 99999)
+
+        new_order = {
+            "makerAddress": maker_address,
+            "makerToken": maker_token,
+            "makerAmount": str(token_amnts["maker_amount"].value),
+            "takerAddress": taker_address,
+            "takerToken": taker_token,
+            "takerAmount": str(token_amnts["taker_amount"].value),
+            "expiration": expiration,
+            "nonce": nonce
+        }
+
+        signed_order = self._sign_order(new_order)
+        logging.info(f"Sending order: {signed_order}")
+        return signed_order
 
 
 
