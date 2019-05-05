@@ -51,6 +51,29 @@ from flask import Flask, Response
 
 app = Flask(__name__)
 
+
+from flask import jsonify
+
+class CustomException(Exception):
+
+    def __init__(self, message, status_code=None, payload=None):
+
+        Exception.__init__(self)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+        self.payload = payload
+
+    def to_dict(self):
+        rv = dict(self.payload or ())
+        rv['message'] = self.message
+        rv['code'] = self.status_code
+        exception = {'error': rv}
+        return exception
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
 class AirswapMarketMakerKeeper:
     """Keeper acting as a market maker on Airswap."""
 
@@ -141,7 +164,6 @@ class AirswapMarketMakerKeeper:
         self.history = History()
 
     def main(self):
-        print(f"in main!")
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
 
         buy_intent = self.build_intents(self.token_buy.address.__str__(), self.token_sell.address.__str__())
@@ -190,47 +212,60 @@ class AirswapMarketMakerKeeper:
         req = request.get_json()
         logging.info("Received getOrder: {req}".format(req=req))
 
-        # Only one or the other should be set
-        # Takers will usually request a makerAmount
-        # In this example, we're assuming they're requesting a makerAmount
+        assert('makerAddress' in req)
+        assert('takerAddress' in req['params'])
+        assert('makerToken' in req['params'])
+        assert('takerToken' in req['params'])
+
         maker_address = req["makerAddress"]
         taker_address = req["params"]["takerAddress"]
         maker_token = req["params"]["makerToken"]
-        maker_amount = Wad(int(req["params"]["makerAmount"]))
-        # taker_amount = Wad(int(req["params"]["takerAmount"]))
         taker_token = req["params"]["takerToken"]
 
-        if maker_amount is not None:
-            amount_side = 'buy' if maker_token == self.token_buy.address.__str__() else 'sell'
-            # V2 should adjust for signed orders we already have out there? still debating...
-            our_buy_balance = self.our_total_balance(self.token_buy)
-            our_sell_balance = self.our_total_balance(self.token_sell)
-            target_price = self.price_feed.get_price()
+        # Only one or the other should be sent in the request
+        # Takers will usually request a makerAmount, however they can reqeust takerAmount
+        if 'makerAmount' in req['params']:
+            req_token_amount = Wad(int(req["params"]["makerAmount"]))
 
-            token_amnts = bands.new_order(maker_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
+        elif 'takerAmount' in req['params']:
+            req_token_amount = Wad(int(req["params"]["takerAmount"]))
 
-            # Set 5-minute expiration on this order
-            expiration = str(int(time.time()) + 300)
-            nonce = random.randint(0, 99999)
+        else:
+            raise CustomException('neither takerAmount or makerAmount was specified in the request', status_code=400)
 
-            new_order = {
-                "makerAddress": maker_address,
-                "makerToken": maker_token,
-                "makerAmount": str(token_amnts["maker_amount"].value),
-                "takerAddress": taker_address,
-                "takerToken": taker_token,
-                "takerAmount": str(token_amnts["taker_amount"].value),
-                "expiration": expiration,
-                "nonce": nonce
-            }
+        # V2 should adjust for signed orders we already have out there? still debating...
+        amount_side = 'buy' if maker_token == self.token_buy.address.__str__() else 'sell'
+        our_buy_balance = self.our_total_balance(self.token_buy)
+        our_sell_balance = self.our_total_balance(self.token_sell)
+        target_price = self.price_feed.get_price()
 
-            signed_order = self._sign_order(new_order)
-            logging.info(f"Sending order: {signed_order}")
-            return signed_order
+        token_amnts = bands.new_order(req_token_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
 
+        # Set 5-minute expiration on this order
+        expiration = str(int(time.time()) + 300)
+        nonce = random.randint(0, 99999)
 
+        new_order = {
+            "makerAddress": maker_address,
+            "makerToken": maker_token,
+            "makerAmount": str(token_amnts["maker_amount"].value),
+            "takerAddress": taker_address,
+            "takerToken": taker_token,
+            "takerAmount": str(token_amnts["taker_amount"].value),
+            "expiration": expiration,
+            "nonce": nonce
+        }
+
+        signed_order = self._sign_order(new_order)
+        logging.info(f"Sending order: {signed_order}")
+        return signed_order
+
+    def r_error_handler(self, err):
+        logging.warning(f"Sending error back to caller {err.to_json()}")
+        return err.to_json()
 
 if __name__ == '__main__':
     airswap_app = AirswapMarketMakerKeeper(sys.argv[1:])
     app.add_url_rule('/getOrder', view_func=airswap_app.r_get_order, methods=["POST"])
+    app.register_error_handler(CustomException, airswap_app.r_error_handler)
     airswap_app.main()
