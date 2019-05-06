@@ -210,8 +210,8 @@ class AirswapMarketMakerKeeper:
         maker_token = req["params"]["makerToken"]
         taker_token = req["params"]["takerToken"]
 
-        # Only one or the other should be sent in the request
-        # Takers will usually request a makerAmount, however they can reqeust takerAmount
+        # Only makerAmount or takerAmount should be sent in the request
+        # Takers will usually request a makerAmount, however they can request takerAmount
         if 'makerAmount' in req['params']:
             req_token_amount = Wad(int(req["params"]["makerAmount"]))
 
@@ -227,7 +227,6 @@ class AirswapMarketMakerKeeper:
         our_sell_balance = self.our_total_balance(self.token_sell)
         target_price = self.price_feed.get_price()
 
-        print(f"our bands {bands}")
         token_amnts = bands.new_orders(req_token_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
 
         # Set 5-minute expiration on this order
@@ -245,7 +244,10 @@ class AirswapMarketMakerKeeper:
             "nonce": nonce
         }
 
+        # sign order with our private key
         signed_order = self._sign_order(new_order)
+
+        # send signed order to the taker who requested it
         logging.info(f"Sending order: {signed_order}")
         return signed_order
 
@@ -283,7 +285,7 @@ class AirswapBands(Bands):
             config = reloadable_config.get_config(spread_feed.get()[0])
             control_feed_value = control_feed.get()[0]
 
-            buy_bands = list(map(BuyBand, config['buyBands']))
+            buy_bands = list(map(AirswapBuyBand, config['buyBands']))
             buy_limits = SideLimits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
             sell_bands = list(map(SellBand, config['sellBands']))
             sell_limits = SideLimits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
@@ -386,11 +388,11 @@ class AirswapBands(Bands):
         limit_amount = self.buy_limits.available_limit(time.time())
         missing_amount = Wad(0)
         band = self.buy_bands[0]
-
-        price = band.avg_price(target_price)
+        price = band.closest_margin_to_amount(token_amount, target_price)
         buy_amount = token_amount / price
 
         if (price > Wad(0)) and (token_amount > Wad(0)) and (buy_amount > Wad(0)):
+
             self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
                              f" amount <{band.min_amount}, {band.max_amount}>) has amount {token_amount},"
                              f" creating new buy order with price {price}")
@@ -404,6 +406,56 @@ class AirswapBands(Bands):
             }
 
         return new_order
+
+
+class AirswapBuyBand(BuyBand):
+
+    def min_price(self, target_price: Wad) -> Wad:
+        return self._apply_margin(target_price, self.min_margin)
+
+    def max_price(self, target_price: Wad) -> Wad:
+        return self._apply_margin(target_price, self.max_margin)
+
+    def closest_margin_to_amount(self, token_amount, target_price):
+        # selects either the min, avg, or max margin to calculate
+        # price based on which amount (min, avg, or max) is closer
+        # to the token amount being traded.
+
+        if token_amount >= self.max_amount:
+            print(f"hit max_amount/margin!")
+            return self.max_price(target_price)
+
+        elif token_amount <= self.min_amount:
+            print(f"hit min_amount/margin!")
+            return self.min_price(target_price)
+
+        elif token_amount == self.avg_amount:
+            print(f"hit avg_amount/margin!")
+            return self.avg_price(target_price)
+
+        elif token_amount < self.avg_amount:
+            # compare between min_amount and avg_amount
+            print(f"hit compare min avg")
+            closest_amount = self._find_closest(self.min_amount, self.avg_amount, token_amount)
+        else:
+            # compare between avg_amount and max_amount
+            print(f"hit compare max avg")
+            closest_amount = self._find_closest(self.avg_amount, self.max_amount, token_amount)
+
+        closest_margin = self._amount_to_margin(closest_amount)
+        return self._apply_margin(target_price, closest_margin)
+
+    def _amount_to_margin(self, amount):
+        if amount == self.min_amount:
+            return self.min_margin
+        elif amount == self.avg_amount:
+            return self.avg_margin
+        else:
+            return self.max_margin
+
+    def _find_closest(self, val1, val2, target):
+        return val2 if target - val1 >= val2 - target else val1
+
 
 if __name__ == '__main__':
     airswap_app = AirswapMarketMakerKeeper(sys.argv[1:])
