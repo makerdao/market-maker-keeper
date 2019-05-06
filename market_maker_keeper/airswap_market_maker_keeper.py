@@ -23,11 +23,16 @@ import random
 import requests
 import json
 
+from typing import Tuple, Optional
+
 from retry import retry
 from web3 import Web3, HTTPProvider
 from flask import Flask, jsonify, request
 
-from market_maker_keeper.airswap_band import Bands
+from market_maker_keeper.price_feed import Price
+from market_maker_keeper.feed import Feed
+from market_maker_keeper.limit import SideLimits, History
+from market_maker_keeper.band import Band, Bands, BuyBand, SellBand
 from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
@@ -53,26 +58,6 @@ app = Flask(__name__)
 
 
 from flask import jsonify
-
-class CustomException(Exception):
-
-    def __init__(self, message, status_code=None, payload=None):
-
-        Exception.__init__(self)
-        self.message = message
-        if status_code is not None:
-            self.status_code = status_code
-        self.payload = payload
-
-    def to_dict(self):
-        rv = dict(self.payload or ())
-        rv['message'] = self.message
-        rv['code'] = self.status_code
-        exception = {'error': rv}
-        return exception
-
-    def to_json(self):
-        return json.dumps(self.to_dict())
 
 class AirswapMarketMakerKeeper:
     """Keeper acting as a market maker on Airswap."""
@@ -164,7 +149,7 @@ class AirswapMarketMakerKeeper:
         self.history = History()
 
     def main(self):
-        bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
+        bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
 
         buy_intent = self.build_intents(self.token_buy.address.__str__(), self.token_sell.address.__str__())
         sell_intent = self.build_intents(self.token_sell.address.__str__(), self.token_buy.address.__str__())
@@ -190,7 +175,6 @@ class AirswapMarketMakerKeeper:
     def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
-
     def _set_intents(self, intent):
         headers = {'content-type': 'application/json'}
         r = requests.post(f"http://localhost:5005/setIntents",
@@ -207,8 +191,12 @@ class AirswapMarketMakerKeeper:
                              headers=headers)
         return r.text
 
+    def _error_handler(self, err):
+        logging.warning(f"Sending error back to caller {err.to_json()}")
+        return err.to_json()
+
     def r_get_order(self):
-        bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
+        bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         req = request.get_json()
         logging.info("Received getOrder: {req}".format(req=req))
 
@@ -239,7 +227,8 @@ class AirswapMarketMakerKeeper:
         our_sell_balance = self.our_total_balance(self.token_sell)
         target_price = self.price_feed.get_price()
 
-        token_amnts = bands.new_order(req_token_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
+        print(f"our bands {bands}")
+        token_amnts = bands.new_orders(req_token_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
 
         # Set 5-minute expiration on this order
         expiration = str(int(time.time()) + 300)
@@ -260,12 +249,164 @@ class AirswapMarketMakerKeeper:
         logging.info(f"Sending order: {signed_order}")
         return signed_order
 
-    def r_error_handler(self, err):
-        logging.warning(f"Sending error back to caller {err.to_json()}")
-        return err.to_json()
+
+class CustomException(Exception):
+
+    def __init__(self, message, status_code=None, payload=None):
+        Exception.__init__(self)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+        self.payload = payload
+
+    def to_dict(self):
+        rv = dict(self.payload or ())
+        rv['message'] = self.message
+        rv['code'] = self.status_code
+        exception = {'error': rv}
+        return exception
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+
+class AirswapBands(Bands):
+
+    @staticmethod
+    def read(reloadable_config: ReloadableConfig, spread_feed: Feed, control_feed: Feed, history: History):
+        assert(isinstance(reloadable_config, ReloadableConfig))
+        assert(isinstance(spread_feed, Feed))
+        assert(isinstance(control_feed, Feed))
+        assert(isinstance(history, History))
+
+        try:
+            config = reloadable_config.get_config(spread_feed.get()[0])
+            control_feed_value = control_feed.get()[0]
+
+            buy_bands = list(map(BuyBand, config['buyBands']))
+            buy_limits = SideLimits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
+            sell_bands = list(map(SellBand, config['sellBands']))
+            sell_limits = SideLimits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
+
+            if len(buy_bands) != 1:
+                logging.getLogger().warning("You must only have one buy band. This is required for airswap compatability.")
+                buy_bands = []
+
+            if len(sell_bands) != 1:
+                logging.getLogger().warning("You must only have one sell band. This is required for airswap compatability.")
+                sell_bands = []
+
+            if 'canBuy' not in control_feed_value or 'canSell' not in control_feed_value:
+                logging.getLogger().warning("Control feed expired. Assuming no buy bands and no sell bands.")
+
+                buy_bands = []
+                sell_bands = []
+
+            else:
+                if not control_feed_value['canBuy']:
+                    logging.getLogger().warning("Control feed says we shall not buy. Assuming no buy bands.")
+                    buy_bands = []
+
+                if not control_feed_value['canSell']:
+                    logging.getLogger().warning("Control feed says we shall not sell. Assuming no sell bands.")
+                    sell_bands = []
+
+        except Exception as e:
+            logging.getLogger().exception(f"Config file is invalid ({e}). Treating the config file as it has no bands.")
+
+            buy_bands = []
+            buy_limits = SideLimits([], history.buy_history)
+            sell_bands = []
+            sell_limits = SideLimits([], history.buy_history)
+
+        return AirswapBands(buy_bands=buy_bands, buy_limits=buy_limits, sell_bands=sell_bands, sell_limits=sell_limits)
+
+    def new_orders(self, token_amount: Wad, side_amount: str, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Price) -> Tuple[list, Wad, Wad]:
+        assert(isinstance(side_amount, str))
+        assert(isinstance(token_amount, Wad))
+        assert(isinstance(our_buy_balance, Wad))
+        assert(isinstance(our_sell_balance, Wad))
+        assert(isinstance(target_price, Price))
+
+        if target_price is not None and token_amount is not None:
+
+            new_buy_order = self._new_buy_orders(token_amount, our_buy_balance, target_price.buy_price) \
+                if target_price.buy_price is not None \
+                else {}
+
+            new_sell_order = self._new_sell_orders(token_amount, our_sell_balance, target_price.sell_price) \
+                if target_price.sell_price is not None \
+                else {}
+
+            return new_buy_order
+
+        else:
+            return "No orders"
+
+    def _new_sell_orders(self, token_amount, our_sell_balance: Wad, target_price: Wad):
+        """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
+        assert(isinstance(our_sell_balance, Wad))
+        assert(isinstance(target_price, Wad))
+
+       # new_orders = []
+       # limit_amount = self.sell_limits.available_limit(time.time())
+       # missing_amount = Wad(0)
+
+       # for band in self.sell_bands:
+       #     if total_amount < band.min_amount:
+       #         price = band.avg_price(target_price)
+       #         pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, limit_amount)
+       #         buy_amount = pay_amount * price
+       #         missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
+       #         if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+       #             self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
+       #                              f" amount <{band.min_amount}, {band.max_amount}>) has amount {total_amount},"
+       #                              f" creating new sell order with price {price}")
+
+       #             our_sell_balance = our_sell_balance - pay_amount
+       #             limit_amount = limit_amount - pay_amount
+
+       #             new_orders.append(NewOrder(is_sell=True,
+       #                                        price=price,
+       #                                        amount=pay_amount,
+       #                                        pay_amount=pay_amount,
+       #                                        buy_amount=buy_amount,
+       #                                        band=band,
+       #                                        confirm_function=lambda: self.sell_limits.use_limit(time.time(), pay_amount)))
+
+        return "hey"
+
+    def _new_buy_orders(self, token_amount, our_buy_balance: Wad, target_price: Wad):
+        """Return buy orders which need to be placed to bring total amounts within all buy bands above minimums."""
+        assert(isinstance(token_amount, Wad))
+        assert(isinstance(our_buy_balance, Wad))
+        assert(isinstance(target_price, Wad))
+
+        new_order = {}
+        limit_amount = self.buy_limits.available_limit(time.time())
+        missing_amount = Wad(0)
+        band = self.buy_bands[0]
+
+        price = band.avg_price(target_price)
+        buy_amount = token_amount / price
+
+        if (price > Wad(0)) and (token_amount > Wad(0)) and (buy_amount > Wad(0)):
+            self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
+                             f" amount <{band.min_amount}, {band.max_amount}>) has amount {token_amount},"
+                             f" creating new buy order with price {price}")
+
+#           our_buy_balance = our_buy_balance - pay_amount
+#           limit_amount = limit_amount - pay_amount
+
+            new_order = {
+                "maker_amount": token_amount,
+                "taker_amount": buy_amount
+            }
+
+        return new_order
 
 if __name__ == '__main__':
     airswap_app = AirswapMarketMakerKeeper(sys.argv[1:])
     app.add_url_rule('/getOrder', view_func=airswap_app.r_get_order, methods=["POST"])
-    app.register_error_handler(CustomException, airswap_app.r_error_handler)
+    app.register_error_handler(CustomException, airswap_app._error_handler)
     airswap_app.main()
