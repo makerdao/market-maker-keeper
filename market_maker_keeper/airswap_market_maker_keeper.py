@@ -130,7 +130,7 @@ class AirswapMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://rinkeby.infura.io",
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://mainnet.infura.io",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
@@ -160,6 +160,7 @@ class AirswapMarketMakerKeeper:
 
 
     def build_intents(self, maker_token_address, taker_token_address):
+        print(f"our address {self.our_address}")
         return {
             "makerToken": maker_token_address,
             "takerToken": taker_token_address,
@@ -169,7 +170,6 @@ class AirswapMarketMakerKeeper:
    # def startup(self):
 
    # def shutdown(self):
-
    # def approve(self):
 
     def our_total_balance(self, token: ERC20Token) -> Wad:
@@ -213,43 +213,54 @@ class AirswapMarketMakerKeeper:
         # Only makerAmount or takerAmount should be sent in the request
         # Takers will usually request a makerAmount, however they can request takerAmount
         if 'makerAmount' in req['params']:
-            req_token_amount = Wad(int(req["params"]["makerAmount"]))
+            maker_amount = Wad(int(req["params"]["makerAmount"]))
+            taker_amount = Wad(0)
 
         elif 'takerAmount' in req['params']:
-            req_token_amount = Wad(int(req["params"]["takerAmount"]))
-
+            taker_amount = Wad(int(req["params"]["takerAmount"]))
+            maker_amount = Wad(0)
         else:
-            raise CustomException('neither takerAmount or makerAmount was specified in the request', status_code=400)
+            raise CustomException('Neither takerAmount or makerAmount was specified in the request', status_code=400)
 
-        # V2 should adjust for signed orders we already have out there? still debating...
+        # V2 should adjust for signed orders we already have out there (essentially create an orderbook)?
+        # still debating...
+        if (maker_token != self.token_buy.address.__str__()) and (maker_token != self.token_sell.address.__str__()):
+            raise CustomException('Not set to trade this token pair', status_code=503)
+
         amount_side = 'buy' if maker_token == self.token_buy.address.__str__() else 'sell'
         our_buy_balance = self.our_total_balance(self.token_buy)
         our_sell_balance = self.our_total_balance(self.token_sell)
         target_price = self.price_feed.get_price()
 
-        token_amnts = bands.new_orders(req_token_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
+        token_amnts = bands.new_orders(maker_amount, taker_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
 
-        # Set 5-minute expiration on this order
-        expiration = str(int(time.time()) + 300)
-        nonce = random.randint(0, 99999)
+        print(f"token_amnts {token_amnts}")
 
-        new_order = {
-            "makerAddress": maker_address,
-            "makerToken": maker_token,
-            "makerAmount": str(token_amnts["maker_amount"].value),
-            "takerAddress": taker_address,
-            "takerToken": taker_token,
-            "takerAmount": str(token_amnts["taker_amount"].value),
-            "expiration": expiration,
-            "nonce": nonce
-        }
+        if not token_amnts:
+            raise CustomException('not enough in our wallet', status_code=409)
 
-        # sign order with our private key
-        signed_order = self._sign_order(new_order)
+        else:
+            # Set 5-minute expiration on this order
+            expiration = str(int(time.time()) + 300)
+            nonce = random.randint(0, 99999)
 
-        # send signed order to the taker who requested it
-        logging.info(f"Sending order: {signed_order}")
-        return signed_order
+            new_order = {
+                "makerAddress": maker_address,
+                "makerToken": maker_token,
+                "makerAmount": str(token_amnts["maker_amount"].value),
+                "takerAddress": taker_address,
+                "takerToken": taker_token,
+                "takerAmount": str(token_amnts["taker_amount"].value),
+                "expiration": expiration,
+                "nonce": nonce
+            }
+
+            # sign order with our private key
+            signed_order = self._sign_order(new_order)
+
+            # send signed order to the taker who requested it
+            logging.info(f"Sending order: {signed_order}")
+            return signed_order
 
 
 class CustomException(Exception):
@@ -323,87 +334,108 @@ class AirswapBands(Bands):
 
         return AirswapBands(buy_bands=buy_bands, buy_limits=buy_limits, sell_bands=sell_bands, sell_limits=sell_limits)
 
-    def new_orders(self, token_amount: Wad, side_amount: str, our_buy_balance: Wad, our_sell_balance: Wad, target_price: Price) -> Tuple[list, Wad, Wad]:
+    def new_orders(self,
+                   maker_amount: Wad,
+                   taker_amount: Wad,
+                   side_amount: str,
+                   our_buy_balance: Wad,
+                   our_sell_balance: Wad,
+                   target_price: Price) -> Tuple[list, Wad, Wad]:
+        assert(isinstance(maker_amount, Wad))
+        assert(isinstance(taker_amount, Wad))
         assert(isinstance(side_amount, str))
-        assert(isinstance(token_amount, Wad))
         assert(isinstance(our_buy_balance, Wad))
         assert(isinstance(our_sell_balance, Wad))
         assert(isinstance(target_price, Price))
 
-        if target_price is not None and token_amount is not None:
+        if target_price is not None:
+            if side_amount == 'buy':
+                new_order = self._new_buy_orders(maker_amount, taker_amount, our_buy_balance, target_price.buy_price) \
+                    if target_price.buy_price is not None \
+                    else {}
+            else:
+                new_order = self._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price) \
+                    if target_price.sell_price is not None \
+                    else {}
 
-            new_buy_order = self._new_buy_orders(token_amount, our_buy_balance, target_price.buy_price) \
-                if target_price.buy_price is not None \
-                else {}
+            return new_order
 
-            new_sell_order = self._new_sell_orders(token_amount, our_sell_balance, target_price.sell_price) \
-                if target_price.sell_price is not None \
-                else {}
-
-            return new_buy_order
-
+        # don't place orders
         else:
-            return "No orders"
+            return {}
 
-    def _new_sell_orders(self, token_amount, our_sell_balance: Wad, target_price: Wad):
+    def _new_sell_orders(self, m_token_amount, t_token_amount, our_sell_balance: Wad, target_price: Wad):
         """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
         assert(isinstance(our_sell_balance, Wad))
         assert(isinstance(target_price, Wad))
+        assert(isinstance(m_token_amount, Wad))
+        assert(isinstance(t_token_amount, Wad))
 
-       # new_orders = []
-       # limit_amount = self.sell_limits.available_limit(time.time())
-       # missing_amount = Wad(0)
+        new_order = {}
+        limit_amount = self.sell_limits.available_limit(time.time())
+        band = self.sell_bands[0]
 
-       # for band in self.sell_bands:
-       #     if total_amount < band.min_amount:
-       #         price = band.avg_price(target_price)
-       #         pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, limit_amount)
-       #         buy_amount = pay_amount * price
-       #         missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
-       #         if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
-       #             self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
-       #                              f" amount <{band.min_amount}, {band.max_amount}>) has amount {total_amount},"
-       #                              f" creating new sell order with price {price}")
+        # need to include our_buy_balance below (CAN ONLY TEST ON MAINNET)
+        pay_amount = Wad.min(token_amount, limit_amount, our_buy_balance)
+        price = band.closest_margin_to_amount(token_amount, target_price)
+        buy_amount = pay_amount * price
 
-       #             our_sell_balance = our_sell_balance - pay_amount
-       #             limit_amount = limit_amount - pay_amount
+        if (price > Wad(0)) and (token_amount > Wad(0)) and (buy_amount > Wad(0)) and (pay_amount == token_amount):
 
-       #             new_orders.append(NewOrder(is_sell=True,
-       #                                        price=price,
-       #                                        amount=pay_amount,
-       #                                        pay_amount=pay_amount,
-       #                                        buy_amount=buy_amount,
-       #                                        band=band,
-       #                                        confirm_function=lambda: self.sell_limits.use_limit(time.time(), pay_amount)))
+            self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
+                             f" amount <{band.min_amount}, {band.max_amount}>) has amount {pay_amount},"
+                             f" creating new sell order with price {price}")
 
-        return "hey"
+            new_order = {
+                "maker_amount": pay_amount,
+                "taker_amount": buy_amount
+            }
 
-    def _new_buy_orders(self, token_amount, our_buy_balance: Wad, target_price: Wad):
+        else:
+            self.logger.warning(f"Was unable to build new order! Returning an empty dict.")
+
+        return new_order
+
+    def _new_buy_orders(self, maker_amount, taker_amount, our_buy_balance: Wad, target_price: Wad):
         """Return buy orders which need to be placed to bring total amounts within all buy bands above minimums."""
-        assert(isinstance(token_amount, Wad))
+        assert(isinstance(maker_amount, Wad))
+        assert(isinstance(taker_amount, Wad))
         assert(isinstance(our_buy_balance, Wad))
         assert(isinstance(target_price, Wad))
 
         new_order = {}
         limit_amount = self.buy_limits.available_limit(time.time())
-        missing_amount = Wad(0)
         band = self.buy_bands[0]
-        price = band.closest_margin_to_amount(token_amount, target_price)
-        buy_amount = token_amount / price
 
-        if (price > Wad(0)) and (token_amount > Wad(0)) and (buy_amount > Wad(0)):
+        if maker_amount == Wad(0):
+            # need to build price by computing maker_amount
+            buy_amount = Wad.min(taker_amount, limit_amount, our_buy_balance)
+            price = band.closest_margin_to_amount(taker_amount, target_price)
+            pay_amount = buy_amount * price
+
+        else:
+            # need to build price by computing taker_amount
+            pay_amount = Wad.min(maker_amount, limit_amount, our_buy_balance)
+            price = band.closest_margin_to_amount(maker_amount, target_price)
+            buy_amount = pay_amount / price
+
+        if (price > Wad(0)) and \
+           (pay_amount > Wad(0)) and \
+           (buy_amount > Wad(0)) and \
+           (buy_amount >= taker_amount) and \
+           (pay_amount >= maker_amount):
 
             self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
-                             f" amount <{band.min_amount}, {band.max_amount}>) has amount {token_amount},"
+                             f" amount <{band.min_amount}, {band.max_amount}>) has amount {maker_amount},"
                              f" creating new buy order with price {price}")
 
-#           our_buy_balance = our_buy_balance - pay_amount
-#           limit_amount = limit_amount - pay_amount
-
             new_order = {
-                "maker_amount": token_amount,
+                "maker_amount": pay_amount,
                 "taker_amount": buy_amount
             }
+
+        else:
+            self.logger.warning(f"Was unable to build new order! Returning an empty dict.")
 
         return new_order
 
