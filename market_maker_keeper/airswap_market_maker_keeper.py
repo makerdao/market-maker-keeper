@@ -409,15 +409,23 @@ class AirswapBands(Bands):
 
         if maker_amount == Wad(0):
             # need to build price by computing maker_amount
-            buy_amount = Wad.min(taker_amount, limit_amount, our_buy_balance)
+            buy_amount = taker_amount
             price = band.closest_margin_to_amount(taker_amount, target_price)
-            pay_amount = buy_amount * price
+            maker_amount = buy_amount * price
+            pay_amount = Wad.min(maker_amount, our_buy_balance, limit_amount)
+            print(f"pay_amount - {pay_amount}")
+            print(f"maker_amount - {maker_amount}")
+            print(f"price - {price}")
+            print(f"buy_amount - {buy_amount}")
 
         else:
             # need to build price by computing taker_amount
             pay_amount = Wad.min(maker_amount, limit_amount, our_buy_balance)
             price = band.closest_margin_to_amount(maker_amount, target_price)
-            buy_amount = pay_amount / price
+            buy_amount = pay_amount * price
+            print(f"pay_amount - {pay_amount}")
+            print(f"price - {price}")
+            print(f"buy_amount - {buy_amount}")
 
         if (price > Wad(0)) and \
            (pay_amount > Wad(0)) and \
@@ -426,7 +434,7 @@ class AirswapBands(Bands):
            (pay_amount >= maker_amount):
 
             self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
-                             f" amount <{band.min_amount}, {band.max_amount}>) has amount {maker_amount},"
+                             f" amount <{band.min_amount}, {band.max_amount}>) has amount {pay_amount},"
                              f" creating new buy order with price {price}")
 
             new_order = {
