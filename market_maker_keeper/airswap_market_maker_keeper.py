@@ -150,21 +150,22 @@ class AirswapMarketMakerKeeper:
 
     def main(self):
         bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-
-        buy_intent = self.build_intents(self.token_buy.address.__str__(), self.token_sell.address.__str__())
-        sell_intent = self.build_intents(self.token_sell.address.__str__(), self.token_buy.address.__str__())
-        self._set_intents(buy_intent)
-        self._set_intents(sell_intent)
-
+        intents = self.build_intents(self.token_buy.address.__str__(), self.token_sell.address.__str__())
+        self._set_intents(intents)
         app.run(host="0.0.0.0", port=self.arguments.localhost_orderserver_port)
 
 
     def build_intents(self, maker_token_address, taker_token_address):
-        return {
+        return [{
             "makerToken": maker_token_address,
             "takerToken": taker_token_address,
             "role": "maker"
-        }
+        }, {
+            "makerToken": taker_token_address,
+            "takerToken": maker_token_address,
+            "role": "maker"
+        }]
+
 
    # def startup(self):
 
@@ -175,13 +176,13 @@ class AirswapMarketMakerKeeper:
     def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
-    def _set_intents(self, intent):
+    def _set_intents(self, intents):
         headers = {'content-type': 'application/json'}
         r = requests.post(f"http://localhost:5005/setIntents",
-                             data=json.dumps([intent]),
+                             data=json.dumps(intents),
                              headers=headers)
 
-        logging.info(f"intent set: {intent} -> {r.text}")
+        logging.info(f"intent set: {intents} -> {r.text}")
         return r.text
 
     def _sign_order(self, order):
