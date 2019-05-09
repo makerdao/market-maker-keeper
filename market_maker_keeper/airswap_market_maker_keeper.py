@@ -392,9 +392,9 @@ class AirswapBands(Bands):
            (buy_amount >= taker_amount) and \
            (pay_amount >= maker_amount):
 
-            self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
+            self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
                              f" amount <{band.min_amount}, {band.max_amount}>) has amount {pay_amount},"
-                             f" creating new buy order with price {price}")
+                             f" creating new sell order with price {price}")
 
             new_order = {
                 "maker_amount": pay_amount,
