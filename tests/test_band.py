@@ -162,7 +162,7 @@ class TestBands:
         assert(orders_to_cancel == [buy_order, sell_order])
 
     @staticmethod
-    def create_bands(config_file):
+    def create_bands(Bands, config_file):
         config = ReloadableConfig(str(config_file))
         return Bands.read(config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 

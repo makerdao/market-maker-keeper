@@ -25,7 +25,6 @@ import json
 
 from typing import Tuple, Optional
 
-from retry import retry
 from web3 import Web3, HTTPProvider
 from flask import Flask, jsonify, request
 
@@ -256,7 +255,7 @@ class AirswapMarketMakerKeeper:
             # sign order with our private key
             signed_order = self._sign_order(new_order)
 
-            # send signed order to the taker who requested it
+            # send signed order back to the taker
             logging.info(f"Sending order: {signed_order}")
             return signed_order
 
@@ -483,6 +482,8 @@ def closest_margin_to_amount(band, token_amount, target_price):
     return band._apply_margin(target_price, closest_margin)
 
 def _amount_to_margin(band, amount):
+    # returns the margin that matches to the corrosponding amount.
+    # min_amount -> min_margin etc...
     if amount == band.min_amount:
         return band.min_margin
     elif amount == band.avg_amount:
