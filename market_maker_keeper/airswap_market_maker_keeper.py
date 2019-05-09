@@ -294,9 +294,9 @@ class AirswapBands(Bands):
             config = reloadable_config.get_config(spread_feed.get()[0])
             control_feed_value = control_feed.get()[0]
 
-            buy_bands = list(map(AirswapBuyBand, config['buyBands']))
+            buy_bands = list(map(BuyBand, config['buyBands']))
             buy_limits = SideLimits(config['buyLimits'] if 'buyLimits' in config else [], history.buy_history)
-            sell_bands = list(map(AirswapSellBand, config['sellBands']))
+            sell_bands = list(map(SellBand, config['sellBands']))
             sell_limits = SideLimits(config['sellLimits'] if 'sellLimits' in config else [], history.sell_history)
 
             if len(buy_bands) != 1:
@@ -376,14 +376,14 @@ class AirswapBands(Bands):
         if maker_amount == Wad(0):
             # need to build price by computing maker_amount
             buy_amount = taker_amount
-            price = band.closest_margin_to_amount(taker_amount, target_price)
+            price = closest_margin_to_amount(band, taker_amount, target_price)
             maker_amount = buy_amount / price
             pay_amount = Wad.min(maker_amount, our_sell_balance, limit_amount)
 
         else:
             # need to build price by computing taker_amount
             pay_amount = Wad.min(maker_amount, limit_amount, our_sell_balance)
-            price = band.closest_margin_to_amount(maker_amount, target_price)
+            price = closest_margin_to_amount(band, maker_amount, target_price)
             buy_amount = pay_amount / price
 
         if (price > Wad(0)) and \
@@ -420,14 +420,14 @@ class AirswapBands(Bands):
         if maker_amount == Wad(0):
             # need to build price by computing maker_amount
             buy_amount = taker_amount
-            price = band.closest_margin_to_amount(taker_amount, target_price)
+            price = closest_margin_to_amount(band, taker_amount, target_price)
             maker_amount = buy_amount * price
             pay_amount = Wad.min(maker_amount, our_buy_balance, limit_amount)
 
         else:
             # need to build price by computing taker_amount
             pay_amount = Wad.min(maker_amount, limit_amount, our_buy_balance)
-            price = band.closest_margin_to_amount(maker_amount, target_price)
+            price = closest_margin_to_amount(band, maker_amount, target_price)
             buy_amount = pay_amount * price
 
         if (price > Wad(0)) and \
@@ -451,92 +451,47 @@ class AirswapBands(Bands):
         return new_order
 
 
-class AirswapSellBand(SellBand):
 
-    def min_price(self, target_price: Wad) -> Wad:
-        return self._apply_margin(target_price, self.min_margin)
+def min_price(band, target_price: Wad) -> Wad:
+    return band._apply_margin(target_price, band.min_margin)
 
-    def max_price(self, target_price: Wad) -> Wad:
-        return self._apply_margin(target_price, self.max_margin)
+def max_price(band, target_price: Wad) -> Wad:
+    return band._apply_margin(target_price, band.max_margin)
 
-    def closest_margin_to_amount(self, token_amount, target_price):
-        # selects either the min, avg, or max margin to calculate
-        # price based on which amount (min, avg, or max) is closer
-        # to the token amount being traded.
+def closest_margin_to_amount(band, token_amount, target_price):
+    # selects either the min, avg, or max margin to calculate
+    # price based on which amount (min, avg, or max) is closer
+    # to the token amount being traded.
 
-        if token_amount >= self.max_amount:
-            return self.max_price(target_price)
+    if token_amount >= band.max_amount:
+        return max_price(band, target_price)
 
-        elif token_amount <= self.min_amount:
-            return self.min_price(target_price)
+    elif token_amount <= band.min_amount:
+        return min_price(band, target_price)
 
-        elif token_amount == self.avg_amount:
-            return self.avg_price(target_price)
+    elif token_amount == band.avg_amount:
+        return band.avg_price(target_price)
 
-        elif token_amount < self.avg_amount:
-            # compare between min_amount and avg_amount
-            closest_amount = self._find_closest(self.min_amount, self.avg_amount, token_amount)
-        else:
-            # compare between avg_amount and max_amount
-            closest_amount = self._find_closest(self.avg_amount, self.max_amount, token_amount)
+    elif token_amount < band.avg_amount:
+        # compare between min_amount and avg_amount
+        closest_amount = _find_closest(band.min_amount, band.avg_amount, token_amount)
+    else:
+        # compare between avg_amount and max_amount
+        closest_amount = band._find_closest(band.avg_amount, band.max_amount, token_amount)
 
-        closest_margin = self._amount_to_margin(closest_amount)
-        return self._apply_margin(target_price, closest_margin)
+    closest_margin = _amount_to_margin(closest_amount)
+    return band._apply_margin(target_price, closest_margin)
 
-    def _amount_to_margin(self, amount):
-        if amount == self.min_amount:
-            return self.min_margin
-        elif amount == self.avg_amount:
-            return self.avg_margin
-        else:
-            return self.max_margin
+def _amount_to_margin(band, amount):
+    if amount == band.min_amount:
+        return band.min_margin
+    elif amount == band.avg_amount:
+        return band.avg_margin
+    else:
+        return band.max_margin
 
-    def _find_closest(self, val1, val2, target):
-        return val2 if target - val1 >= val2 - target else val1
-
-
-class AirswapBuyBand(BuyBand):
-
-    def min_price(self, target_price: Wad) -> Wad:
-        return self._apply_margin(target_price, self.min_margin)
-
-    def max_price(self, target_price: Wad) -> Wad:
-        return self._apply_margin(target_price, self.max_margin)
-
-    def closest_margin_to_amount(self, token_amount, target_price):
-        # selects either the min, avg, or max margin to calculate
-        # price based on which amount (min, avg, or max) is closer
-        # to the token amount being traded.
-
-        if token_amount >= self.max_amount:
-            return self.max_price(target_price)
-
-        elif token_amount <= self.min_amount:
-            return self.min_price(target_price)
-
-        elif token_amount == self.avg_amount:
-            return self.avg_price(target_price)
-
-        elif token_amount < self.avg_amount:
-            # compare between min_amount and avg_amount
-            closest_amount = self._find_closest(self.min_amount, self.avg_amount, token_amount)
-        else:
-            # compare between avg_amount and max_amount
-            closest_amount = self._find_closest(self.avg_amount, self.max_amount, token_amount)
-
-        closest_margin = self._amount_to_margin(closest_amount)
-        return self._apply_margin(target_price, closest_margin)
-
-    def _amount_to_margin(self, amount):
-        if amount == self.min_amount:
-            return self.min_margin
-        elif amount == self.avg_amount:
-            return self.avg_margin
-        else:
-            return self.max_margin
-
-    def _find_closest(self, val1, val2, target):
-        return val2 if target - val1 >= val2 - target else val1
+def _find_closest(band, val1, val2, target):
+    return val2 if target - val1 >= val2 - target else val1
 
 
 if __name__ == '__main__':
