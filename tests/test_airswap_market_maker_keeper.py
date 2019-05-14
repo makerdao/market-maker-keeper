@@ -121,27 +121,45 @@ def test_new_buy_orders_maker_amount_exceed_buy_balance_fail_case(tmpdir):
     assert new_order == {}
 
 
-#def test_new_sell_orders_maker_amount_success_case(tmpdir):
+def test_new_sell_orders_maker_amount_success_case(tmpdir):
+    bands_file = BandConfig.sample_config(tmpdir)
+    bands_config = ReloadableConfig(str(bands_file))
+    airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
+
+    maker_amount = Wad(106200000000000000000)
+    taker_amount = Wad(0)
+    our_sell_balance = Wad(1562000000000000000000)
+    target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
+
+    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
+
+    # -- pricing logic --
+    # sellPrice = 130 * maxMargin = 0.06 = 7.8
+    # 130 + 7.8 = 137.8
+    # taker_amount = 106.2000 / 137.8 = 0.7706821480406386066763
+
+    assert new_order['maker_amount'].__float__() == 106.2000
+    assert new_order['taker_amount'].__float__() == 0.770682148040638606
+
+#def test_new_sell_orders_taker_amount_success_case(tmpdir):
 #    bands_file = BandConfig.sample_config(tmpdir)
 #    bands_config = ReloadableConfig(str(bands_file))
 #    airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 #
-#    maker_amount = Wad(156200000000000000000)
-#    taker_amount = Wad(0)
+#    maker_amount = Wad(0)
+#    taker_amount = Wad(1770682148040638606)
 #    our_sell_balance = Wad(1562000000000000000000)
 #    target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
-#
-#    print(f'maker_amount {maker_amount.__float__()}')
 #
 #    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
 #
 #    # -- pricing logic --
 #    # sellPrice = 130 * maxMargin = 0.06 = 7.8
 #    # 130 + 7.8 = 137.8
-#    # maker_amount = .1562000 * 117.6 = 18.36912000
+#    # taker_amount = 106.2000 / 137.8 = 0.7706821480406386066763
 #
-#    assert new_order == 0
-
+#    assert new_order['maker_amount'].__float__() == 106.2000
+#    assert new_order['taker_amount'].__float__() == 0.770682148040638606
 
 if __name__ == '__main__':
     unittest.main()
