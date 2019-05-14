@@ -129,7 +129,7 @@ class AirswapMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://mainnet.infura.io",
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://parity1.makerfoundation.com:18545",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
@@ -213,12 +213,14 @@ class AirswapMarketMakerKeeper:
         # Only makerAmount or takerAmount should be sent in the request
         # Takers will usually request a makerAmount, however they can request takerAmount
         if 'makerAmount' in req['params']:
+            print(f'maker_amount - {int(req["params"]["makerAmount"])}')
             maker_amount = Wad(int(req["params"]["makerAmount"]))
             taker_amount = Wad(0)
 
         elif 'takerAmount' in req['params']:
             taker_amount = Wad(int(req["params"]["takerAmount"]))
             maker_amount = Wad(0)
+
         else:
             raise CustomException('Neither takerAmount or makerAmount was specified in the request', status_code=400)
 
@@ -231,6 +233,7 @@ class AirswapMarketMakerKeeper:
         our_buy_balance = self.our_total_balance(self.token_buy)
         our_sell_balance = self.our_total_balance(self.token_sell)
         target_price = self.price_feed.get_price()
+        print(f'target_price - {target_price}')
 
         token_amnts = bands.new_orders(maker_amount, taker_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
         if not token_amnts:
@@ -361,7 +364,7 @@ class AirswapBands(Bands):
         else:
             return {}
 
-    def _new_sell_orders(self, maker_amount, taker_amount, our_sell_balance: Wad, target_price: Wad):
+    def _new_sell_orders(self, maker_amount: Wad, taker_amount: Wad, our_sell_balance: Wad, target_price: Wad):
         """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
         assert(isinstance(maker_amount, Wad))
         assert(isinstance(taker_amount, Wad))
@@ -405,7 +408,7 @@ class AirswapBands(Bands):
 
         return new_order
 
-    def _new_buy_orders(self, maker_amount, taker_amount, our_buy_balance: Wad, target_price: Wad):
+    def _new_buy_orders(self, maker_amount: Wad, taker_amount: Wad, our_buy_balance: Wad, target_price: Wad):
         """Return buy orders which need to be placed to bring total amounts within all buy bands above minimums."""
         assert(isinstance(maker_amount, Wad))
         assert(isinstance(taker_amount, Wad))
@@ -420,7 +423,7 @@ class AirswapBands(Bands):
             # need to build price by computing maker_amount
             buy_amount = taker_amount
             price = closest_margin_to_amount(band, taker_amount, target_price)
-            maker_amount = buy_amount * price
+            maker_amount = buy_amount / price
             pay_amount = Wad.min(maker_amount, our_buy_balance, limit_amount)
 
         else:
@@ -448,8 +451,6 @@ class AirswapBands(Bands):
             self.logger.warning(f"Was unable to build new order! Returning an empty dict.")
 
         return new_order
-
-
 
 def min_price(band, target_price: Wad) -> Wad:
     return band._apply_margin(target_price, band.min_margin)
