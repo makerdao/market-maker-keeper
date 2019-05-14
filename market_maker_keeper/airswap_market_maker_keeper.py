@@ -165,18 +165,8 @@ class AirswapMarketMakerKeeper:
 
    # def shutdown(self):
 
-   # def approve(self):
-
-   # def _sign_order(self, order):
-   #     headers = {'content-type': 'application/json'}
-   #     r = requests.post(f"http://localhost:5005/signOrder",
-   #                          data=json.dumps(order),
-   #                          headers=headers)
-   #     return r.text
-
     def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
-
 
     def _error_handler(self, err):
         logging.warning(f"Sending error back to caller {err.to_json()}")
@@ -200,7 +190,6 @@ class AirswapMarketMakerKeeper:
         # Only makerAmount or takerAmount should be sent in the request
         # Takers will usually request a makerAmount, however they can request takerAmount
         if 'makerAmount' in req['params']:
-            print(f'maker_amount - {int(req["params"]["makerAmount"])}')
             maker_amount = Wad(int(req["params"]["makerAmount"]))
             taker_amount = Wad(0)
 
@@ -363,13 +352,15 @@ class AirswapBands(Bands):
 
         if maker_amount == Wad(0):
             # need to build price by computing maker_amount
+            # defaults to avg_price
             buy_amount = taker_amount
-            price = closest_margin_to_amount(band, taker_amount, target_price)
+            price = band.avg_price(target_price)
             maker_amount = buy_amount / price
             pay_amount = Wad.min(maker_amount, our_sell_balance, limit_amount)
 
         else:
             # need to build price by computing taker_amount
+            # finds closest margin to amount
             pay_amount = Wad.min(maker_amount, limit_amount, our_sell_balance)
             price = closest_margin_to_amount(band, maker_amount, target_price)
             buy_amount = pay_amount / price
@@ -407,8 +398,9 @@ class AirswapBands(Bands):
 
         if maker_amount == Wad(0):
             # need to build price by computing maker_amount
+            # defaults to avg_price
             buy_amount = taker_amount
-            price = closest_margin_to_amount(band, taker_amount, target_price)
+            price = band.avg_price(target_price)
             maker_amount = buy_amount / price
             pay_amount = Wad.min(maker_amount, our_buy_balance, limit_amount)
 

@@ -46,6 +46,36 @@ class BandConfig:
         }""")
         return file
 
+
+    @staticmethod
+    def sample_config_dif_margins(tmpdir):
+        file = tmpdir.join("sample_config_dif_margins.json")
+        file.write("""{
+            "buyBands": [
+                {
+                    "minMargin": 0.02,
+                    "avgMargin": 0.04,
+                    "maxMargin": 0.06,
+                    "minAmount": 50.0,
+                    "avgAmount": 75.0,
+                    "maxAmount": 100.0,
+                    "dustCutoff": 0.0
+                }
+            ],
+            "sellBands": [
+                {
+                    "minMargin": 0.03,
+                    "avgMargin": 0.05,
+                    "maxMargin": 0.08,
+                    "minAmount": 5.0,
+                    "avgAmount": 7.5,
+                    "maxAmount": 10.0,
+                    "dustCutoff": 0.0
+                }
+            ]
+        }""")
+        return file
+
     @staticmethod
     def sample_config_with_limits(tmpdir):
         file = tmpdir.join("sample_config.json")

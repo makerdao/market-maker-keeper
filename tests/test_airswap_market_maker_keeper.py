@@ -16,20 +16,11 @@ from market_maker_keeper.feed import EmptyFeed, FixedFeed
 from market_maker_keeper.limit import History
 from market_maker_keeper.price_feed import PriceFeedFactory
 
-# test getOrder route
-
-
-# test new_sell_orders
-
-# test new_buy_orders
-
-
 def test_airswap_read_bands(tmpdir):
     bands_file = BandConfig.sample_config(tmpdir)
     bands_config = ReloadableConfig(str(bands_file))
     airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
     assert isinstance(airswap_bands, AirswapBands)
-
 
 def test_airswap_read_no_adjacent_bands(tmpdir):
     sell_bands_file = BandConfig.two_adjacent_sell_bands_config(tmpdir)
@@ -74,11 +65,12 @@ def test_new_buy_orders_taker_amount_success_case(tmpdir):
     new_order = airswap_bands._new_buy_orders(maker_amount, taker_amount, our_buy_balance, target_price.buy_price)
 
     # -- pricing logic --
-    # buyPrice = 120 * minMargin = 0.02 = 117.6
-    # maker_amount = 11.36000 / 117.6 = 0.09659863945
+    # buyPrice = 120 * minMargin = 0.04 = 4.8
+    # 120 - 4.8 = 115.2
+    # maker_amount = 11.36000 / 115.2 = 0.09861111111111111111111
 
     assert new_order['taker_amount'].__float__() == 11.36000
-    assert new_order['maker_amount'].__float__() == 0.09659863945578231
+    assert new_order['maker_amount'].__float__() == 0.09861111111111111111111
 
 
 def test_new_buy_orders_taker_amount_exceed_buy_balance_fail_case(tmpdir):
@@ -122,7 +114,7 @@ def test_new_buy_orders_maker_amount_exceed_buy_balance_fail_case(tmpdir):
 
 
 def test_new_sell_orders_maker_amount_success_case(tmpdir):
-    bands_file = BandConfig.sample_config(tmpdir)
+    bands_file = BandConfig.sample_config_dif_margins(tmpdir)
     bands_config = ReloadableConfig(str(bands_file))
     airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 
@@ -134,32 +126,65 @@ def test_new_sell_orders_maker_amount_success_case(tmpdir):
     new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
 
     # -- pricing logic --
-    # sellPrice = 130 * maxMargin = 0.06 = 7.8
-    # 130 + 7.8 = 137.8
-    # taker_amount = 106.2000 / 137.8 = 0.7706821480406386066763
+    # sellPrice = 130 * maxMargin = 0.08 = 10.4
+    # 130 + 10.4 = 140.4
+    # taker_amount = 106.2000 / 140.4 = 0.7564102564102564102564
 
     assert new_order['maker_amount'].__float__() == 106.2000
-    assert new_order['taker_amount'].__float__() == 0.770682148040638606
+    assert new_order['taker_amount'].__float__() == 0.7564102564102564102564
 
-#def test_new_sell_orders_taker_amount_success_case(tmpdir):
-#    bands_file = BandConfig.sample_config(tmpdir)
-#    bands_config = ReloadableConfig(str(bands_file))
-#    airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
-#
-#    maker_amount = Wad(0)
-#    taker_amount = Wad(1770682148040638606)
-#    our_sell_balance = Wad(1562000000000000000000)
-#    target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
-#
-#    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
-#
-#    # -- pricing logic --
-#    # sellPrice = 130 * maxMargin = 0.06 = 7.8
-#    # 130 + 7.8 = 137.8
-#    # taker_amount = 106.2000 / 137.8 = 0.7706821480406386066763
-#
-#    assert new_order['maker_amount'].__float__() == 106.2000
-#    assert new_order['taker_amount'].__float__() == 0.770682148040638606
+def test_new_sell_orders_taker_amount_success_case(tmpdir):
+    bands_file = BandConfig.sample_config_dif_margins(tmpdir)
+    bands_config = ReloadableConfig(str(bands_file))
+    airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
+
+    maker_amount = Wad(0)
+    taker_amount = Wad(1770600000000000000)
+    our_sell_balance = Wad(1562000000000000000000)
+    target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
+
+    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
+
+    # -- pricing logic --
+    # sellPrice = 130 * avgMargin = 0.05 = 6.5
+    # 130 + 6.5 = 136.5
+    # taker_amount = 1.7706 / 136.5 = 0.01297142857142857142857
+
+    assert new_order['maker_amount'].__float__() == 0.01297142857142857142857
+    assert new_order['taker_amount'].__float__() == 1.7706
+
+
+def test_new_sell_orders_taker_amount_fail_case(tmpdir):
+    bands_file = BandConfig.sample_config_dif_margins(tmpdir)
+    bands_config = ReloadableConfig(str(bands_file))
+    airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
+
+    maker_amount = Wad(0)
+    taker_amount = Wad(1770600000000000000)
+    our_sell_balance = Wad(1562000000000000)
+    target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
+
+    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
+
+    assert new_order == {}
+
+
+
+def test_new_sell_orders_maker_amount_fail_case(tmpdir):
+    bands_file = BandConfig.sample_config_dif_margins(tmpdir)
+    bands_config = ReloadableConfig(str(bands_file))
+    airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
+
+    maker_amount = Wad(106200000000000000000)
+    taker_amount = Wad(0)
+    our_sell_balance = Wad(1562000000000000000)
+    target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
+
+    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
+
+    assert new_order == {}
+
+
 
 if __name__ == '__main__':
     unittest.main()
