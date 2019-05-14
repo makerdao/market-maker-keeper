@@ -41,7 +41,7 @@ from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
-from pyexchange.ddex import DdexApi, Order
+from pyexchange.airswap import AirswapApi
 from pymaker import Address
 from pymaker.approval import directly
 from pymaker.keys import register_keys
@@ -74,6 +74,12 @@ class AirswapMarketMakerKeeper:
 
         parser.add_argument("--rpc-timeout", type=int, default=10,
                             help="JSON-RPC timeout (in seconds, default: 10)")
+
+        parser.add_argument("--airswap-api-server", type=str, default='http://localhost:5005',
+                            help="Address of the Airswap API (default: 'http://localhost:5005')")
+
+        parser.add_argument("--airswap-api-timeout", type=float, default=9.5,
+                            help="Timeout for accessing the Airswap API (in seconds, default: 9.5)")
 
         parser.add_argument("--eth-from", type=str, required=True,
                             help="Ethereum account from which to send transactions")
@@ -135,6 +141,8 @@ class AirswapMarketMakerKeeper:
         self.our_address = Address(self.arguments.eth_from)
         register_keys(self.web3, self.arguments.eth_key)
 
+        self.airswap_api = AirswapApi(self.arguments.airswap_api_server, self.arguments.airswap_api_timeout)
+
         self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
         self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
         self.bands_config = ReloadableConfig(self.arguments.config)
@@ -149,22 +157,9 @@ class AirswapMarketMakerKeeper:
 
     def main(self):
         bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-        intents = self.build_intents(self.token_buy.address.__str__(), self.token_sell.address.__str__())
-        self._set_intents(intents)
+        self.airswap_api.set_intents(self.token_buy.address.__str__(), self.token_sell.address.__str__())
+        self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.__str__()}, {self.token_sell.address.__str__()}")
         app.run(host="0.0.0.0", port=self.arguments.localhost_orderserver_port)
-
-
-    def build_intents(self, maker_token_address, taker_token_address):
-        return [{
-            "makerToken": maker_token_address,
-            "takerToken": taker_token_address,
-            "role": "maker"
-        }, {
-            "makerToken": taker_token_address,
-            "takerToken": maker_token_address,
-            "role": "maker"
-        }]
-
 
    # def startup(self):
 
@@ -172,24 +167,16 @@ class AirswapMarketMakerKeeper:
 
    # def approve(self):
 
+   # def _sign_order(self, order):
+   #     headers = {'content-type': 'application/json'}
+   #     r = requests.post(f"http://localhost:5005/signOrder",
+   #                          data=json.dumps(order),
+   #                          headers=headers)
+   #     return r.text
+
     def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
 
-    def _set_intents(self, intents):
-        headers = {'content-type': 'application/json'}
-        r = requests.post(f"http://localhost:5005/setIntents",
-                             data=json.dumps(intents),
-                             headers=headers)
-
-        logging.info(f"intent set: {intents} -> {r.text}")
-        return r.text
-
-    def _sign_order(self, order):
-        headers = {'content-type': 'application/json'}
-        r = requests.post(f"http://localhost:5005/signOrder",
-                             data=json.dumps(order),
-                             headers=headers)
-        return r.text
 
     def _error_handler(self, err):
         logging.warning(f"Sending error back to caller {err.to_json()}")
@@ -233,7 +220,6 @@ class AirswapMarketMakerKeeper:
         our_buy_balance = self.our_total_balance(self.token_buy)
         our_sell_balance = self.our_total_balance(self.token_sell)
         target_price = self.price_feed.get_price()
-        print(f'target_price - {target_price}')
 
         token_amnts = bands.new_orders(maker_amount, taker_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
         if not token_amnts:
@@ -256,7 +242,7 @@ class AirswapMarketMakerKeeper:
             }
 
             # sign order with our private key
-            signed_order = self._sign_order(new_order)
+            signed_order = self.airswap_api.sign_order(new_order)
 
             # send signed order back to the taker
             logging.info(f"Sending order: {signed_order}")
