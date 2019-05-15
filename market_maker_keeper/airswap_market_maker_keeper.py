@@ -143,8 +143,16 @@ class AirswapMarketMakerKeeper:
 
         self.airswap_api = AirswapApi(self.arguments.airswap_api_server, self.arguments.airswap_api_timeout)
 
-        self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
-        self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
+        if self.arguments.buy_token_address == '0x0000000000000000000000000000000000000000':
+            self.token_buy = EthToken(Address(self.arguments.buy_token_address))
+        else:
+            self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
+
+        if self.arguments.sell_token_address == '0x0000000000000000000000000000000000000000':
+            self.token_sell = EthToken(Address(self.arguments.buy_token_address))
+        else:
+            self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
+
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_max_decimals = None
         self.amount_max_decimals = None
@@ -159,7 +167,7 @@ class AirswapMarketMakerKeeper:
         bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         self.airswap_api.set_intents(self.token_buy.address.__str__(), self.token_sell.address.__str__())
         self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.__str__()}, {self.token_sell.address.__str__()}")
-        app.run(host="0.0.0.0", port=self.arguments.localhost_orderserver_port)
+        app.run(host="127.0.0.1", port=self.arguments.localhost_orderserver_port)
 
    # def startup(self):
 
@@ -237,6 +245,13 @@ class AirswapMarketMakerKeeper:
             logging.info(f"Sending order: {signed_order}")
             return signed_order
 
+
+class EthToken():
+
+    def __init__(self, address: Address):
+        assert(isinstance(address, Address))
+
+        self.address = address
 
 class CustomException(Exception):
 

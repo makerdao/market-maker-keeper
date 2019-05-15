@@ -18,8 +18,8 @@ bin/airswap-market-maker-keeper \
     --exchange-address ${EXCHANGE_ADDRESS:?} \
     --localhost-orderserver-port ${ORDERSERVER_PORT:?} \
     --pair WETH-DAI \
-    --buy-token-address ${SCD_ADDRESS:?} \
-    --sell-token-address ${WETH_ADDRESS:?} \
+    --buy-token-address ${ETH_ADDRESS:?} \
+    --sell-token-address ${SCD_ADDRESS:?} \
     --config ${CURRENT_DIR?:}/airswap-ethdai-bands.json \
     --price-feed eth_dai \
     $@ 2> >(tee -a ${CURRENT_DIR?:}/airswap-ethdai.log >&2)
