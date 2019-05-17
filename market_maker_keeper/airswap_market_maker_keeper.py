@@ -47,7 +47,7 @@ from pymaker.approval import directly
 from pymaker.keys import register_keys
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
-from pymaker.token import ERC20Token
+from pymaker.token import ERC20Token, EthToken
 from pymaker.util import eth_balance
 from pymaker.zrx import ZrxExchange
 
@@ -144,12 +144,12 @@ class AirswapMarketMakerKeeper:
         self.airswap_api = AirswapApi(self.arguments.airswap_api_server, self.arguments.airswap_api_timeout)
 
         if self.arguments.buy_token_address == '0x0000000000000000000000000000000000000000':
-            self.token_buy = EthToken(Address(self.arguments.buy_token_address))
+            self.token_buy = EthToken(web3=self.web3, address=Address(self.arguments.buy_token_address))
         else:
             self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
 
         if self.arguments.sell_token_address == '0x0000000000000000000000000000000000000000':
-            self.token_sell = EthToken(Address(self.arguments.buy_token_address))
+            self.token_sell = EthToken(web3=self.web3, address=Address(self.arguments.buy_token_address))
         else:
             self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
 
@@ -173,7 +173,7 @@ class AirswapMarketMakerKeeper:
 
    # def shutdown(self):
 
-    def our_total_balance(self, token: ERC20Token) -> Wad:
+    def our_total_balance(self, token) -> Wad:
         return token.balance_of(self.our_address)
 
     def _error_handler(self, err):
@@ -186,23 +186,23 @@ class AirswapMarketMakerKeeper:
         logging.info("Received getOrder: {req}".format(req=req))
 
         assert('makerAddress' in req)
-        assert('takerAddress' in req['params'])
-        assert('makerToken' in req['params'])
-        assert('takerToken' in req['params'])
+        assert('takerAddress' in req)
+        assert('makerToken' in req)
+        assert('takerToken' in req)
 
-        maker_address = req["makerAddress"]
-        taker_address = req["params"]["takerAddress"]
-        maker_token = req["params"]["makerToken"]
-        taker_token = req["params"]["takerToken"]
+        maker_address = Address(req["makerAddress"])
+        taker_address = Address(req["takerAddress"])
+        maker_token = Address(req["makerToken"])
+        taker_token = Address(req["takerToken"])
 
         # Only makerAmount or takerAmount should be sent in the request
         # Takers will usually request a makerAmount, however they can request takerAmount
-        if 'makerAmount' in req['params']:
-            maker_amount = Wad(int(req["params"]["makerAmount"]))
+        if 'makerAmount' in req:
+            maker_amount = Wad(int(req["makerAmount"]))
             taker_amount = Wad(0)
 
-        elif 'takerAmount' in req['params']:
-            taker_amount = Wad(int(req["params"]["takerAmount"]))
+        elif 'takerAmount' in req:
+            taker_amount = Wad(int(req["takerAmount"]))
             maker_amount = Wad(0)
 
         else:
@@ -210,12 +210,13 @@ class AirswapMarketMakerKeeper:
 
         # V2 should adjust for signed orders we already have out there (essentially create an orderbook)?
         # still debating...
-        if (maker_token != self.token_buy.address.__str__()) and (maker_token != self.token_sell.address.__str__()):
+
+        if (not maker_token.__eq__(self.token_buy.address)) and (not maker_token.__eq__(self.token_sell.address)):
             raise CustomException('Not set to trade this token pair', status_code=503)
 
-        amount_side = 'buy' if maker_token == self.token_buy.address.__str__() else 'sell'
-        our_buy_balance = self.our_total_balance(self.token_buy)
-        our_sell_balance = self.our_total_balance(self.token_sell)
+        amount_side = 'sell' if maker_token.__eq__(self.token_buy.address) else 'buy'
+        our_buy_balance = self.our_total_balance(self.token_sell)
+        our_sell_balance = self.our_total_balance(self.token_buy)
         target_price = self.price_feed.get_price()
 
         token_amnts = bands.new_orders(maker_amount, taker_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
@@ -228,11 +229,11 @@ class AirswapMarketMakerKeeper:
             nonce = random.randint(0, 99999)
 
             new_order = {
-                "makerAddress": maker_address,
-                "makerToken": maker_token,
+                "makerAddress": maker_address.__str__(),
+                "makerToken": maker_token.__str__(),
                 "makerAmount": str(token_amnts["maker_amount"].value),
-                "takerAddress": taker_address,
-                "takerToken": taker_token,
+                "takerAddress": taker_address.__str__(),
+                "takerToken": taker_token.__str__(),
                 "takerAmount": str(token_amnts["taker_amount"].value),
                 "expiration": expiration,
                 "nonce": nonce
@@ -245,13 +246,6 @@ class AirswapMarketMakerKeeper:
             logging.info(f"Sending order: {signed_order}")
             return signed_order
 
-
-class EthToken():
-
-    def __init__(self, address: Address):
-        assert(isinstance(address, Address))
-
-        self.address = address
 
 class CustomException(Exception):
 
@@ -467,12 +461,12 @@ def closest_margin_to_amount(band, token_amount, target_price):
 
     elif token_amount < band.avg_amount:
         # compare between min_amount and avg_amount
-        closest_amount = _find_closest(band.min_amount, band.avg_amount, token_amount)
+        closest_amount = _find_closest(band.min_amount, band.avg_amount, token_amount, target_price)
     else:
         # compare between avg_amount and max_amount
-        closest_amount = band._find_closest(band.avg_amount, band.max_amount, token_amount)
+        closest_amount = _find_closest(band.avg_amount, band.max_amount, token_amount, target_price)
 
-    closest_margin = _amount_to_margin(closest_amount)
+    closest_margin = _amount_to_margin(band, closest_amount)
     return band._apply_margin(target_price, closest_margin)
 
 def _amount_to_margin(band, amount):

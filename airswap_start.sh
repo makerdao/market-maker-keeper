@@ -9,6 +9,7 @@ export CURRENT_DIR=$(pwd)
 
 #    --spread-feed ${STREAMER_SOCKET:?}/ETHDAI_spread/socket \
 #    --order-history ${ORDER_HISTORY_SERVICE_POST:?}/ddex_server1/WETH-DAI \
+    #--airswap-api-server ${AIRSWAP_API_SERVER} \
 
 bin/airswap-market-maker-keeper \
     --rpc-host ${RPC_HOST:?} \
@@ -17,6 +18,7 @@ bin/airswap-market-maker-keeper \
     --eth-key ${V3_AIRSWAP_SERVER1_KEY?:} \
     --exchange-address ${EXCHANGE_ADDRESS:?} \
     --localhost-orderserver-port ${ORDERSERVER_PORT:?} \
+    --airswap-api-server 'http://localhost:5005' \
     --pair WETH-DAI \
     --buy-token-address ${ETH_ADDRESS:?} \
     --sell-token-address ${SCD_ADDRESS:?} \
