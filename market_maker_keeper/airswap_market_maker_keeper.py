@@ -135,7 +135,7 @@ class AirswapMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://parity1.makerfoundation.com:18545",
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
@@ -154,8 +154,6 @@ class AirswapMarketMakerKeeper:
             self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
 
         self.bands_config = ReloadableConfig(self.arguments.config)
-        self.price_max_decimals = None
-        self.amount_max_decimals = None
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
         self.control_feed = create_control_feed(self.arguments)
@@ -198,11 +196,11 @@ class AirswapMarketMakerKeeper:
         # Only makerAmount or takerAmount should be sent in the request
         # Takers will usually request a makerAmount, however they can request takerAmount
         if 'makerAmount' in req:
-            maker_amount = Wad(int(req["makerAmount"]))
+            maker_amount = Wad(req["makerAmount"])
             taker_amount = Wad(0)
 
         elif 'takerAmount' in req:
-            taker_amount = Wad(int(req["takerAmount"]))
+            taker_amount = Wad(req["takerAmount"])
             maker_amount = Wad(0)
 
         else:
@@ -212,7 +210,7 @@ class AirswapMarketMakerKeeper:
         # still debating...
 
         if (not maker_token.__eq__(self.token_buy.address)) and (not maker_token.__eq__(self.token_sell.address)):
-            raise CustomException('Not set to trade this token pair', status_code=503)
+            raise CustomException("Not set to trade this token pair", self.logger)
 
         amount_side = 'sell' if maker_token.__eq__(self.token_buy.address) else 'buy'
         our_buy_balance = self.our_total_balance(self.token_sell)
@@ -221,7 +219,7 @@ class AirswapMarketMakerKeeper:
 
         token_amnts = bands.new_orders(maker_amount, taker_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
         if not token_amnts:
-            raise CustomException('not enough in our wallet', status_code=409)
+            raise CustomException("bands.new_orders did not return orders", self.logger)
 
         else:
             # Set 5-minute expiration on this order
@@ -256,15 +254,14 @@ class CustomException(Exception):
             self.status_code = status_code
         self.payload = payload
 
-    def to_dict(self):
+    def empty_dict(self):
+        # Airswap team instructed us to return nothing when error occurs
         rv = dict(self.payload or ())
-        rv['message'] = self.message
-        rv['code'] = self.status_code
-        exception = {'error': rv}
-        return exception
+        self.logger.warning(f"{rv['message']}--> responding to taker with empty dict")
+        return {}
 
     def to_json(self):
-        return json.dumps(self.to_dict())
+        return json.dumps(self.empty_dict())
 
 
 class AirswapBands(Bands):
@@ -324,7 +321,7 @@ class AirswapBands(Bands):
                    side_amount: str,
                    our_buy_balance: Wad,
                    our_sell_balance: Wad,
-                   target_price: Price) -> Tuple[list, Wad, Wad]:
+                   target_price: Price) -> Dict:
         assert(isinstance(maker_amount, Wad))
         assert(isinstance(taker_amount, Wad))
         assert(isinstance(side_amount, str))
@@ -349,7 +346,7 @@ class AirswapBands(Bands):
             return {}
 
     def _new_sell_orders(self, maker_amount: Wad, taker_amount: Wad, our_sell_balance: Wad, target_price: Wad):
-        """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
+        """Build and return sell orders."""
         assert(isinstance(maker_amount, Wad))
         assert(isinstance(taker_amount, Wad))
         assert(isinstance(our_sell_balance, Wad))
@@ -390,12 +387,12 @@ class AirswapBands(Bands):
             }
 
         else:
-            self.logger.warning(f"Was unable to build new order! Returning an empty dict.")
+            self.logger.warning(f"Unable to build sell order, possible reasons: trade limiter, lack of funds, bad target_price")
 
         return new_order
 
     def _new_buy_orders(self, maker_amount: Wad, taker_amount: Wad, our_buy_balance: Wad, target_price: Wad):
-        """Return buy orders which need to be placed to bring total amounts within all buy bands above minimums."""
+        """Build and return buy orders."""
         assert(isinstance(maker_amount, Wad))
         assert(isinstance(taker_amount, Wad))
         assert(isinstance(our_buy_balance, Wad))
@@ -435,7 +432,7 @@ class AirswapBands(Bands):
             }
 
         else:
-            self.logger.warning(f"Was unable to build new order! Returning an empty dict.")
+            self.logger.warning(f"Unable to build buy order, possible reasons: trade limiter, lack of funds, bad target_price")
 
         return new_order
 
