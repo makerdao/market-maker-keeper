@@ -167,7 +167,7 @@ class AirswapMarketMakerKeeper:
         bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         self.airswap_api.set_intents(self.token_buy.address.__str__(), self.token_sell.address.__str__())
         self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.__str__()}, {self.token_sell.address.__str__()}")
-        app.run(host="127.0.0.1", port=self.arguments.localhost_orderserver_port)
+        app.run(host="0.0.0.0", port=self.arguments.localhost_orderserver_port)
 
    # def startup(self):
 
