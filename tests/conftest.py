@@ -15,10 +15,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import pytest
 
-#
 from pymaker.deployment import Deployment
 
 
@@ -31,4 +29,3 @@ def new_deployment() -> Deployment:
 def deployment(new_deployment: Deployment) -> Deployment:
     new_deployment.reset()
     return new_deployment
-
