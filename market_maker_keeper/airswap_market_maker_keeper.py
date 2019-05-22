@@ -19,7 +19,6 @@ import argparse
 import logging
 import sys
 import time
-import random
 import requests
 import json
 
@@ -75,6 +74,12 @@ class AirswapMarketMakerKeeper:
         parser.add_argument("--rpc-timeout", type=int, default=10,
                             help="JSON-RPC timeout (in seconds, default: 10)")
 
+        parser.add_argument("--orderserver-port", type=str, default='5004',
+                            help="Port of the order server (default: '5004')")
+
+        parser.add_argument("--orderserver-host", type=str, default='127.0.0.1',
+                            help="host of the order server (default: '127.0.0.1')")
+
         parser.add_argument("--airswap-api-server", type=str, default='http://localhost:5005',
                             help="Address of the Airswap API (default: 'http://localhost:5005')")
 
@@ -89,9 +94,6 @@ class AirswapMarketMakerKeeper:
 
         parser.add_argument("--exchange-address", type=str, required=True,
                             help="Ethereum address of the 0x Exchange contract")
-
-        parser.add_argument("--localhost-orderserver-port", type=str, default='5004',
-                            help="Port of the order server (default: '5004')")
 
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
@@ -135,7 +137,7 @@ class AirswapMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
@@ -162,23 +164,26 @@ class AirswapMarketMakerKeeper:
         self.history = History()
 
     def main(self):
-        bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-        self.airswap_api.set_intents(self.token_buy.address.__str__(), self.token_sell.address.__str__())
-        self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.__str__()}, {self.token_sell.address.__str__()}")
-        app.run(host="0.0.0.0", port=self.arguments.localhost_orderserver_port)
+        self.startup()
+        app.run(host=self.arguments.orderserver_host, port=self.arguments.orderserver_port)
 
-   # def startup(self):
+    def startup(self):
+        bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
+        self.airswap_api.approve(self.token_buy.address, self.token_sell.address)
+        self.airswap_api.set_intents(self.token_buy.address, self.token_sell.address)
+        self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.__str__()}, {self.token_sell.address.__str__()}")
 
    # def shutdown(self):
+   # not implemented, will be added when cancel order is finnished
 
     def our_total_balance(self, token) -> Wad:
         return token.balance_of(self.our_address)
 
     def _error_handler(self, err):
-        logging.warning(f"Sending error back to caller {err.to_json()}")
         return err.to_json()
 
     def r_get_order(self):
+        # main application logic. Started by the `app.run` call in the `main` method
         bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         req = request.get_json()
         logging.info("Received getOrder: {req}".format(req=req))
@@ -196,11 +201,11 @@ class AirswapMarketMakerKeeper:
         # Only makerAmount or takerAmount should be sent in the request
         # Takers will usually request a makerAmount, however they can request takerAmount
         if 'makerAmount' in req:
-            maker_amount = Wad(req["makerAmount"])
+            maker_amount = Wad(int(req["makerAmount"]))
             taker_amount = Wad(0)
 
         elif 'takerAmount' in req:
-            taker_amount = Wad(req["takerAmount"])
+            taker_amount = Wad(int(req["takerAmount"]))
             maker_amount = Wad(0)
 
         else:
@@ -212,33 +217,23 @@ class AirswapMarketMakerKeeper:
         if (not maker_token.__eq__(self.token_buy.address)) and (not maker_token.__eq__(self.token_sell.address)):
             raise CustomException("Not set to trade this token pair", self.logger)
 
-        amount_side = 'sell' if maker_token.__eq__(self.token_buy.address) else 'buy'
-        our_buy_balance = self.our_total_balance(self.token_sell)
-        our_sell_balance = self.our_total_balance(self.token_buy)
+        amount_side = 'buy' if maker_token.__eq__(self.token_buy.address) else 'sell'
+        our_buy_balance = self.our_total_balance(self.token_buy)
+        our_sell_balance = self.our_total_balance(self.token_sell)
         target_price = self.price_feed.get_price()
 
-        token_amnts = bands.new_orders(maker_amount, taker_amount, amount_side, our_buy_balance, our_sell_balance, target_price)
+        token_amnts = bands.new_orders(amount_side, maker_amount, taker_amount, our_buy_balance, our_sell_balance, target_price)
         if not token_amnts:
             raise CustomException("bands.new_orders did not return orders", self.logger)
 
         else:
-            # Set 5-minute expiration on this order
-            expiration = str(int(time.time()) + 300)
-            nonce = random.randint(0, 99999)
-
-            new_order = {
-                "makerAddress": maker_address.__str__(),
-                "makerToken": maker_token.__str__(),
-                "makerAmount": str(token_amnts["maker_amount"].value),
-                "takerAddress": taker_address.__str__(),
-                "takerToken": taker_token.__str__(),
-                "takerAmount": str(token_amnts["taker_amount"].value),
-                "expiration": expiration,
-                "nonce": nonce
-            }
-
-            # sign order with our private key
-            signed_order = self.airswap_api.sign_order(new_order)
+            # build & sign order with our private key
+            signed_order = self.airswap_api.sign_order(maker_address.__str__(),
+                                                       maker_token.__str__(),
+                                                       str(token_amnts["maker_amount"].value),
+                                                       taker_address.__str__(),
+                                                       taker_token.__str__(),
+                                                       str(token_amnts["taker_amount"].value))
 
             # send signed order back to the taker
             logging.info(f"Sending order: {signed_order}")
@@ -247,22 +242,18 @@ class AirswapMarketMakerKeeper:
 
 class CustomException(Exception):
 
-    def __init__(self, message, status_code=None, payload=None):
+    def __init__(self, message, logger):
         Exception.__init__(self)
         self.message = message
-        if status_code is not None:
-            self.status_code = status_code
-        self.payload = payload
+        self.logger = logger
 
     def empty_dict(self):
         # Airswap team instructed us to return nothing when error occurs
-        rv = dict(self.payload or ())
-        self.logger.warning(f"{rv['message']}--> responding to taker with empty dict")
+        self.logger.warning(f" {self.message} --> responding to taker with empty dict")
         return {}
 
     def to_json(self):
         return json.dumps(self.empty_dict())
-
 
 class AirswapBands(Bands):
 
@@ -316,12 +307,13 @@ class AirswapBands(Bands):
         return AirswapBands(buy_bands=buy_bands, buy_limits=buy_limits, sell_bands=sell_bands, sell_limits=sell_limits)
 
     def new_orders(self,
+                   side_amount: str,
                    maker_amount: Wad,
                    taker_amount: Wad,
-                   side_amount: str,
                    our_buy_balance: Wad,
                    our_sell_balance: Wad,
-                   target_price: Price) -> Dict:
+                   target_price: Price) -> dict:
+
         assert(isinstance(maker_amount, Wad))
         assert(isinstance(taker_amount, Wad))
         assert(isinstance(side_amount, str))
@@ -329,47 +321,63 @@ class AirswapBands(Bands):
         assert(isinstance(our_sell_balance, Wad))
         assert(isinstance(target_price, Price))
 
+        new_order = {}
+
         if target_price is not None:
             if side_amount == 'buy':
-                new_order = self._new_buy_orders(maker_amount, taker_amount, our_buy_balance, target_price.buy_price) \
+                new_order = self._new_side_orders(side_amount,
+                                                  maker_amount,
+                                                  taker_amount,
+                                                  our_buy_balance,
+                                                  self.buy_limits.available_limit(time.time()),
+                                                  self.buy_bands[0],
+                                                  target_price.buy_price) \
                     if target_price.buy_price is not None \
                     else {}
             else:
-                new_order = self._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price) \
+                new_order = self._new_side_orders(side_amount,
+                                                  maker_amount,
+                                                  taker_amount,
+                                                  our_sell_balance,
+                                                  self.sell_limits.available_limit(time.time()),
+                                                  self.sell_bands[0],
+                                                  target_price.sell_price) \
                     if target_price.sell_price is not None \
                     else {}
 
-            return new_order
-
         # don't place orders
-        else:
-            return {}
+        return new_order
 
-    def _new_sell_orders(self, maker_amount: Wad, taker_amount: Wad, our_sell_balance: Wad, target_price: Wad):
-        """Build and return sell orders."""
+
+
+    def _new_side_orders(self, side: str, maker_amount: Wad, taker_amount: Wad, our_side_balance: Wad, limit_amount: Wad, band: Band, target_price: Wad):
+        """Build and return sell or buy order."""
+        assert(isinstance(side, str))
         assert(isinstance(maker_amount, Wad))
         assert(isinstance(taker_amount, Wad))
-        assert(isinstance(our_sell_balance, Wad))
+        assert(isinstance(our_side_balance, Wad))
+        assert(isinstance(limit_amount, Wad))
+        assert(isinstance(band, Band))
         assert(isinstance(target_price, Wad))
 
         new_order = {}
-        limit_amount = self.sell_limits.available_limit(time.time())
-        band = self.sell_bands[0]
-
         if maker_amount == Wad(0):
             # need to build price by computing maker_amount
             # defaults to avg_price
             buy_amount = taker_amount
             price = band.avg_price(target_price)
             maker_amount = buy_amount / price
-            pay_amount = Wad.min(maker_amount, our_sell_balance, limit_amount)
+            pay_amount = Wad.min(maker_amount, our_side_balance, limit_amount)
 
         else:
             # need to build price by computing taker_amount
             # finds closest margin to amount
-            pay_amount = Wad.min(maker_amount, limit_amount, our_sell_balance)
+            pay_amount = Wad.min(maker_amount, limit_amount, our_side_balance)
             price = closest_margin_to_amount(band, maker_amount, target_price)
-            buy_amount = pay_amount / price
+            if side == 'buy':
+                buy_amount = pay_amount * price
+            else:
+                buy_amount = pay_amount / price
 
         if (price > Wad(0)) and \
            (pay_amount > Wad(0)) and \
@@ -377,64 +385,21 @@ class AirswapBands(Bands):
            (buy_amount >= taker_amount) and \
            (pay_amount >= maker_amount):
 
-            self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
+            self.logger.info(f"{side} band (spread <{band.min_margin}, {band.max_margin}>,"
                              f" amount <{band.min_amount}, {band.max_amount}>) has amount {pay_amount},"
-                             f" creating new sell order with price {price}")
+                             f" creating new {side} order with price {price}")
 
             new_order = {
                 "maker_amount": pay_amount,
                 "taker_amount": buy_amount
             }
 
-        else:
-            self.logger.warning(f"Unable to build sell order, possible reasons: trade limiter, lack of funds, bad target_price")
-
-        return new_order
-
-    def _new_buy_orders(self, maker_amount: Wad, taker_amount: Wad, our_buy_balance: Wad, target_price: Wad):
-        """Build and return buy orders."""
-        assert(isinstance(maker_amount, Wad))
-        assert(isinstance(taker_amount, Wad))
-        assert(isinstance(our_buy_balance, Wad))
-        assert(isinstance(target_price, Wad))
-
-        new_order = {}
-        limit_amount = self.buy_limits.available_limit(time.time())
-        band = self.buy_bands[0]
-
-        if maker_amount == Wad(0):
-            # need to build price by computing maker_amount
-            # defaults to avg_price
-            buy_amount = taker_amount
-            price = band.avg_price(target_price)
-            maker_amount = buy_amount / price
-            pay_amount = Wad.min(maker_amount, our_buy_balance, limit_amount)
+            return new_order
 
         else:
-            # need to build price by computing taker_amount
-            pay_amount = Wad.min(maker_amount, limit_amount, our_buy_balance)
-            price = closest_margin_to_amount(band, maker_amount, target_price)
-            buy_amount = pay_amount * price
+            self.logger.warning(f"Unable to build {side} order, possible reasons: trade limiter, lack of funds, bad target_price")
 
-        if (price > Wad(0)) and \
-           (pay_amount > Wad(0)) and \
-           (buy_amount > Wad(0)) and \
-           (buy_amount >= taker_amount) and \
-           (pay_amount >= maker_amount):
-
-            self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
-                             f" amount <{band.min_amount}, {band.max_amount}>) has amount {pay_amount},"
-                             f" creating new buy order with price {price}")
-
-            new_order = {
-                "maker_amount": pay_amount,
-                "taker_amount": buy_amount
-            }
-
-        else:
-            self.logger.warning(f"Unable to build buy order, possible reasons: trade limiter, lack of funds, bad target_price")
-
-        return new_order
+            return new_order
 
 def min_price(band, target_price: Wad) -> Wad:
     return band._apply_margin(target_price, band.min_margin)
@@ -458,10 +423,10 @@ def closest_margin_to_amount(band, token_amount, target_price):
 
     elif token_amount < band.avg_amount:
         # compare between min_amount and avg_amount
-        closest_amount = _find_closest(band.min_amount, band.avg_amount, token_amount, target_price)
+        closest_amount = _find_closest(band.min_amount, band.avg_amount, token_amount)
     else:
         # compare between avg_amount and max_amount
-        closest_amount = _find_closest(band.avg_amount, band.max_amount, token_amount, target_price)
+        closest_amount = _find_closest(band.avg_amount, band.max_amount, token_amount)
 
     closest_margin = _amount_to_margin(band, closest_amount)
     return band._apply_margin(target_price, closest_margin)
@@ -476,7 +441,7 @@ def _amount_to_margin(band, amount):
     else:
         return band.max_margin
 
-def _find_closest(band, val1, val2, target):
+def _find_closest(val1, val2, target):
     return val2 if target - val1 >= val2 - target else val1
 
 

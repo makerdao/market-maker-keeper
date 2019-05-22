@@ -41,9 +41,16 @@ def test_new_buy_orders_maker_amount_success_case(tmpdir):
     maker_amount = Wad(156200000000000000)
     taker_amount = Wad(0)
     our_buy_balance = Wad(1562000000000000000000)
+    buy_limit = Wad(1562000000000000000000)
     target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
 
-    new_order = airswap_bands._new_buy_orders(maker_amount, taker_amount, our_buy_balance, target_price.buy_price)
+    new_order = airswap_bands._new_side_orders('buy',
+                                               maker_amount,
+                                               taker_amount,
+                                               our_buy_balance,
+                                               buy_limit,
+                                               airswap_bands.buy_bands[0],
+                                               target_price.buy_price)
 
     # -- pricing logic --
     # buyPrice = 120 * minMargin = 0.02 = 117.6
@@ -60,9 +67,16 @@ def test_new_buy_orders_taker_amount_success_case(tmpdir):
     maker_amount = Wad(0)
     taker_amount = Wad(11360000000000000000)
     our_buy_balance = Wad(1562000000000000000000)
+    buy_limit = Wad(1562000000000000000000)
     target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
 
-    new_order = airswap_bands._new_buy_orders(maker_amount, taker_amount, our_buy_balance, target_price.buy_price)
+    new_order = airswap_bands._new_side_orders('buy',
+                                               maker_amount,
+                                               taker_amount,
+                                               our_buy_balance,
+                                               buy_limit,
+                                               airswap_bands.buy_bands[0],
+                                               target_price.buy_price)
 
     # -- pricing logic --
     # buyPrice = 120 * minMargin = 0.04 = 4.8
@@ -81,9 +95,16 @@ def test_new_buy_orders_taker_amount_exceed_buy_balance_fail_case(tmpdir):
     maker_amount = Wad(0)
     taker_amount = Wad(11360000000000000000)
     our_buy_balance = Wad(50000000000000000)
+    buy_limit = Wad(1562000000000000000000)
     target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
 
-    new_order = airswap_bands._new_buy_orders(maker_amount, taker_amount, our_buy_balance, target_price.buy_price)
+    new_order = airswap_bands._new_side_orders('buy',
+                                               maker_amount,
+                                               taker_amount,
+                                               our_buy_balance,
+                                               buy_limit,
+                                               airswap_bands.buy_bands[0],
+                                               target_price.buy_price)
 
     # -- pricing logic --
     # buyPrice = 120 * minMargin = 0.02 = 117.6
@@ -101,9 +122,16 @@ def test_new_buy_orders_maker_amount_exceed_buy_balance_fail_case(tmpdir):
     maker_amount = Wad(156200000000000000)
     taker_amount = Wad(0)
     our_buy_balance = Wad(50000000000000000)
+    buy_limit = Wad(1562000000000000000000)
     target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
 
-    new_order = airswap_bands._new_buy_orders(maker_amount, taker_amount, our_buy_balance, target_price.buy_price)
+    new_order = airswap_bands._new_side_orders('buy',
+                                               maker_amount,
+                                               taker_amount,
+                                               our_buy_balance,
+                                               buy_limit,
+                                               airswap_bands.buy_bands[0],
+                                               target_price.buy_price)
 
     # -- pricing logic --
     # buyPrice = 120 * minMargin = 0.02 = 117.6
@@ -121,9 +149,16 @@ def test_new_sell_orders_maker_amount_success_case(tmpdir):
     maker_amount = Wad(106200000000000000000)
     taker_amount = Wad(0)
     our_sell_balance = Wad(1562000000000000000000)
+    sell_limit = Wad(1562000000000000000000)
     target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
 
-    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
+    new_order = airswap_bands._new_side_orders('sell',
+                                               maker_amount,
+                                               taker_amount,
+                                               our_sell_balance,
+                                               sell_limit,
+                                               airswap_bands.sell_bands[0],
+                                               target_price.sell_price)
 
     # -- pricing logic --
     # sellPrice = 130 * maxMargin = 0.08 = 10.4
@@ -141,9 +176,16 @@ def test_new_sell_orders_taker_amount_success_case(tmpdir):
     maker_amount = Wad(0)
     taker_amount = Wad(1770600000000000000)
     our_sell_balance = Wad(1562000000000000000000)
+    sell_limit = Wad(1562000000000000000000)
     target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
 
-    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
+    new_order = airswap_bands._new_side_orders('sell',
+                                               maker_amount,
+                                               taker_amount,
+                                               our_sell_balance,
+                                               sell_limit,
+                                               airswap_bands.sell_bands[0],
+                                               target_price.sell_price)
 
     # -- pricing logic --
     # sellPrice = 130 * avgMargin = 0.05 = 6.5
@@ -162,9 +204,16 @@ def test_new_sell_orders_taker_amount_fail_case(tmpdir):
     maker_amount = Wad(0)
     taker_amount = Wad(1770600000000000000)
     our_sell_balance = Wad(1562000000000000)
+    sell_limit = Wad(1562000000000000000000)
     target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
 
-    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
+    new_order = airswap_bands._new_side_orders('sell',
+                                               maker_amount,
+                                               taker_amount,
+                                               our_sell_balance,
+                                               sell_limit,
+                                               airswap_bands.sell_bands[0],
+                                               target_price.sell_price)
 
     assert new_order == {}
 
@@ -178,9 +227,16 @@ def test_new_sell_orders_maker_amount_fail_case(tmpdir):
     maker_amount = Wad(106200000000000000000)
     taker_amount = Wad(0)
     our_sell_balance = Wad(1562000000000000000)
+    sell_limit = Wad(1562000000000000000000)
     target_price = WebSocketPriceFeed(FakeFeed({"buyPrice": "120", "sellPrice": "130"})).get_price()
 
-    new_order = airswap_bands._new_sell_orders(maker_amount, taker_amount, our_sell_balance, target_price.sell_price)
+    new_order = airswap_bands._new_side_orders('sell',
+                                               maker_amount,
+                                               taker_amount,
+                                               our_sell_balance,
+                                               sell_limit,
+                                               airswap_bands.sell_bands[0],
+                                               target_price.sell_price)
 
     assert new_order == {}
 
