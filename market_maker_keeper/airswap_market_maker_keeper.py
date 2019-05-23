@@ -171,7 +171,7 @@ class AirswapMarketMakerKeeper:
         bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         self.airswap_api.approve(self.token_buy.address, self.token_sell.address)
         self.airswap_api.set_intents(self.token_buy.address, self.token_sell.address)
-        self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.__str__()}, {self.token_sell.address.__str__()}")
+        self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.address}, {self.token_sell.address.address}")
 
    # def shutdown(self):
    # not implemented, will be added when cancel order is finnished
@@ -214,10 +214,10 @@ class AirswapMarketMakerKeeper:
         # V2 should adjust for signed orders we already have out there (essentially create an orderbook)?
         # still debating...
 
-        if (not maker_token.__eq__(self.token_buy.address)) and (not maker_token.__eq__(self.token_sell.address)):
+        if (maker_token != self.token_buy.address) and (maker_token != self.token_sell.address):
             raise CustomException("Not set to trade this token pair", self.logger)
 
-        amount_side = 'buy' if maker_token.__eq__(self.token_buy.address) else 'sell'
+        amount_side = 'buy' if maker_token == self.token_buy.address else 'sell'
         our_buy_balance = self.our_total_balance(self.token_buy)
         our_sell_balance = self.our_total_balance(self.token_sell)
         target_price = self.price_feed.get_price()
@@ -228,11 +228,11 @@ class AirswapMarketMakerKeeper:
 
         else:
             # build & sign order with our private key
-            signed_order = self.airswap_api.sign_order(maker_address.__str__(),
-                                                       maker_token.__str__(),
+            signed_order = self.airswap_api.sign_order(maker_address.address,
+                                                       maker_token.address,
                                                        str(token_amnts["maker_amount"].value),
-                                                       taker_address.__str__(),
-                                                       taker_token.__str__(),
+                                                       taker_address.address,
+                                                       taker_token.address,
                                                        str(token_amnts["taker_amount"].value))
 
             # send signed order back to the taker
