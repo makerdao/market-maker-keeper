@@ -7,3 +7,4 @@ pytest-timeout == 1.2.1
 mock == 2.0.0
 asynctest == 0.11.1
 Sphinx == 1.6.2
+flask == 1.0.3
