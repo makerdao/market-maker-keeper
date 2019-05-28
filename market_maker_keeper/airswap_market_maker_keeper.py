@@ -200,11 +200,11 @@ class AirswapMarketMakerKeeper:
 
         # Only makerAmount or takerAmount should be sent in the request
         # Takers will usually request a makerAmount, however they can request takerAmount
-        if 'makerAmount' in req:
+        if req.get('makerAmount') != None:
             maker_amount = Wad(int(req["makerAmount"]))
             taker_amount = Wad(0)
 
-        elif 'takerAmount' in req:
+        elif req.get('takerAmount') != None:
             taker_amount = Wad(int(req["takerAmount"]))
             maker_amount = Wad(0)
 
