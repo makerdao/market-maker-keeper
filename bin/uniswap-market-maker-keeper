@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+dir="$(dirname "$0")"/..
+source $dir/_virtualenv/bin/activate || exit
+export PYTHONPATH=$PYTHONPATH:$dir:$dir/lib/pymaker:$dir/lib/pyexchange:$dir/lib/ethgasstation-client:$dir/lib/gdax-client:$dir/lib/uniswap
+exec python3 -m market_maker_keeper.uniswap_market_maker_keeper $@
