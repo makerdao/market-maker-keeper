@@ -249,7 +249,7 @@ class CustomException(Exception):
 
     def empty_dict(self):
         # Airswap team instructed us to return nothing when error occurs
-        self.logger.warning(f" {self.message} --> responding to taker with empty dict")
+        self.logger.info(f" {self.message} --> responding to taker with empty dict")
         return {}
 
     def to_json(self):
@@ -397,7 +397,7 @@ class AirswapBands(Bands):
             return new_order
 
         else:
-            self.logger.warning(f"Unable to build {side} order, possible reasons: trade limiter, lack of funds, bad target_price")
+            self.logger.info(f"Unable to build {side} order, possible reasons: trade limiter, lack of funds, bad target_price")
 
             return new_order
 
