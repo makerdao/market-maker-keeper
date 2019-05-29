@@ -119,7 +119,10 @@ class UniswapMarketMakerKeeper:
         token_balance = self.uniswap.get_account_token_balance()
         eth_balance = self.uniswap.get_account_eth_balance()
 
-        self.logger.info(f"ETH balance: {eth_balance}; DAI balance: {token_balance}")
+        self.logger.info(f"Wallet ETH balance: {eth_balance}; "
+                         f"Wallet DAI balance: {token_balance}")
+        self.logger.info(f"Exchange Contract ETH amount: {self.uniswap.get_eth_exchange_balance()}; "
+                         f"Exchange Contract DAI amount: {self.uniswap.get_exchange_balance()}")
 
         if add_liquidity:
             eth_balance_no_gas = eth_balance - Wad.from_number(0.02)
