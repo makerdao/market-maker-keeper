@@ -75,14 +75,11 @@ class MpxMarketMakerKeeper:
         parser.add_argument("--fee-address", type=str, required=True,
                             help="Ethereum address of the Mpx Fee contract")
 
-        parser.add_argument("--sell-token", type=str, required=True,
-                            help="Sell Token name (e.g. DAI, WETH)")
+        parser.add_argument("--pair", type=str, required=True,
+                            help="Token pair (sell/buy) on which the keeper will operate")
 
         parser.add_argument("--sell-token-address", type=str, required=True,
                             help="Ethereum address of the Sell Token")
-
-        parser.add_argument("--buy-token", type=str, required=True,
-                            help="Buy Token name (e.g. DAI, WETH)")
 
         parser.add_argument("--buy-token-address", type=str, required=True,
                             help="Ethereum address of the Buy Token")
@@ -137,9 +134,6 @@ class MpxMarketMakerKeeper:
 
         self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
         self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
-        self.pair = MpxPair(f"{self.arguments.sell_token}-{self.arguments.buy_token}",
-                            self.token_buy.address, 8,
-                            self.token_sell.address, 8)
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_max_decimals = None
@@ -162,6 +156,14 @@ class MpxMarketMakerKeeper:
                               self.zrx_exchange,
                               Address(self.arguments.fee_address),
                               timeout=self.arguments.mpx_api_timeout)
+        self.mpx_api.authenticate()
+
+        markets = self.mpx_api.get_markets()['data']
+        market = next(filter(lambda item: item['attributes']['pair-name'] == self.arguments.pair, markets))
+
+        self.pair = MpxPair(self.arguments.pair,
+                            self.token_buy.address, market['attributes']['base-token-decimals'],
+                            self.token_sell.address, market['attributes']['quote-token-decimals'])
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency, max_workers=1)
         self.order_book_manager.get_orders_with(lambda: self.mpx_api.get_orders(self.pair))
