@@ -137,7 +137,7 @@ class AirswapMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
@@ -151,7 +151,7 @@ class AirswapMarketMakerKeeper:
             self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
 
         if self.arguments.sell_token_address == '0x0000000000000000000000000000000000000000':
-            self.token_sell = EthToken(web3=self.web3, address=Address(self.arguments.buy_token_address))
+            self.token_sell = EthToken(web3=self.web3, address=Address(self.arguments.sell_token_address))
         else:
             self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
 
@@ -219,7 +219,9 @@ class AirswapMarketMakerKeeper:
 
         amount_side = 'buy' if maker_token == self.token_buy.address else 'sell'
         our_buy_balance = self.our_total_balance(self.token_buy)
+        print(f"our_buy_balance - {our_buy_balance}")
         our_sell_balance = self.our_total_balance(self.token_sell)
+        print(f"our_sell_balance - {our_sell_balance}")
         target_price = self.price_feed.get_price()
 
         token_amnts = bands.new_orders(amount_side, maker_amount, taker_amount, our_buy_balance, our_sell_balance, target_price)
@@ -375,9 +377,9 @@ class AirswapBands(Bands):
             pay_amount = Wad.min(maker_amount, limit_amount, our_side_balance)
             price = closest_margin_to_amount(band, maker_amount, target_price)
             if side == 'buy':
-                buy_amount = pay_amount * price
-            else:
                 buy_amount = pay_amount / price
+            else:
+                buy_amount = pay_amount * price
 
         if (price > Wad(0)) and \
            (pay_amount > Wad(0)) and \
