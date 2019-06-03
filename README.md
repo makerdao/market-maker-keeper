@@ -53,6 +53,14 @@ git submodule update --init --recursive
 
 For some known Ubuntu and macOS issues see the [pymaker](https://github.com/makerdao/pymaker) README.
 
+## Testing
+
+After the repo has been cloned and the installation has been completed, run tests by executing:
+```
+./install-dev.sh
+./test.sh
+```
+
 ### Installation of `etherdelta-client`
 
 The `etherdelta-market-maker-keeper` keeper utilizes `etherdelta-client` (present in the `lib/pymaker/utils`
@@ -61,7 +69,7 @@ be present and `npm install` needs to be run in the `lib/pymaker/utils/etherdelt
 
 This step is not necessary if you only want to use the other keepers from this project.
 
-### Installation of `setzer`
+l### Installation of `setzer`
 
 `eth_dai-setzer` and `dai_eth-setzer` price feeds use `setzer` in order to prices Gemini and Kraken.
 It is built on top of `setzer` so in order for it to work correctly, `setzer` and its dependencies
