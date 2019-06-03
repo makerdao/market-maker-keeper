@@ -69,7 +69,7 @@ be present and `npm install` needs to be run in the `lib/pymaker/utils/etherdelt
 
 This step is not necessary if you only want to use the other keepers from this project.
 
-l### Installation of `setzer`
+### Installation of `setzer`
 
 `eth_dai-setzer` and `dai_eth-setzer` price feeds use `setzer` in order to prices Gemini and Kraken.
 It is built on top of `setzer` so in order for it to work correctly, `setzer` and its dependencies
