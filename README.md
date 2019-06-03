@@ -53,6 +53,14 @@ git submodule update --init --recursive
 
 For some known Ubuntu and macOS issues see the [pymaker](https://github.com/makerdao/pymaker) README.
 
+## Testing
+
+After the repo has been cloned and the installation has been completed, run tests by executing:
+```
+./install-dev.sh
+./test.sh
+```
+
 ### Installation of `etherdelta-client`
 
 The `etherdelta-market-maker-keeper` keeper utilizes `etherdelta-client` (present in the `lib/pymaker/utils`
