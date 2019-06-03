@@ -219,9 +219,7 @@ class AirswapMarketMakerKeeper:
 
         amount_side = 'buy' if maker_token == self.token_buy.address else 'sell'
         our_buy_balance = self.our_total_balance(self.token_buy)
-        print(f"our_buy_balance - {our_buy_balance}")
         our_sell_balance = self.our_total_balance(self.token_sell)
-        print(f"our_sell_balance - {our_sell_balance}")
         target_price = self.price_feed.get_price()
 
         token_amnts = bands.new_orders(amount_side, maker_amount, taker_amount, our_buy_balance, our_sell_balance, target_price)
