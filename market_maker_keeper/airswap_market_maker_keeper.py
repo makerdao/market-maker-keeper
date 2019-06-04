@@ -151,7 +151,7 @@ class AirswapMarketMakerKeeper:
             self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
 
         if self.arguments.sell_token_address == '0x0000000000000000000000000000000000000000':
-            self.token_sell = EthToken(web3=self.web3, address=Address(self.arguments.buy_token_address))
+            self.token_sell = EthToken(web3=self.web3, address=Address(self.arguments.sell_token_address))
         else:
             self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
 
@@ -375,9 +375,9 @@ class AirswapBands(Bands):
             pay_amount = Wad.min(maker_amount, limit_amount, our_side_balance)
             price = closest_margin_to_amount(band, maker_amount, target_price)
             if side == 'buy':
-                buy_amount = pay_amount * price
-            else:
                 buy_amount = pay_amount / price
+            else:
+                buy_amount = pay_amount * price
 
         if (price > Wad(0)) and \
            (pay_amount > Wad(0)) and \
