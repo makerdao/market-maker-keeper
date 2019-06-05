@@ -162,8 +162,8 @@ class MpxMarketMakerKeeper:
         market = next(filter(lambda item: item['attributes']['pair-name'] == self.arguments.pair, markets))
 
         self.pair = MpxPair(self.arguments.pair,
-                            self.token_buy.address, market['attributes']['base-token-decimals'],
-                            self.token_sell.address, market['attributes']['quote-token-decimals'])
+                            self.token_buy.address, int(market['attributes']['base-token-decimals']),
+                            self.token_sell.address, int(market['attributes']['quote-token-decimals']))
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency, max_workers=1)
         self.order_book_manager.get_orders_with(lambda: self.mpx_api.get_orders(self.pair))
