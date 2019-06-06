@@ -152,9 +152,9 @@ class MpxMarketMakerKeeper:
         self.history = History()
 
         self.zrx_exchange = ZrxExchangeV2(web3=self.web3, address=Address(self.arguments.exchange_address))
-        self.mpx_api = MpxApi(self.arguments.mpx_api_server,
-                              self.zrx_exchange,
-                              Address(self.arguments.fee_address),
+        self.mpx_api = MpxApi(api_server=self.arguments.mpx_api_server,
+                              zrx_exchange=self.zrx_exchange,
+                              fee_recipient=Address(self.arguments.fee_address),
                               timeout=self.arguments.mpx_api_timeout)
         self.mpx_api.authenticate()
 
