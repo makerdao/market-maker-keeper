@@ -155,7 +155,8 @@ class MpxMarketMakerKeeper:
         self.mpx_api = MpxApi(api_server=self.arguments.mpx_api_server,
                               zrx_exchange=self.zrx_exchange,
                               fee_recipient=Address(self.arguments.fee_address),
-                              timeout=self.arguments.mpx_api_timeout)
+                              timeout=self.arguments.mpx_api_timeout,
+                              our_address=self.arguments.eth_from)
         self.mpx_api.authenticate()
 
         markets = self.mpx_api.get_markets()['data']
