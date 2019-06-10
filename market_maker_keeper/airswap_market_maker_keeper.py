@@ -180,13 +180,36 @@ class AirswapMarketMakerKeeper:
         return token.balance_of(self.our_address)
 
     def _error_handler(self, err):
-        return err.to_json()
+        return err.dont_respond()
 
     def r_get_order(self):
-        # main application logic. Started by the `app.run` call in the `main` method
-        bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         req = request.get_json()
-        logging.info("Received getOrder: {req}".format(req=req))
+        logging.info(f"receiving getOrder: {req}")
+        order = self._order_handler(req)
+
+        # build & sign order with our private key
+        signed_order = self.airswap_api.sign_order(order['maker_address'],
+                                                   order['maker_token'],
+                                                   order['maker_amount'],
+                                                   order['taker_address'],
+                                                   order['taker_token'],
+                                                   order['taker_amount'])
+
+        # send signed order back to the taker
+        logging.info(f"Sending signed order: {signed_order}")
+        return signed_order, 200
+
+    def r_get_quote(self):
+        req = request.get_json()
+        logging.info(f"receiving quoteOrder: {req}")
+        order = self._order_handler(req)
+
+        # send quote order back to the taker
+        logging.info(f"Sending quote order: {order}")
+        return json.dumps(order)
+
+    def _order_handler(self, req):
+        bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
 
         assert('makerAddress' in req)
         assert('takerAddress' in req)
@@ -226,19 +249,15 @@ class AirswapMarketMakerKeeper:
         if not token_amnts:
             raise CustomException("bands.new_orders did not return orders", self.logger)
 
-        else:
-            # build & sign order with our private key
-            signed_order = self.airswap_api.sign_order(maker_address.address,
-                                                       maker_token.address,
-                                                       str(token_amnts["maker_amount"].value),
-                                                       taker_address.address,
-                                                       taker_token.address,
-                                                       str(token_amnts["taker_amount"].value))
-
-            # send signed order back to the taker
-            logging.info(f"Sending order: {signed_order}")
-            return signed_order
-
+        # return successfully built order
+        return {
+                "maker_address": str(maker_address.address).lower(),
+                "maker_token": str(maker_token.address).lower(),
+                "maker_amount": str(token_amnts["maker_amount"].value),
+                "taker_address": str(taker_address.address).lower(),
+                "taker_token": str(taker_token.address).lower(),
+                "taker_amount": str(token_amnts["taker_amount"].value)
+                }
 
 class CustomException(Exception):
 
@@ -252,8 +271,8 @@ class CustomException(Exception):
         self.logger.info(f" {self.message} --> responding to taker with empty dict")
         return {}
 
-    def to_json(self):
-        return json.dumps(self.empty_dict())
+    def dont_respond(self):
+        return ('', 400)
 
 class AirswapBands(Bands):
 
@@ -374,6 +393,7 @@ class AirswapBands(Bands):
             # finds closest margin to amount
             pay_amount = Wad.min(maker_amount, limit_amount, our_side_balance)
             price = closest_margin_to_amount(band, maker_amount, target_price)
+
             if side == 'buy':
                 buy_amount = pay_amount / price
             else:
@@ -448,5 +468,6 @@ def _find_closest(val1, val2, target):
 if __name__ == '__main__':
     airswap_app = AirswapMarketMakerKeeper(sys.argv[1:])
     app.add_url_rule('/getOrder', view_func=airswap_app.r_get_order, methods=["POST"])
+    app.add_url_rule('/getQuote', view_func=airswap_app.r_get_quote, methods=["POST"])
     app.register_error_handler(CustomException, airswap_app._error_handler)
     airswap_app.main()
