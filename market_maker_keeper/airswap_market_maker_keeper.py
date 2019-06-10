@@ -393,12 +393,11 @@ class AirswapBands(Bands):
             # finds closest margin to amount
             pay_amount = Wad.min(maker_amount, limit_amount, our_side_balance)
             price = closest_margin_to_amount(band, maker_amount, target_price)
+
             if side == 'buy':
                 buy_amount = pay_amount / price
             else:
                 buy_amount = pay_amount * price
-
-            rate = buy_amount/pay_amount
 
         if (price > Wad(0)) and \
            (pay_amount > Wad(0)) and \
