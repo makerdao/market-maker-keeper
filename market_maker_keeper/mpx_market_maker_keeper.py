@@ -257,8 +257,12 @@ class MpxMarketMakerKeeper:
             return None
 
     def cancel_order_function(self, order):
-        transact = self.zrx_exchange.cancel_order(order.zrx_order).transact(gas_price=self.gas_price)
-        return transact is not None and transact.successful
+        self.logger.info(f"Canceling order {order.zrx_order.order_hash}")
+        if self.mpx_api.cancel_order(order.zrx_order.order_hash):
+            transact = self.zrx_exchange.cancel_order(order.zrx_order).transact(gas_price=self.gas_price)
+            return transact is not None and transact.successful
+
+        return False
 
 
 if __name__ == '__main__':
