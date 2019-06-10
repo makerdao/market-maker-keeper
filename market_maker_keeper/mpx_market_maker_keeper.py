@@ -35,7 +35,7 @@ from pymaker.numeric import Wad
 from pyexchange.mpx import MpxApi, MpxPair, Order
 from pymaker.keys import register_keys
 from pymaker import Address
-from pymaker.zrxv2 import ZrxExchangeV2
+from pymaker.zrxv2 import ZrxExchangeV2, ZrxRelayerApiV2
 from pymaker.token import ERC20Token
 from pymaker.approval import directly
 from pyexchange.zrxv2 import ZrxApiV2
@@ -160,7 +160,8 @@ class MpxMarketMakerKeeper:
                               timeout=self.arguments.mpx_api_timeout,
                               our_address=self.arguments.eth_from)
 
-        self.zrx_api = ZrxApiV2(zrx_exchange=self.zrx_exchange)
+        self.zrx_relayer_api = ZrxRelayerApiV2(exchange=self.zrx_exchange, api_server=self.arguments.mpx_api_server)
+        self.zrx_api = ZrxApiV2(zrx_exchange=self.zrx_exchange, zrx_api=self.zrx_relayer_api)
 
         markets = self.mpx_api.get_markets()['data']
         market = next(filter(lambda item: item['attributes']['pair-name'] == self.arguments.pair, markets))
@@ -171,6 +172,7 @@ class MpxMarketMakerKeeper:
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.get_orders())
+        self.order_book_manager.get_balances_with(lambda: self.get_balances())
         self.order_book_manager.cancel_orders_with(self.cancel_order_function)
         self.order_book_manager.place_orders_with(self.place_order_function)
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
@@ -191,6 +193,10 @@ class MpxMarketMakerKeeper:
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
+
+    def get_balances(self):
+        balances = self.zrx_api.get_balances(self.pair)
+        return balances[0], balances[1], eth_balance(self.web3, self.our_address)
 
     def get_orders(self) -> list:
         orders = self.mpx_api.get_orders(self.pair)
