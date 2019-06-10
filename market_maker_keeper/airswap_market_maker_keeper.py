@@ -169,7 +169,7 @@ class AirswapMarketMakerKeeper:
 
     def startup(self):
         bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-        self.airswap_api.approve(self.token_buy.address,self.token_sell.address)
+        self.airswap_api.approve(self.token_buy.address, self.token_sell.address)
         self.airswap_api.set_intents(self.token_buy.address, self.token_sell.address)
         self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.address}, {self.token_sell.address.address}")
 
