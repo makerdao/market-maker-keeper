@@ -20,7 +20,7 @@ import logging
 import sys
 from web3 import Web3, HTTPProvider
 
-from market_maker_keeper.band import Bands
+from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
@@ -38,6 +38,8 @@ from pymaker import Address
 from pymaker.zrxv2 import ZrxExchangeV2
 from pymaker.token import ERC20Token
 from pymaker.approval import directly
+from pyexchange.zrxv2 import ZrxApiV2
+from pymaker.util import eth_balance
 
 
 class MpxMarketMakerKeeper:
@@ -157,7 +159,8 @@ class MpxMarketMakerKeeper:
                               fee_recipient=Address(self.arguments.fee_address),
                               timeout=self.arguments.mpx_api_timeout,
                               our_address=self.arguments.eth_from)
-        self.mpx_api.authenticate()
+
+        self.zrx_api = ZrxApiV2(zrx_exchange=self.zrx_exchange)
 
         markets = self.mpx_api.get_markets()['data']
         market = next(filter(lambda item: item['attributes']['pair-name'] == self.arguments.pair, markets))
@@ -166,9 +169,10 @@ class MpxMarketMakerKeeper:
                             self.token_buy.address, int(market['attributes']['base-token-decimals']),
                             self.token_sell.address, int(market['attributes']['quote-token-decimals']))
 
-        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency, max_workers=1)
-        self.order_book_manager.get_orders_with(lambda: self.mpx_api.get_orders(self.pair))
-        self.order_book_manager.cancel_orders_with(lambda order: self.mpx_api.cancel_order(order.order_id))
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
+        self.order_book_manager.get_orders_with(lambda: self.get_orders())
+        self.order_book_manager.cancel_orders_with(self.cancel_order_function)
+        self.order_book_manager.place_orders_with(self.place_order_function)
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -187,6 +191,10 @@ class MpxMarketMakerKeeper:
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
+
+    def get_orders(self) -> list:
+        orders = self.mpx_api.get_orders(self.pair)
+        return self.zrx_api.get_orders(self.pair, orders)
 
     def our_total_balance(self, token: ERC20Token) -> Wad:
         return token.balance_of(self.our_address)
@@ -221,25 +229,30 @@ class MpxMarketMakerKeeper:
         our_sell_balance = self.our_total_balance(self.token_sell) - Bands.total_amount(self.our_sell_orders(order_book.orders))
 
         # Place new orders
-        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                           our_sell_orders=self.our_sell_orders(order_book.orders),
-                                           our_buy_balance=our_buy_balance,
-                                           our_sell_balance=our_sell_balance,
-                                           target_price=target_price)[0])
+        self.order_book_manager.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                                              our_sell_orders=self.our_sell_orders(order_book.orders),
+                                                              our_buy_balance=our_buy_balance,
+                                                              our_sell_balance=our_sell_balance,
+                                                              target_price=target_price)[0])
 
-    def place_orders(self, new_orders):
-        def place_order_function(new_order_to_be_placed):
-            price = round(new_order_to_be_placed.price, self.price_max_decimals)
-            amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            order_id = self.mpx_api.place_order(pair=self.pair,
-                                                is_sell=new_order_to_be_placed.is_sell,
-                                                price=price,
-                                                amount=amount)
+    def place_order_function(self, new_order: NewOrder):
+        assert(isinstance(new_order, NewOrder))
 
-            return Order(order_id, self.pair.get_pair_name(), new_order_to_be_placed.is_sell, price, amount)
+        price = round(new_order.price, self.price_max_decimals)
+        amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
+        zrx_order = self.mpx_api.place_order(pair=self.pair,
+                                             is_sell=new_order.is_sell,
+                                             price=price,
+                                             amount=amount)
 
-        for new_order in new_orders:
-            self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
+        if zrx_order is not None:
+            return self.zrx_api.get_orders(self.pair, [zrx_order])[0]
+        else:
+            return None
+
+    def cancel_order_function(self, order):
+        transact = self.zrx_exchange.cancel_order(order.zrx_order).transact(gas_price=self.gas_price)
+        return transact is not None and transact.successful
 
 
 if __name__ == '__main__':
