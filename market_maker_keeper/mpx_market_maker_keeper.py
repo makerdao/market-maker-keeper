@@ -145,12 +145,6 @@ class MpxMarketMakerKeeper:
         self.control_feed = create_control_feed(self.arguments)
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
-        self.bands_config = ReloadableConfig(self.arguments.config)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
-        self.spread_feed = create_spread_feed(self.arguments)
-        self.control_feed = create_control_feed(self.arguments)
-        self.order_history_reporter = create_order_history_reporter(self.arguments)
-
         self.history = History()
 
         self.zrx_exchange = ZrxExchangeV2(web3=self.web3, address=Address(self.arguments.exchange_address))
