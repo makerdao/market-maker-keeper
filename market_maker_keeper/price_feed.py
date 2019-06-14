@@ -246,6 +246,10 @@ class PriceFeedFactory:
         assert(isinstance(price_feed_expiry_argument, int))
         assert(isinstance(tub, Tub) or tub is None)
 
+        if price_feed_argument == 'eth_dai-pair':
+            return GdaxPriceFeed(product_id="ETH-DAI",
+                                 expiry=price_feed_expiry_argument)
+
         if price_feed_argument == 'eth_dai':
             return GdaxPriceFeed(product_id="ETH-USD",
                                  expiry=price_feed_expiry_argument)
