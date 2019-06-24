@@ -27,6 +27,7 @@ from web3 import Web3, HTTPProvider
 from pymaker.keys import register_keys
 from pymaker import Address, Wad
 from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.uniswap_util import UniswapUtil
 
 
 class UniswapMarketMakerKeeper:
@@ -93,6 +94,10 @@ class UniswapMarketMakerKeeper:
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
 
         self.uniswap = Uniswap(self.web3, self.token_address, self.exchange_address)
+        self.utils = UniswapUtil(web3=self.web3,
+                                 dai_contract_address='0x09cabEC1eAd1c0Ba254B09efb3EE13841712bE14',
+                                 dai_address='0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359',
+                                 factory_contract='0xc0a47dFe034B400B47bDaD5FecDa2621de6c4d95')
 
         if self.arguments.uniswap_feed:
             web_socket_feed = WebSocketFeed(self.arguments.uniswap_feed, 5)
@@ -108,7 +113,7 @@ class UniswapMarketMakerKeeper:
     def place_liquidity(self):
 
         feed_price = self.feed.get()[0]['price']
-        uniswap_price = self.uniswap.get_exchange_rate()
+        uniswap_price = Wad.from_number(1 / self.utils.get_future_price())
 
         diff = Wad.from_number(feed_price * self.arguments.percentage_difference / 100)
         self.logger.info(f"Feed price: {feed_price} Uniswap price: {uniswap_price} Diff: {diff}")
@@ -140,6 +145,17 @@ class UniswapMarketMakerKeeper:
                 transact = self.uniswap.add_liquidity(eth_amount_to_add).transact(gas_price=self.gas_price)
 
                 if transact is not None and transact.successful:
+                    token_balance_after_add = self.uniswap.get_account_token_balance()
+                    eth_balance_after_add = self.uniswap.get_account_eth_balance()
+                    gas_used = transact.gas_used
+                    gas_price = Wad(self.web3.eth.getTransaction(transact.transaction_hash.hex())['gasPrice'])
+                    tx_fee = Wad.from_number(gas_used) * gas_price
+
+                    eth_real_added = eth_balance - eth_balance_after_add - tx_fee
+                    token_real_added = token_balance - token_balance_after_add
+                    self.logger.info(f"Real Eth amount added {eth_real_added} Real token amount "
+                                     f"added {token_real_added} at price {eth_real_added / token_real_added}; "
+                                     f"tx fee used {tx_fee}")
                     self.logger.info(f"Successfully added {eth_amount_to_add} liquidity "
                                      f"of {self.token_address.address} with {transact.transaction_hash.hex()}")
                 else:
@@ -158,6 +174,16 @@ class UniswapMarketMakerKeeper:
                 transact = self.uniswap.remove_liquidity(liquidity_to_remove).transact(gas_price=self.gas_price)
 
                 if transact is not None and transact.successful:
+                    token_balance_after_remove = self.uniswap.get_account_token_balance()
+                    eth_balance_after_remove = self.uniswap.get_account_eth_balance()
+                    gas_used = transact.gas_used
+                    gas_price = Wad(self.web3.eth.getTransaction(transact.transaction_hash.hex())['gasPrice'])
+                    tx_fee = Wad.from_number(gas_used) * gas_price
+                    eth_real_removed = eth_balance_after_remove - eth_balance + tx_fee
+                    token_real_removed = token_balance_after_remove - token_balance
+                    self.logger.info(f"Real Eth amount removed {eth_real_removed} Real token amount "
+                                     f"removed {token_real_removed} at price {eth_real_removed / token_real_removed}; "
+                                     f"tx fee used {tx_fee}")
                     self.logger.info(f"Removed {liquidity_to_remove} liquidity "
                                      f"of {self.token_address.address} with transaction {transact.transaction_hash.hex()}")
                 else:
