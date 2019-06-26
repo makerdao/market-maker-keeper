@@ -109,7 +109,7 @@ class LiquidMarketMakerKeeper:
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.liquid_api.get_orders(self.pair()))
         self.order_book_manager.get_balances_with(lambda: self.liquid_api.get_balances())
-        self.order_book_manager.cancel_orders_with(lambda order: self.liquid_api.cancel_order(order.order_id))
+        self.order_book_manager.cancel_orders_with(lambda order: self.liquid_api.cancel_order(str(order.order_id)))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders,
                                                          self.our_sell_orders)
         self.order_book_manager.start()
@@ -187,7 +187,8 @@ class LiquidMarketMakerKeeper:
                          pair=self.pair(),
                          is_sell=new_order_to_be_placed.is_sell,
                          price=new_order_to_be_placed.price,
-                         amount=amount)
+                         amount=amount,
+                         filled_amount=Wad(0))
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
