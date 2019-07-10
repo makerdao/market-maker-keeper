@@ -42,8 +42,8 @@ class LiquidMarketMakerKeeper:
     def __init__(self, args: list):
         parser = argparse.ArgumentParser(prog='liquid-market-maker-keeper')
 
-        parser.add_argument("--liquid-api-server", type=str, default="https://api.quoine.com",
-                            help="Address of the liquid API server (default: 'https://api.quoine.com')")
+        parser.add_argument("--liquid-api-server", type=str, default="https://api.liquid.com",
+                            help="Address of the liquid API server (default: 'https://api.liquid.com')")
 
         parser.add_argument("--liquid-api-key", type=str, required=True,
                             help="API key for the liquid API")
