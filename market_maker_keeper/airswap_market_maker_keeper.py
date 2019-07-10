@@ -101,8 +101,11 @@ class AirswapMarketMakerKeeper:
         parser.add_argument("--buy-token-address", type=str, required=True,
                             help="Ethereum address of the buy token")
 
-        parser.add_argument("--sell-token-address", type=str, required=True,
-                            help="Ethereum address of the sell token")
+        parser.add_argument("--eth-sell-token-address", type=str, required=True,
+                            help="eth Ethereum address of the sell token")
+
+        parser.add_argument("--weth-sell-token-address", type=str, required=True,
+                            help="weth Ethereum address of the sell token")
 
         parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
@@ -137,7 +140,7 @@ class AirswapMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
@@ -150,10 +153,8 @@ class AirswapMarketMakerKeeper:
         else:
             self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
 
-        if self.arguments.sell_token_address == '0x0000000000000000000000000000000000000000':
-            self.token_sell = EthToken(web3=self.web3, address=Address(self.arguments.sell_token_address))
-        else:
-            self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
+        self.eth_token_sell = EthToken(web3=self.web3, address=Address(self.arguments.eth_sell_token_address))
+        self.weth_token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.weth_sell_token_address))
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
@@ -168,13 +169,19 @@ class AirswapMarketMakerKeeper:
         app.run(host=self.arguments.orderserver_host, port=self.arguments.orderserver_port)
 
     def startup(self):
+        #approvals are a bit tricky as the call below is made to the airswap API but the actual approval takes place on the blockchain. They only need to be run once so double check on etherscan that this has been executed for all token pairs.
+
         bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-        self.airswap_api.approve(self.token_buy.address, self.token_sell.address)
-        self.airswap_api.set_intents(self.token_buy.address, self.token_sell.address)
-        self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.address}, {self.token_sell.address.address}")
+
+        self.airswap_api.approve(self.token_buy.address, self.eth_token_sell.address)
+        self.airswap_api.approve(self.token_buy.address, self.weth_token_sell.address)
+
+        self.airswap_api.set_intents(self.token_buy.address, self.eth_token_sell.address, self.weth_token_sell.address)
+
+        self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.address}, {self.eth_token_sell.address.address}, {self.weth_token_sell.address.address}")
 
    # def shutdown(self):
-   # not implemented, will be added when cancel order is finnished
+   # not implemented, will be added when cancel order is finished
 
     def our_total_balance(self, token) -> Wad:
         return token.balance_of(self.our_address)
@@ -237,12 +244,23 @@ class AirswapMarketMakerKeeper:
         # V2 should adjust for signed orders we already have out there (essentially create an orderbook)?
         # still debating...
 
-        if (maker_token != self.token_buy.address) and (maker_token != self.token_sell.address):
+        if (maker_token != self.token_buy.address) and (maker_token != self.eth_token_sell.address) and (maker_token != self.weth_token_sell.address):
             raise CustomException("Not set to trade this token pair", self.logger)
 
-        amount_side = 'buy' if maker_token == self.token_buy.address else 'sell'
-        our_buy_balance = self.our_total_balance(self.token_buy)
-        our_sell_balance = self.our_total_balance(self.token_sell)
+        if maker_token == self.token_buy.address:
+            amount_side = 'buy'
+            our_buy_balance = self.our_total_balance(self.token_buy)
+            our_sell_balance = self.our_total_balance(self.eth_token_sell) \
+                               if taker_token == self.eth_token_sell.address \
+                               else self.our_total_balance(self.weth_token_sell)
+
+        else:
+            amount_side = 'sell'
+            our_buy_balance = self.our_total_balance(self.token_buy)
+            our_sell_balance = self.our_total_balance(self.eth_token_sell) \
+                               if maker_token == self.eth_token_sell.address \
+                               else self.our_total_balance(self.weth_token_sell)
+
         target_price = self.price_feed.get_price()
 
         token_amnts = bands.new_orders(amount_side, maker_amount, taker_amount, our_buy_balance, our_sell_balance, target_price)
