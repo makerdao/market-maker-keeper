@@ -73,9 +73,13 @@ class UniswapMarketMakerKeeper:
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
-        parser.add_argument("--percentage-difference", type=float, default=1,
+        parser.add_argument("--percentage-difference", type=float, default=2,
                             help="Percentage difference between Uniswap exchange rate and aggregated price"
-                                 "(default: 1)")
+                                 "(default: 2)")
+
+        parser.add_argument("--uniswap-percentage-difference", type=float, default=5,
+                            help="Percentage difference between future Uniswap exchange rate and aggregated price"
+                                 "(default: 5)")
 
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
@@ -113,13 +117,26 @@ class UniswapMarketMakerKeeper:
     def place_liquidity(self):
 
         feed_price = self.feed.get()[0]['price']
+
         uniswap_price = Wad.from_number(1 / self.utils.get_future_price())
+        self.logger.info(f"Uniswap future price is {uniswap_price}")
 
-        diff = Wad.from_number(feed_price * self.arguments.percentage_difference / 100)
-        self.logger.info(f"Feed price: {feed_price} Uniswap price: {uniswap_price} Diff: {diff}")
+        uniswap_current_exchange_price = self.uniswap.get_exchange_rate()
+        uniswap_price_move = abs(uniswap_price - uniswap_current_exchange_price) / uniswap_current_exchange_price
 
-        add_liquidity = diff > abs(Wad.from_number(feed_price) - uniswap_price)
-        remove_liquidity = diff < abs(Wad.from_number(feed_price) - uniswap_price)
+        uniswap_current_exchange_price = self.uniswap.get_exchange_rate()
+
+        if uniswap_price_move > Wad.from_number(self.arguments.uniswap_percentage_difference):
+            self.logger.info(f"Uniswap price move: {uniswap_price_move}")
+            add_liquidity = False
+            remove_liquidity = True
+
+        else:
+            diff = Wad.from_number(feed_price * self.arguments.percentage_difference / 100)
+            self.logger.info(f"Feed price: {feed_price} Uniswap price: {uniswap_current_exchange_price} Diff: {diff}")
+
+            add_liquidity = diff > abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
+            remove_liquidity = diff < abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
 
         token_balance = self.uniswap.get_account_token_balance()
         eth_balance = self.uniswap.get_account_eth_balance()
@@ -134,8 +151,8 @@ class UniswapMarketMakerKeeper:
             liquidity_to_add = eth_balance_no_gas
 
             self.logger.info(f"Wallet liquidity {liquidity_to_add}")
-            self.logger.info(f"Calculated liquidity {token_balance / uniswap_price}")
-            eth_amount_to_add = min(liquidity_to_add, (token_balance * Wad(95)/Wad(100)) / uniswap_price )
+            self.logger.info(f"Calculated liquidity {token_balance / uniswap_current_exchange_price}")
+            eth_amount_to_add = min(liquidity_to_add, (token_balance * Wad(95)/Wad(100)) / uniswap_current_exchange_price )
 
             current_liquidity_tokens = self.uniswap.get_current_liquidity()
             self.logger.info(f"Current liquidity tokens before adding {current_liquidity_tokens}")
