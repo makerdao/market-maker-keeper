@@ -280,5 +280,7 @@ class UniswapUtil:
                 self.logger.info(f'current price inside util function is {self.getTokenPriceInETH(self.dai_contract_address.lower())} and future price is {ETH_end/Token_end} ')
                 return ETH_end/Token_end
 
+        return self.getTokenPriceInETH(self.dai_contract_address.lower())
+
 
 
