@@ -131,12 +131,16 @@ class UniswapMarketMakerKeeper:
             add_liquidity = False
             remove_liquidity = True
 
+            self.logger.info(f"Uniswap price move triggered add liquidity: {add_liquidity}; remove liquidity: {remove_liquidity}")
+
         else:
             diff = Wad.from_number(feed_price * self.arguments.percentage_difference / 100)
             self.logger.info(f"Feed price: {feed_price} Uniswap price: {uniswap_current_exchange_price} Diff: {diff}")
 
             add_liquidity = diff > abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
             remove_liquidity = diff < abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
+
+            self.logger.info(f"Feed price / Uniswap price diff triggered add liquidity: {add_liquidity}; remove liquidity: {remove_liquidity}")
 
         token_balance = self.uniswap.get_account_token_balance()
         eth_balance = self.uniswap.get_account_eth_balance()
