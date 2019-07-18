@@ -138,9 +138,9 @@ class PriceHandler(tornado.web.RequestHandler):
         return {
             "result": True,
             "exchangeable": True,
-            "price": str(price),
-            "minAmount": str(band.min_amount),
-            "maxAmount": str(band.max_amount)
+            "price": float(price),
+            "minAmount": float(band.min_amount),
+            "maxAmount": float(band.max_amount)
         }
 
 
