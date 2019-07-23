@@ -136,11 +136,9 @@ class PriceHandler(tornado.web.RequestHandler):
 
         logging.info(f"price: {str(price)}  minAmount: {str(band.min_amount)}  maxAmount: {str(band.max_amount)}")
 
-        exchangeable = Wad.from_number(amount) <= band.max_amount and Wad.from_number(amount) >= band.min_amount
-
         return {
             "result": True,
-            "exchangeable": exchangeable,
+            "exchangeable": Wad.from_number(amount) <= band.max_amount,
             "price": float(price),
             "minAmount": float(band.min_amount),
             "maxAmount": float(band.max_amount)
