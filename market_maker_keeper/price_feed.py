@@ -271,6 +271,9 @@ class PriceFeedFactory:
         elif price_feed_argument == 'dai_eth':
             return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai', price_feed_expiry_argument, tub))
 
+        elif price_feed_argument == 'dai_eth-pair':
+            return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai-pair', price_feed_expiry_argument, tub))
+
         elif price_feed_argument == 'dai_eth-setzer':
             return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai-setzer', price_feed_expiry_argument, tub))
 
