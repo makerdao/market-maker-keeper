@@ -21,6 +21,7 @@ import uuid
 import logging
 import jsonschema
 from market_maker_keeper.band import Bands
+from pymaker.numeric import Wad
 
 
 class ImtokenPair:
@@ -68,8 +69,8 @@ class PriceHandler(tornado.web.RequestHandler):
 
     @gen.coroutine
     def get(self):
-        response = self._get_price_response()
         amount = self.get_query_argument('amount')
+        response = self._get_price_response(amount)
         uniqId = self.get_query_argument('uniqId')
 
         quote_id = str(uuid.uuid4())
@@ -82,7 +83,7 @@ class PriceHandler(tornado.web.RequestHandler):
         response["quoteId"] = quote_id
         return self.write(response)
 
-    def _get_price_response(self):
+    def _get_price_response(self, amount):
         base = self.get_query_argument('base')
         quote = self.get_query_argument('quote')
         side = str(self.get_query_argument('side'))
@@ -135,9 +136,11 @@ class PriceHandler(tornado.web.RequestHandler):
 
         logging.info(f"price: {str(price)}  minAmount: {str(band.min_amount)}  maxAmount: {str(band.max_amount)}")
 
+        exchangeable = Wad.from_number(amount) <= band.max_amount and Wad.from_number(amount) >= band.min_amount
+
         return {
             "result": True,
-            "exchangeable": True,
+            "exchangeable": exchangeable,
             "price": float(price),
             "minAmount": float(band.min_amount),
             "maxAmount": float(band.max_amount)
@@ -147,7 +150,8 @@ class PriceHandler(tornado.web.RequestHandler):
 class IndicativePriceHandler(PriceHandler):
     @gen.coroutine
     def get(self):
-        return self.write(self._get_price_response())
+        amount = self.get_query_argument('amount', default=0)
+        return self.write(self._get_price_response(amount))
 
 
 class DealHandler(tornado.web.RequestHandler):
