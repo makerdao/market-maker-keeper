@@ -112,6 +112,7 @@ class PriceHandler(tornado.web.RequestHandler):
         else:
             our_side = "SELL"
         target_price = self.price_feed.get_price()
+
         logging.info(f" Base pair is {self.pair.base_pair} ; Query pair is {query_pair}")
 
         if query_pair == self.pair.counter_pair and our_side == "BUY":
@@ -132,7 +133,7 @@ class PriceHandler(tornado.web.RequestHandler):
         if query_pair == self.pair.base_pair and our_side == "BUY":
             bands = Bands.read(self.base_bands_config, self.spread_feed, self.control_feed, self.history)
             band = bands.sell_bands[0]
-            price =1 / int(band.avg_price(target_price.buy_price))
+            price = 1 / int(band.avg_price(target_price.buy_price))
 
         logging.info(f"price: {str(price)}  minAmount: {str(band.min_amount)}  maxAmount: {str(band.max_amount)}")
 
