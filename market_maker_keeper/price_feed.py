@@ -140,6 +140,14 @@ class GdaxPriceFeed(PriceFeed):
         else:
             return Price(buy_price=None, sell_price=None)
 
+    def get_midpoint_price(self) -> Price:
+        gdax_midpoint_price = self.gdax_price_client.get_obook_price()
+
+        if gdax_midpoint_price:
+            return Price(buy_price=Wad.from_number(gdax_midpoint_price), sell_price=Wad.from_number(gdax_midpoint_price))
+
+        else:
+            return Price(buy_price=None, sell_price=None)
 
 class WebSocketPriceFeed(PriceFeed):
     def __init__(self, feed: Feed):
@@ -233,6 +241,13 @@ class BackupPriceFeed(PriceFeed):
 
         return Price(buy_price=None, sell_price=None)
 
+    def get_midpoint_price(self) -> Price:
+        for feed in self.feeds:
+            price = feed.get_midpoint_price()
+            if price.buy_price is not None or price.sell_price is not None:
+                return price
+
+        return Price(buy_price=None, sell_price=None)
 
 class PriceFeedFactory:
     @staticmethod
