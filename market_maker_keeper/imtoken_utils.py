@@ -113,7 +113,6 @@ class PriceHandler(tornado.web.RequestHandler):
             our_side = "SELL"
         target_price = self.price_feed.get_midpoint_price()
 
-        logging.info(f" midpoint {target_price.buy_price}")
         logging.info(f" Base pair is {self.pair.base_pair} ; Query pair is {query_pair}")
 
         if query_pair == self.pair.counter_pair and our_side == "BUY":
