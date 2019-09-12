@@ -140,7 +140,10 @@ class GdaxPriceFeed(PriceFeed):
         else:
             return Price(buy_price=None, sell_price=None)
 
-    def get_midpoint_price(self) -> Price:
+
+class GdaxMidpointPriceFeed(GdaxPriceFeed):
+
+    def get_price(self) -> Price:
         gdax_midpoint_price = self.gdax_price_client.get_obook_price()
 
         if gdax_midpoint_price:
@@ -148,6 +151,7 @@ class GdaxPriceFeed(PriceFeed):
 
         else:
             return Price(buy_price=None, sell_price=None)
+
 
 class WebSocketPriceFeed(PriceFeed):
     def __init__(self, feed: Feed):
@@ -241,13 +245,6 @@ class BackupPriceFeed(PriceFeed):
 
         return Price(buy_price=None, sell_price=None)
 
-    def get_midpoint_price(self) -> Price:
-        for feed in self.feeds:
-            price = feed.get_midpoint_price()
-            if price.buy_price is not None or price.sell_price is not None:
-                return price
-
-        return Price(buy_price=None, sell_price=None)
 
 class PriceFeedFactory:
     @staticmethod
@@ -264,6 +261,10 @@ class PriceFeedFactory:
         if price_feed_argument == 'eth_dai-pair':
             return GdaxPriceFeed(product_id="ETH-DAI",
                                  expiry=price_feed_expiry_argument)
+
+        if price_feed_argument == 'eth_dai-pair-midpoint':
+            return GdaxMidpointPriceFeed(product_id="ETH-DAI",
+                                         expiry=price_feed_expiry_argument).get_price()
 
         if price_feed_argument == 'eth_dai':
             return GdaxPriceFeed(product_id="ETH-USD",

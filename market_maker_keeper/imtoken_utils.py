@@ -111,7 +111,18 @@ class PriceHandler(tornado.web.RequestHandler):
             our_side = "BUY"
         else:
             our_side = "SELL"
-        target_price = self.price_feed.get_midpoint_price()
+        target_price = self.price_feed.get_price()
+
+        logging.info(f" Feed price: buy {target_price.buy_price} ; sell {target_price.sell_price}")
+
+        if target_price.buy_price is None or target_price.sell_price is None:
+            return {
+                "result": False,
+                "exchangeable": False,
+                "minAmount": 0.0,
+                "maxAmount": 0.0,
+                "message": f"internal server error, please retry later"
+            }
 
         logging.info(f" Base pair is {self.pair.base_pair} ; Query pair is {query_pair}")
 
