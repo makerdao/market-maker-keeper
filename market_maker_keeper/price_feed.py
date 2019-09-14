@@ -264,7 +264,7 @@ class PriceFeedFactory:
 
         if price_feed_argument == 'eth_dai-pair-midpoint':
             return GdaxMidpointPriceFeed(product_id="ETH-DAI",
-                                         expiry=price_feed_expiry_argument).get_price()
+                                         expiry=price_feed_expiry_argument)
 
         if price_feed_argument == 'eth_dai':
             return GdaxPriceFeed(product_id="ETH-USD",
