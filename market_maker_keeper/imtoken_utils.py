@@ -26,12 +26,12 @@ from pymaker.numeric import Wad
 
 class ImtokenPair:
 
-    def __init__(self, base_pair: str, counter_pair: str):
-        assert(isinstance(base_pair, str))
-        assert(isinstance(counter_pair, str))
+    def __init__(self, pair: str):
+        assert(isinstance(pair, str))
 
-        self.base_pair = base_pair
-        self.counter_pair = counter_pair
+        self.base_pair = pair
+        pair_split = pair.split('/')
+        self.counter_pair = f"{pair_split[1].upper()}/{pair_split[0].upper()}"
 
 
 class PairsHandler(tornado.web.RequestHandler):
@@ -51,16 +51,14 @@ class PairsHandler(tornado.web.RequestHandler):
 class PriceHandler(tornado.web.RequestHandler):
 
     def initialize(self, pair,
-                   base_bands_config,
-                   counter_bands_config,
+                   config,
                    price_feed,
                    spread_feed,
                    control_feed,
                    history,
                    cache):
         self.pair = pair
-        self.base_bands_config = base_bands_config
-        self.counter_bands_config = counter_bands_config
+        self.bands_config = config
         self.price_feed = price_feed
         self.spread_feed = spread_feed
         self.control_feed = control_feed
@@ -127,23 +125,23 @@ class PriceHandler(tornado.web.RequestHandler):
         logging.info(f" Base pair is {self.pair.base_pair} ; Query pair is {query_pair}")
 
         if query_pair == self.pair.counter_pair and our_side == "BUY":
-            bands = Bands.read(self.base_bands_config, self.spread_feed, self.control_feed, self.history)
+            bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
             band = bands.buy_bands[0]
             price = band.avg_price(target_price.buy_price)
 
         if query_pair == self.pair.counter_pair and our_side == "SELL":
-            bands = Bands.read(self.counter_bands_config, self.spread_feed, self.control_feed, self.history)
+            bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
             band = bands.sell_bands[0]
             price = band.avg_price(target_price.sell_price)
 
         if query_pair == self.pair.base_pair and our_side == "SELL":
-            bands = Bands.read(self.counter_bands_config, self.spread_feed, self.control_feed, self.history)
-            band = bands.buy_bands[0]
+            bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
+            band = bands.sell_bands[0]
             price = 1 / int(band.avg_price(target_price.sell_price))
 
         if query_pair == self.pair.base_pair and our_side == "BUY":
-            bands = Bands.read(self.base_bands_config, self.spread_feed, self.control_feed, self.history)
-            band = bands.sell_bands[0]
+            bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
+            band = bands.buy_bands[0]
             price = 1 / int(band.avg_price(target_price.buy_price))
 
         logging.info(f"price: {str(price)}  minAmount: {str(band.min_amount)}  maxAmount: {str(band.max_amount)}")

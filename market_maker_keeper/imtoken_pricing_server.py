@@ -52,16 +52,10 @@ class ImtokenPricingServer:
         parser.add_argument("--imtoken-api-timeout", type=float, default=9.5,
                             help="Timeout for accessing the Imtoken API (in seconds, default: 9.5)")
 
-        parser.add_argument("--base-pair", type=str, required=True,
+        parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
 
-        parser.add_argument("--base-config", type=str, required=True,
-                            help="Bands configuration file")
-
-        parser.add_argument("--counter-pair", type=str, required=True,
-                            help="Token pair (sell/buy) on which the keeper will operate")
-
-        parser.add_argument("--counter-config", type=str, required=True,
+        parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
 
         parser.add_argument("--price-feed", type=str, required=True,
@@ -95,29 +89,26 @@ class ImtokenPricingServer:
         setup_logging(self.arguments)
 
         self.cache = TTLCache(maxsize=self.arguments.order_cache_maxsize, ttl=self.arguments.order_cache_ttl)
-        self.base_bands_config = ReloadableConfig(self.arguments.base_config)
-        self.counter_bands_config = ReloadableConfig(self.arguments.counter_config)
+        self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
         self.control_feed = create_control_feed(self.arguments)
 
         self.history = History()
 
-        pair = ImtokenPair(self.arguments.base_pair, self.arguments.counter_pair)
+        pair = ImtokenPair(self.arguments.pair)
 
         application = tornado.web.Application([
             (r"/pairs", PairsHandler, dict(pair=pair)),
             (r"/indicativePrice", IndicativePriceHandler, dict(pair=pair,
-                                                               base_bands_config=self.base_bands_config,
-                                                               counter_bands_config=self.counter_bands_config,
+                                                               config=self.bands_config,
                                                                price_feed=self.price_feed,
                                                                spread_feed=self.spread_feed,
                                                                control_feed=self.control_feed,
                                                                history=self.history,
                                                                cache=self.cache)),
             (r"/price", PriceHandler, dict(pair=pair,
-                                           base_bands_config=self.base_bands_config,
-                                           counter_bands_config=self.counter_bands_config,
+                                           config=self.bands_config,
                                            price_feed=self.price_feed,
                                            spread_feed=self.spread_feed,
                                            control_feed=self.control_feed,
