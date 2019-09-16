@@ -20,9 +20,10 @@ import argparse
 import logging
 import tornado.ioloop
 import tornado.web
+import json
 from cachetools import TTLCache
 from market_maker_keeper.imtoken_utils import PairsHandler, IndicativePriceHandler,\
-    PriceHandler, DealHandler, ImtokenPair
+    PriceHandler, DealHandler, ImtokenPair, MarketArgs
 
 from market_maker_keeper.util import setup_logging
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -52,29 +53,8 @@ class ImtokenPricingServer:
         parser.add_argument("--imtoken-api-timeout", type=float, default=9.5,
                             help="Timeout for accessing the Imtoken API (in seconds, default: 9.5)")
 
-        parser.add_argument("--pair", type=str, required=True,
-                            help="Token pair (sell/buy) on which the keeper will operate")
-
         parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
-
-        parser.add_argument("--price-feed", type=str, required=True,
-                            help="Source of price feed")
-
-        parser.add_argument("--price-feed-expiry", type=int, default=120,
-                            help="Maximum age of the price feed (in seconds, default: 120)")
-
-        parser.add_argument("--spread-feed", type=str,
-                            help="Source of spread feed")
-
-        parser.add_argument("--spread-feed-expiry", type=int, default=3600,
-                            help="Maximum age of the spread feed (in seconds, default: 3600)")
-
-        parser.add_argument("--control-feed", type=str,
-                            help="Source of control feed")
-
-        parser.add_argument("--control-feed-expiry", type=int, default=86400,
-                            help="Maximum age of the control feed (in seconds, default: 86400)")
 
         parser.add_argument("--order-cache-maxsize", type=int, default=100000,
                             help="Maximum size of orders cache")
@@ -89,36 +69,72 @@ class ImtokenPricingServer:
         setup_logging(self.arguments)
 
         self.cache = TTLCache(maxsize=self.arguments.order_cache_maxsize, ttl=self.arguments.order_cache_ttl)
-        self.bands_config = ReloadableConfig(self.arguments.config)
-        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
-        self.spread_feed = create_spread_feed(self.arguments)
-        self.control_feed = create_control_feed(self.arguments)
 
-        self.history = History()
+        with open(self.arguments.config) as json_file:
+            data = json.load(json_file)
 
-        pair = ImtokenPair(self.arguments.pair)
+        pairs, configs = self.parse_configs(data=data)
 
         application = tornado.web.Application([
-            (r"/pairs", PairsHandler, dict(pair=pair)),
-            (r"/indicativePrice", IndicativePriceHandler, dict(pair=pair,
-                                                               config=self.bands_config,
-                                                               price_feed=self.price_feed,
-                                                               spread_feed=self.spread_feed,
-                                                               control_feed=self.control_feed,
-                                                               history=self.history,
+            (r"/pairs", PairsHandler, dict(token_pairs=pairs)),
+            (r"/indicativePrice", IndicativePriceHandler, dict(pairs=pairs,
+                                                               configs=configs,
                                                                cache=self.cache)),
-            (r"/price", PriceHandler, dict(pair=pair,
-                                           config=self.bands_config,
-                                           price_feed=self.price_feed,
-                                           spread_feed=self.spread_feed,
-                                           control_feed=self.control_feed,
-                                           history=self.history,
+            (r"/price", PriceHandler, dict(pairs=pairs,
+                                           configs=configs,
                                            cache=self.cache)),
             (r"/deal", DealHandler, dict(cache=self.cache,
                                          schema=deal_schema())),
         ])
         application.listen(port=self.arguments.http_port,address=self.arguments.http_address)
         tornado.ioloop.IOLoop.current().start()
+
+    #
+    # Multiple markets configuration sample
+    #
+    # {
+    #     "markets": [
+    #         {
+    #             "pair": "ETH/DAI",
+    #             "bands": "~/imtoken-ethdai-bands.json",
+    #             "price-feed": "eth_dai-pair-midpoint",
+    #             "price-feed-expiry": 20
+    #         },
+    #         {
+    #             "pair": "MKR/DAI",
+    #             "bands": "~/imtoken-mkrdai-bands.json",
+    #             "price-feed": "ws://admin:admin@localhost:9595/api/feeds/MKR_DAI_PRICE/socket",
+    #             "price-feed-expiry": 20
+    #         }
+    #     ]
+    # }
+    @staticmethod
+    def parse_configs(data: dict) -> (list, dict):
+        pairs = []
+        configs = {}
+        for market in data['markets']:
+            pair = ImtokenPair(market['pair'])
+            pairs.append(pair)
+
+            band_config = ReloadableConfig(market['bands'])
+
+            market_args = MarketArgs(market)
+            price_feed = PriceFeedFactory().create_price_feed(market_args)
+            spread_feed = create_spread_feed(market_args)
+            control_feed = create_control_feed(market_args)
+
+            config = {
+                'bands_config': band_config,
+                'price_feed': price_feed,
+                'spread_feed': spread_feed,
+                'control_feed': control_feed,
+                'history': History()
+            }
+
+            configs[pair.base_pair] = config
+            configs[pair.counter_pair] = config
+
+        return pairs, configs
 
 
 def deal_schema():
