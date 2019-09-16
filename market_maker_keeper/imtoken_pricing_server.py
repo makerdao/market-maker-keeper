@@ -73,7 +73,7 @@ class ImtokenPricingServer:
         with open(self.arguments.config) as json_file:
             data = json.load(json_file)
 
-        pairs, configs = self.parse_configs(data=data)
+        pairs, configs = self._parse_configs(data=data)
 
         application = tornado.web.Application([
             (r"/pairs", PairsHandler, dict(token_pairs=pairs)),
@@ -109,7 +109,7 @@ class ImtokenPricingServer:
     #     ]
     # }
     @staticmethod
-    def parse_configs(data: dict) -> (list, dict):
+    def _parse_configs(data: dict) -> (list, dict):
         pairs = []
         configs = {}
         for market in data['markets']:
