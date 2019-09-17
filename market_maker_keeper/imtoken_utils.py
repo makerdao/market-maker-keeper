@@ -24,20 +24,34 @@ from market_maker_keeper.band import Bands
 from pymaker.numeric import Wad
 
 
+class MarketArgs:
+
+    def __init__(self, market: dict):
+        assert(isinstance(market, dict))
+
+        self.price_feed = market['price-feed']
+        self.price_feed_expiry = market['price-feed-expiry'] if 'price-feed-expiry' in market else 30
+        self.spread_feed = market['spread-feed'] if 'spread-feed' in market else None
+        self.spread_feed_expiry = market['spread-feed-expiry'] if 'spread-feed-expiry' in market else 3600
+        self.control_feed = market['control-feed'] if 'control-feed' in market else None
+        self.control_feed_expiry = market['control-feed-expiry'] if 'control-feed-expiry' in market else 86400
+
+
 class ImtokenPair:
 
-    def __init__(self, base_pair: str, counter_pair: str):
-        assert(isinstance(base_pair, str))
-        assert(isinstance(counter_pair, str))
+    def __init__(self, pair: str):
+        assert(isinstance(pair, str))
 
-        self.base_pair = base_pair
-        self.counter_pair = counter_pair
+        self.base_pair = pair
+        pair_split = pair.split('/')
+        self.counter_pair = f"{pair_split[1].upper()}/{pair_split[0].upper()}"
 
 
 class PairsHandler(tornado.web.RequestHandler):
 
-    def initialize(self, pair: ImtokenPair):
-        self.pairs = [pair.base_pair, pair.counter_pair]
+    def initialize(self, token_pairs):
+        self.pairs = []
+        [self.pairs.extend([pair.base_pair, pair.counter_pair]) for pair in token_pairs]
 
     @gen.coroutine
     def get(self):
@@ -50,21 +64,9 @@ class PairsHandler(tornado.web.RequestHandler):
 
 class PriceHandler(tornado.web.RequestHandler):
 
-    def initialize(self, pair,
-                   base_bands_config,
-                   counter_bands_config,
-                   price_feed,
-                   spread_feed,
-                   control_feed,
-                   history,
-                   cache):
-        self.pair = pair
-        self.base_bands_config = base_bands_config
-        self.counter_bands_config = counter_bands_config
-        self.price_feed = price_feed
-        self.spread_feed = spread_feed
-        self.control_feed = control_feed
-        self.history = history
+    def initialize(self, pairs, configs, cache):
+        self.pairs = pairs
+        self.configs = configs
         self.cache = cache
 
     @gen.coroutine
@@ -98,7 +100,7 @@ class PriceHandler(tornado.web.RequestHandler):
             }
 
         query_pair = f"{quote}/{base}"
-        if query_pair != self.pair.base_pair and query_pair != self.pair.counter_pair:
+        if query_pair not in self.configs:
             logging.info(f"Pair {base}/{quote} not supported")
             return {
                 "result": False,
@@ -111,7 +113,7 @@ class PriceHandler(tornado.web.RequestHandler):
             our_side = "BUY"
         else:
             our_side = "SELL"
-        target_price = self.price_feed.get_price()
+        target_price = self.configs[query_pair]['price_feed'].get_price()
 
         logging.info(f" Feed price: buy {target_price.buy_price} ; sell {target_price.sell_price}")
 
@@ -124,26 +126,27 @@ class PriceHandler(tornado.web.RequestHandler):
                 "message": f"internal server error, please retry later"
             }
 
-        logging.info(f" Base pair is {self.pair.base_pair} ; Query pair is {query_pair}")
+        logging.info(f" Query pair is {query_pair}")
 
-        if query_pair == self.pair.counter_pair and our_side == "BUY":
-            bands = Bands.read(self.base_bands_config, self.spread_feed, self.control_feed, self.history)
+        bands = Bands.read(self.configs[query_pair]['bands_config'],
+                           self.configs[query_pair]['spread_feed'],
+                           self.configs[query_pair]['control_feed'],
+                           self.configs[query_pair]['history'])
+
+        if not self.is_base_pair(query_pair) and our_side == "BUY":
             band = bands.buy_bands[0]
             price = band.avg_price(target_price.buy_price)
 
-        if query_pair == self.pair.counter_pair and our_side == "SELL":
-            bands = Bands.read(self.counter_bands_config, self.spread_feed, self.control_feed, self.history)
+        if not self.is_base_pair(query_pair) and our_side == "SELL":
             band = bands.sell_bands[0]
             price = band.avg_price(target_price.sell_price)
 
-        if query_pair == self.pair.base_pair and our_side == "SELL":
-            bands = Bands.read(self.counter_bands_config, self.spread_feed, self.control_feed, self.history)
-            band = bands.buy_bands[0]
+        if self.is_base_pair(query_pair) and our_side == "SELL":
+            band = bands.sell_bands[0]
             price = 1 / int(band.avg_price(target_price.sell_price))
 
-        if query_pair == self.pair.base_pair and our_side == "BUY":
-            bands = Bands.read(self.base_bands_config, self.spread_feed, self.control_feed, self.history)
-            band = bands.sell_bands[0]
+        if self.is_base_pair(query_pair) and our_side == "BUY":
+            band = bands.buy_bands[0]
             price = 1 / int(band.avg_price(target_price.buy_price))
 
         logging.info(f"price: {str(price)}  minAmount: {str(band.min_amount)}  maxAmount: {str(band.max_amount)}")
@@ -155,6 +158,12 @@ class PriceHandler(tornado.web.RequestHandler):
             "minAmount": float(band.min_amount),
             "maxAmount": float(band.max_amount)
         }
+
+    def is_base_pair(self, token_pair: str) -> bool:
+        for pair in self.pairs:
+            if pair.base_pair == token_pair:
+                return True
+        return False
 
 
 class IndicativePriceHandler(PriceHandler):
