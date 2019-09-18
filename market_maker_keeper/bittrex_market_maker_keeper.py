@@ -128,10 +128,10 @@ class BittrexMarketMakerKeeper:
         return self.arguments.pair.upper().split('-')[1] + "-" + self.arguments.pair.upper().split('-')[0]
 
     def token_sell(self) -> str:
-        return self.arguments.pair.split('-')[1].upper()
+        return self.arguments.pair.split('-')[0].upper()
 
     def token_buy(self) -> str:
-        return self.arguments.pair.split('-')[0].upper()
+        return self.arguments.pair.split('-')[1].upper()
 
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
         token_balances = list(filter(lambda coin: coin['Currency'].upper() == token, our_balances))
