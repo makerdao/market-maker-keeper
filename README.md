@@ -23,6 +23,7 @@ to automate certain operations around the Ethereum blockchain.
     - Example (OasisDEX) 
 10. Known limitations
 11. Support Information
+12. License
 
 ## 1. Introduction
 A big part of the DAI Stablecoin System (DSS) is the incentivization of external agents, called **Keepers** (which can be human but are typically automated bots). Market Maker Keepers work by creating a series of orders in so-called **bands** (defined later), which are configured with a JSON file containing parameters like spreads, maximum engagement, etc. In short, the `market-maker-keeper` repository is a set of Keepers that facilitate market making on exchanges. For example, trading Dai motivated by the expected long-term convergence toward the indicated `Target Price`. This guide is dedicated to showing you how to create your very own Market Maker Keeper Bot as well as educate the community and help both users and developers understand the value of this incredible software. We are proud to say that all of the code needed to get a Market Maker Keeper bot up and running is open-sourced.
@@ -419,7 +420,6 @@ OASIS_ADDRESS_NEW=0x4a6bc4e803c62081ffebcc8d227b5a87a58f1f8f # oasis-address
 - The `OASIS_SERVER1_KEY` is simply your Kovan account private key (point this to your ETH accounts key file) and password file. If you do not have this, please set up a file with your password (in plain text).
 - ETH From is the address location where the market-maker-keeper is going to get the tokens that it uses to participate and place orders.
     - **Example:** Since OasisDEX is a decentralized exchange, it is on-chain, so you need to provide all of the relevant addresses to the dex. Most DEX's are like this because when you are configuring with a dex you need to pass many addresses in, whereas, with a centralized exchange you are generally giving an API key, and username and password (see below for an example of how the process differs for centralized exchanges differ versus decentralized exchanges).
-- The OasisDEX example above is currently for **Single Collateral DAI** (SCD), where we configure the `TUB_ADDRESS`. However, as we move over to **Multi-Collateral DAI (MCD)** the `TUB_ADDRESS` will likely be changed to the `PIP_ADDRESS` for MCD.
 
 ### Once completed, you can now run your Market Maker Keeper! Follow the next steps to get it running:
 
@@ -447,7 +447,7 @@ The gate.io API sometimes does not acknowledge order creation, returning followi
 **We are here to help!**
 We welcome any questions about the market making in the [#keeper](https://chat.makerdao.com/channel/keeper) channel in the Maker Chat. 
 
-### License
+## 12. License
 
 See [COPYING](https://github.com/makerdao/market-maker-keeper/blob/master/COPYING) file.
 
