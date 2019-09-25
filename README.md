@@ -6,129 +6,206 @@
 The _DAI Stablecoin System_ incentivizes external agents, called _keepers_,
 to automate certain operations around the Ethereum blockchain.
 
-`market-maker-keeper` is actually a set of keepers that facilitate
-market making on the following exchanges:
-* OasisDEX (`oasis-market-maker-keeper`),
-* EtherDelta (`etherdelta-market-maker-keeper`),
-* RadarRelay and ERCdEX (`0x-market-maker-keeper`),
-* Paradex (`paradex-market-maker-keeper`),
-* DDEX (`ddex-market-maker-keeper`),
-* Ethfinex (`ethfinex-market-maker-keeper`),
-* GoPax (`gopax-market-maker-keeper`),
-* HitBTC (`hitbtc-market-maker-keeper`),
-* IDEX (`idex-market-maker-keeper`),
-* Bibox (`bibox-market-maker-keeper`),
-* OKEX (`okex-market-maker-keeper`),
-* TheOcean (`theocean-market-maker-keeper`),
-* gate.io (`gateio-market-maker-keeper`).
+# Market Maker Keeper Setup Guide 
 
-All these keepers share some logic and operate in a similar way. They create
-a series of orders in so called _bands_, which are configured with a JSON file
-containing parameters like spreads, maximum engagement etc. Please see the
-_"Bands configuration"_ section below for more details regarding keeper mechanics.
+**Guide Outline**
+1. Introduction 
+2. Prerequisites 
+3. Installation 
+4. Testing 
+5. Bands and Bands Configuration
+    - Example
+6. Order Rate Limitation
+7. Data Templating Language
+8. Price Feed Configuration
+    - Example 
+9. Running Keepers
+    - Example (OasisDEX) 
+10. Known limitations
+11. Support Information
 
-Provided an appropriate price feed is available, most of the market maker keepers
-are capable of market-making on any token pair. The EtherDelta and IDEX keepers still are
-to some extend bound to the DAI/ETH pair. This will either be changed at some point in the future,
-or these two keepers will be discontinued.
+## 1. Introduction
+A big part of the DAI Stablecoin System (DSS) is the incentivization of external agents, called **Keepers** (which can be human but are typically automated bots). Market Maker Keepers work by creating a series of orders in so-called **bands** (defined later), which are configured with a JSON file containing parameters like spreads, maximum engagement, etc. In short, the `market-maker-keeper` repository is a set of Keepers that facilitate market making on exchanges. For example, trading Dai motivated by the expected long-term convergence toward the indicated `Target Price`. This guide is dedicated to showing you how to create your very own Market Maker Keeper Bot as well as educate the community and help both users and developers understand the value of this incredible software. We are proud to say that all of the code needed to get a Market Maker Keeper bot up and running is open-sourced.
 
-This repo also contains an auxiliary tool called `oasis-market-maker-cancel`, which
-may be used for emergency cancelling all market maker orders on OasisDEX if the
-keeper gets stuck or dies for some reason, or if the network becomes congested.
+### List of current exchanges that Market Maker Keeper Bots can be built for
 
-<https://chat.makerdao.com/channel/keeper>
+- OasisDEX (`oasis-market-maker-keeper`)
+- EtherDelta (`etherdelta-market-maker-keeper`)
+- RadarRelay and ERCdEX (`0x-market-maker-keeper`)
+- Paradex (`paradex-market-maker-keeper`)
+- DDEX (`ddex-market-maker-keeper`)
+- Ethfinex (`ethfinex-market-maker-keeper`)
+- GoPax (`gopax-market-maker-keeper`)
+- OKEX (`okex-market-maker-keeper`)
+- TheOcean (`theocean-market-maker-keeper`)
 
+## 2. Prerequisite
+- Git
+- [Python v3.6.6](https://www.python.org/downloads/release/python-366/)
+- [virtualenv](https://virtualenv.pypa.io/en/latest/)
+    - This project requires *virtualenv* to be installed if you want to use Maker's python tools. This helps with making sure that you are running the right version of python and checks that all of the pip packages that are installed in the **install.sh** are in the right place and have the right versions.
+- [X-code](https://apps.apple.com/ca/app/xcode/id497799835?mt=12) (for Macs)
 
-## Installation
+## 3. Getting Started (Installation)
 
-This project uses *Python 3.6.6* and requires *virtualenv* to be installed.
-
-In order to clone the project and install required third-party packages please execute:
+1. **Clone the `market-maker-keeper` repository and switch into its directory:**
 ```
-git clone https://github.com/makerdao/market-maker-keeper.git
-cd market-maker-keeper
+git clone git@github.com:makerdao/market-maker-keeper.git
+cd market-maker-keeper 
+```
+2. **Initializing the git submodules that will bring in both the pymaker and the pyexchange library.** 
+```
 git submodule update --init --recursive
-./install.sh
+   ``` 
+
+3. **Set up the virtual env and activate it:**
+```
+python3 -m venv _virtualenv
+source _virtualenv/bin/activate
+```
+4. **Check to make sure you have the correct version (Python 3.6.6) of Python by running:**  
+```
+python3 -V
 ```
 
-For some known Ubuntu and macOS issues see the [pymaker](https://github.com/makerdao/pymaker) README.
-
-## Testing
-
-After the repo has been cloned and the installation has been completed, run tests by executing:
+5. **Install Requirements** 
 ```
-./install-dev.sh
+pip3 install $(cat requirements.txt $(find lib -name requirements.txt | sort) | sort | uniq | sed 's/ *== */==/g')
+```
+- **Note:** This command is used in place of `pip install -r requirements.txt` and is used for iterating through all the dependencies in the lib directory to grab all of the requirements needed.
+
+### Potential errors that could arise:
+
+- Needing to upgrade to **pip** version 19.2.2
+    - **Run:** `pip install --upgrade pip` to fix.
+- Installing jsonnet (if running macOS Mojave)
+
+    **To fix, run the following:** 
+
+-  `xcode-select --install`
+- ` open /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg`
+ - `pip3 install jsonnet==0.9.5`
+- Lastly, **re-run:** `pip3 install $(cat requirements.txt $(find lib -name requirements.txt | sort) | sort | uniq | sed 's/ *== */==/g')`
+
+### Other **Potential Installation Issues:**
+
+Read the following document for other known Ubuntu and macOS issues ([here](https://github.com/makerdao/pymaker)).
+
+## 4. Testing
+
+There is quite a lot of value in running all the unit tests to make sure `market-maker keeper` has been installed properly. After the repository has been cloned and the installation has been completed, you can run unit tests by executing the following commands.
+
+**Firstly, the following command will install the libraries required to run unit tests:** 
+```
+pip3 install -r requirements-dev.txt
+```
+
+**To run the unit tests (py.test, etc..), use the following script:** 
+```
 ./test.sh
 ```
 
-### Installation of `etherdelta-client`
+**Example output:** 
+```
+    ===================================== test session starts =====================================
+    platform darwin -- Python 3.6.6, pytest-3.3.0, py-1.8.0, pluggy-0.6.0
+    rootdir: /Users/charlesst.louis/market-maker-keeper, inifile:
+    plugins: timeout-1.2.1, mock-1.6.3, cov-2.5.1, asyncio-0.8.0
+    collected 97 items                                                                            
+    
+    tests/test_airswap_market_maker_keeper.py ................                              [ 16%]
+    tests/test_band.py ......                                                               [ 22%]
+    tests/test_etherdelta_market_maker_keeper.py ..........................                 [ 49%]
+    tests/test_feed.py .                                                                    [ 50%]
+    tests/test_limit.py .......                                                             [ 57%]
+    tests/test_oasis_market_maker_cancel.py ...                                             [ 60%]
+    tests/test_oasis_market_maker_keeper.py ...................                             [ 80%]
+    tests/test_price_feed.py ............                                                   [ 92%]
+    tests/test_reloadable_config.py .......                                                 [100%]
+    
+    ---------- coverage: platform darwin, python 3.6.6-final-0 -----------
+    Name                                                    Stmts   Miss  Cover
+    ---------------------------------------------------------------------------
+    market_maker_keeper/__init__.py                             0      0   100%
+    market_maker_keeper/airswap_market_maker_keeper.py        252    142    44%
+    market_maker_keeper/band.py                               260     37    86%
+    market_maker_keeper/bibox_market_maker_keeper.py           93     93     0%
+    market_maker_keeper/bitinka_market_maker_keeper.py         96     96     0%
+    market_maker_keeper/bittrex_market_maker_keeper.py         96     96     0%
+    market_maker_keeper/coinbase_market_maker_keeper.py       103    103     0%
+    market_maker_keeper/coinbene_market_maker_keeper.py        95     95     0%
+    market_maker_keeper/control_feed.py                         7      5    29%
+    market_maker_keeper/ddex_market_maker_keeper.py           126    126     0%
+    market_maker_keeper/ercdex_market_maker_keeper.py          12     12     0%
+    market_maker_keeper/etherdelta_market_maker_keeper.py     193    142    26%
+    market_maker_keeper/ethfinex_market_maker_keeper.py        94     94     0%
+    market_maker_keeper/feed.py                                84     46    45%
+    market_maker_keeper/gas.py                                 20     10    50%
+    market_maker_keeper/gateio_market_maker_keeper.py         106    106     0%
+    market_maker_keeper/gopax_market_maker_keeper.py           99     99     0%
+    market_maker_keeper/hitbtc_market_maker_keeper.py          98     98     0%
+    market_maker_keeper/idex_market_maker_keeper.py           193    193     0%
+    market_maker_keeper/imtoken_pricing_server.py              51     51     0%
+    market_maker_keeper/imtoken_utils.py                       97     97     0%
+    market_maker_keeper/kucoin_market_maker_keeper.py         108    108     0%
+    market_maker_keeper/limit.py                               46      0   100%
+    market_maker_keeper/liquid_market_maker_keeper.py          97     97     0%
+    market_maker_keeper/mpx_market_maker_keeper.py            137    137     0%
+    market_maker_keeper/oasis_market_maker_cancel.py           38     22    42%
+    market_maker_keeper/oasis_market_maker_keeper.py          133     94    29%
+    market_maker_keeper/okex_market_maker_keeper.py            92     92     0%
+    market_maker_keeper/order_book.py                         219    188    14%
+    market_maker_keeper/order_history_reporter.py              38     26    32%
+    market_maker_keeper/paradex_market_maker_keeper.py        131    131     0%
+    market_maker_keeper/price_feed.py                         187     86    54%
+    market_maker_keeper/reloadable_config.py                   67      3    96%
+    market_maker_keeper/setzer.py                              24     17    29%
+    market_maker_keeper/spread_feed.py                          7      5    29%
+    market_maker_keeper/tethfinex_market_maker_keeper.py      149    149     0%
+    market_maker_keeper/theocean_market_maker_keeper.py       129    129     0%
+    market_maker_keeper/util.py                                 8      4    50%
+    market_maker_keeper/zrx_market_maker_keeper.py            177    177     0%
+    market_maker_keeper/zrxv2_market_maker_keeper.py           26     26     0%
+    ---------------------------------------------------------------------------
+    TOTAL                                                    3988   3232    19%
+    
+    
+    ================================== 97 passed in 4.04 seconds ==================================
+```
+## 5. Understanding Bands Configuration
 
-The `etherdelta-market-maker-keeper` keeper utilizes `etherdelta-client` (present in the `lib/pymaker/utils`
-directory) to place orders on EtherDelta using _socket.io_. In order to use it, a `node` installation must
-be present and `npm install` needs to be run in the `lib/pymaker/utils/etherdelta-client` folder.
+The Bands configuration file is directly related to how your Market Maker Keeper will work. As mentioned in the introduction, these Keepers continuously monitor and adjust their positions in the order book, maintaining open buy and sell orders in multiple bands at the same time. For each `buy` and `sell` band, the Keepers aim to have open orders for at least the `minAmount`. In both cases, they will ensure that the price of open orders stays within the `<minMargin, maxMargin>` range from the current price. When running, Keepers place orders for the average amounts (`avgAmount`) in each band by using use `avgMargin` to calculate the order price.
 
-This step is not necessary if you only want to use the other keepers from this project.
-
-### Installation of `setzer`
-
-`eth_dai-setzer` and `dai_eth-setzer` price feeds use `setzer` in order to prices Gemini and Kraken.
-It is built on top of `setzer` so in order for it to work correctly, `setzer` and its dependencies
-must be installed and available to the keepers. Please see: <https://github.com/makerdao/setzer>.
-
-
-## Bands configuration
-
-### Description
-
-Bands configuration file is directly related to how market maker keepers work. They continuously
-monitor and adjust their positions in the order book, maintaining open buy and sell orders
-in multiple bands at the same time.
-
-In each buy and sell band, the keepers aim to have open orders for at least `minAmount`.
-In both cases, they will ensure the price of open orders stays within the <minMargin,maxMargin>
-range from the current price.
-
-When started, keepers places orders for the average amounts (`avgAmount`) in each band,
-using use `avgMargin` to calculate the order price.
-
-As long as the price of orders stays within the band (i.e. is in the <minMargin,maxMargin>
-range from the current price, which can of course be moving constantly), the keepers
-keep them open. If some orders leave the band, they either enter another adjacent band
-or fall outside all bands. In case of the latter, they get immediately cancelled. In case of
-the former, keepers can keep these orders open as long as their amount is within the
-<minAmount,maxAmount>  ranges for the band they just entered. If it is above the maximum,
-some open orders will get cancelled and potentially new one will be created to bring the total
-amount back within the range. If it is below the minimum, a new order gets created for the remaining
-amount so the total amount of orders in this band is equal to `avgAmount`.
-
-The same thing will happen if the total amount of open orders in a band falls below either
-`minAmount` as a result of other market participants taking these orders.
-In this case also a new order gets created for the remaining amount so the total
-amount of orders in this band is equal to `avgAmount`.
-
-Some keepers will constantly use gas to cancel orders (OasisDEX, EtherDelta and 0x)
-and create new ones (OasisDEX) as the price changes. Gas usage can be limited
-by setting the margin and amount ranges wide enough and also by making sure that bands
-are always adjacent to each other and that their <min,max> amount ranges overlap.
+As long as the price of orders stays within the set band(s) (i.e. it's in between the `<minMargin,maxMargin>` range from the current price), the Keepers are kept open/running. If some orders leave the band, they either enter another adjacent band or fall outside all bands. In the case of the latter, they would be immediately canceled. In the case of the former, Keepers can keep these orders open as long as their amount is within the `<minAmount,maxAmount>` ranges for the band they just entered. If it is above the maximum, some of the open orders will get canceled and potentially a new one will be created to bring the total amount back within the range. If it is below the minimum, a new order gets created for the remaining amount so that the total amount of orders in this band is equal to `avgAmount`. The same process will happen if the total amount of open orders in a band falls below the `minAmount` as a result of other market participants taking these orders. In this case, a new order gets created for the remaining amount so the total amount of orders in this band is equal to `avgAmount`. There are some Keepers that will constantly use gas to cancel orders (ex: OasisDEX, EtherDelta and 0x) and create new ones (OasisDEX) as the price changes. Gas usage can be limited by setting the margin and amount ranges wide enough but also by making sure that the bands are always adjacent to each other and that their `<min,max>` amount ranges overlap.
 
 ### File format
-Bands configuration file consists of two main sections: *buyBands* and *sellBands*.
-Each section is an array containing one object per each band.
 
-The *minMargin* and *maxMargin* fields in each band object represent the margin (spread) range of that band.
-These ranges may not overlap for bands of the same type (_buy_ or _sell_), and should be adjacent to each other
-for better keeper performance (less orders will likely get cancelled if the bands are adjacent). The *avgMargin*
-represents the margin (spread) of newly created orders within a band.
+The bands configuration file consists of two main sections: 
+1. **buyBands**
+2. **sellBands**
 
-The next three fields (*minAmount*, *avgAmount* and *maxAmount*) are the minimum, target and maximum keeper
-engagement per each band. The *dustCutoff* field is the minimum amount of each single order created in each
-individual band, expressed in buy tokens for buy bands and in sell tokens for sell bands. Setting it to
-a non-zero value prevents keepers from creating of lot of very tiny orders, which can cost a lot of gas
-in case of OasisDEX or can result in too small orders being rejected by other exchanges.
+**Note:** Each of the sections is an array containing one object per each band.
 
-Sample bands configuration file:
+The *`minMargin`* and *`maxMargin`* fields in each band object represent the margin (spread) range of that band. These ranges may not overlap for bands of the same type (*`buy`* or *`sell`*), and should be adjacent to each other for better Keeper performance (where fewer orders will get canceled if the bands are adjacent to each other). The *`avgMargin`* represents the margin (spread) of newly created orders within a band.
 
-```json
+**Glossary**
+1. *`minAmount`* - the minimum amount for keeper engagement for a band. 
+2. *`avgAmount`* - the target amount for keeper engagement for a band. 
+3. *`maxAmount`* - the maximum amount for keeper engagement for a band. 
+4. *`dustCutoff`* - a field for the minimum amount of every single order created in each individual band (expressed in buy tokens for buy bands and in sell tokens for sell bands).
+    - By setting the `dustCutoff` to a non-zero value prevents Keepers from creating a lot of very tiny orders, which can cost a lot of gas. For example, in the case of OasisDEX, it can result in a very small order getting rejected by other exchanges.
+
+### Setting up your own Bands Configuration File:
+
+**1. Creating your bands.json file**
+
+To start, take the sample configuration file below and copy-paste it to a `.json` file within the root directory of your `market-maker-keeper` folder. For ease of use, we sugges to name it `bands.json`. This bands file will get configured as a command-line argument when we start up the Market Maker Keeper. 
+
+**Sample bands.json file containing two Bands**
+
+This example shows bands for the ETH-DAI pair, where ETH represents the base currency and DAI as the quote currency: 
+
+```
 {
     "_buyToken": "DAI",
     "buyBands": [
@@ -176,902 +253,201 @@ Sample bands configuration file:
     ],
     "sellLimits": []
 }
+
 ```
- ### Band examples
-Let's create some example interactions using the bands above, suppose it is denominated in Dai and the price of 10 Dai is 1 ETH :
-* If we look at the first buy band, the initial buy order will be 30 Dai ( *avgAmount* ) with a price of -> `price - (price * avgMargin)` -> `.1 - (.1 * 0.01)` -> 0.099 ETH per Dai.
-* If our buy order above (30 DAI @ .099 ETH) gets partially filled (15 Dai are purchased), we will have (15 Dai remaining in the order). This number is below the band's *minAmount* (20 Dai), therefore another whole order of 15 Dai will be placed on the exchange each at the same price (0.099 ETH).
-* In addition to buy orders, when the keeper starts up two sell orders will also be placed. For ease of explanation, lets say we are selling ETH priced at 100.00 DAI (5 ETH @ 101 DAI, 6 ETH @ 102.5 DAI). Now imagine the price of ETH suddenly drops to 97.50 DAI, which will push the bands down. The second band is now responsible for both sell orders since they fit inbetween band 2's *minMargin* and *maxMargin*. The keeper will now reset it's bands by:
-    1. creating an order in band 1 (5 ETH @ 98.475 DAI) using *avgMargin* and *avgAmount*.
-    2. cancelling the second order (5 ETH @ 102.5 DAI) (which is now in band 2) becuase *maxMargin* has been breached `price + (price * maxMargin) = orderPrice` -> `97.5 + (97.5 * 0.05)` -> 102.375 > 102.5
-    2. keep the first order (5 ETH @ 101 DAI) (which is now in band 2) becuase it is within *minMargin* and *maxMargin* of band 2
-    3. creating an order in band 2 (1 ETH @ 99.937 DAI) using *avgMargin* and *avgAmount*
 
-Leaving us with 3 total orders:
-  * band 1 -> (5 ETH @ 98.475 DAI)
-  * band 2 -> (5 ETH @ 101 DAI) and (1 ETH @ 99.837 DAI)
+This **bands.json** file should be adequate enough for you to **copy and paste** it and run it as is. Of course, you are free to configure it however you would like. 
 
-### Order rate limitation
+**Note:** 
+Since this example will be focused on getting a Market Maker Keeper set up on Kovan, you need to make certain that you have enough Kovan ETH (K-Eth) to get your Keeper up and running. To receive Kovan ETH, join the following Gitter Channel: [https://gitter.im/kovan-testnet/faucet](https://gitter.im/kovan-testnet/faucet) and post your ETH address from your MetaMask account to the main chat. The Kovan faucet will then populate your wallet with the test funds. This process could take a couple of minutes or a couple of hours as it is done manually by the Gitter channel’s administrator. 
 
-Two optional sections (*buyLimits* and *sendLimits*) can be used for limiting the maximum rate of orders
-created by market maker keepers. Both use the same format:
+**2. Setting Amounts**
 
-```json
-"buyLimits": [
+You will need to set this up if you are going to be trading small amounts to start. This will need to be set up such that the amounts are sufficiently meaningful on the exchange you want to work with (based on the rules of the exchanges that you want to work. For example, their specificly set `dust limits`). 
+
+As mentioned above, there is one parameter in the configuration file (*`dustCutoff`)* that will be used to determine the `minAmount` of trade quantity. The `dustCutoff` will need to be set **higher than/or equal to** the `minAmount` trade quantity of the specific exchange. This is to make sure you don't create trades that are less than an exchanges' minimum trade requirements. Note that in your configuration file, you can also lower the required quantities to make it easier on yourself. Reducing the K-ETH amounts will be helpful in reducing wait times as you likely won't want to wait long periods in order to get enough K-ETH to run your Keeper). 
+
+### Bands Example
+
+Here, we will be going over some example interactions using the **bands.json** file described above. These examples assume that it is denominated in DAI and that the price of 10 DAI is 1 ETH.
+
+**Using Band 1**
+
+- If we look at the first buy band, the initial buy order will be 30 DAI (*`avgAmount`*) with the price of -> `price - (price * avgMargin)` -> `0.1 - (0.1 * 0.01)` -> 0.099 ETH per Dai.
+- If the `buy` order listed above (30 DAI @ 0.099 ETH) gets partially filled (15 DAI are purchased), then we will have (15 DAI remaining in the order). However, this amount is below the band's *`minAmount`* (20 DAI), therefore, another whole order of 15 DAI will be placed on the exchange at the same price of 0.099 ETH.
+- In addition to `buy` orders, when the Market Maker Keeper starts up, two `sell` orders will also be placed.
+
+**Using Band 2**
+
+- For ease of explanation, let's assume we are selling ETH that is priced at 100.00 DAI (5 ETH @ 101 DAI and 6 ETH @ 102.5 DAI).
+- Now imagine a situation where the price of ETH suddenly drops to 97.50 DAI, pushing the bands downward. In this scenario, the second band will then start working and will become responsible for both of the `sell` orders, as they fit in between the second band's *`minMargin`* and *`maxMargin`* amounts.
+
+**The Market Maker Keeper will now reset it's bands by performing the following actions:** 
+
+1. Creating an order in **Band 1** (5 ETH @ 98.475 DAI) using *`avgMargin`* and *`avgAmount`*.
+2. Cancelling the second order (5 ETH @ 102.5 DAI) (which is now in **Band 2**) becuase *`maxMargin`* has been breached (when `price + (price * maxMargin) = orderPrice` -> `97.5 + (97.5 * 0.05)` -> 102.375 > 102.5).
+3. Keep the first order (5 ETH @ 101 DAI), which is now in **Band 2** because it is within *`minMargin`* and *`maxMargin`* of **Band 2.**
+4.  Creating an order in **Band 2** (1 ETH @ 99.937 DAI) using *`avgMargin`* and *`avgAmount`.* 
+
+**This results in a total of 3 placed orders:**
+- **Band 1** -> (5 ETH @ 98.475 DAI)
+- **Band 2** -> (5 ETH @ 101 DAI)
+- **Band 2** → ((1 ETH @ 99.837 DAI)
+
+## 6. Order Rate Limitation
+
+Next, we want to add the **Rate Limitation** to the configurations file. This will make sure that we don't constantly churn out old orders as well as help manage our gas consumption. We do this because we want the `period` and the `amount` to be set to a low amount when we start out. This is done because we don't want new users' Market Maker Keeper bots to be frantically trading all of the time. The goal here is that we want to set up our initial states such that it is only placing an order every 5 min or so (or whatever time amount you decide on).  
+
+There are two (optional) limit sections (*`buyLimits`* and *`sendLimits`*) that can be used for limiting the **maximum** rate of orders created by Market Maker Keepers. They both use the same format as displayed below.
+
+**Example of order rate limits:**
+
+```
+    "buyLimits": [ { "period": "1h", "amount": 50.0 }, { "period": "1d", "amount": 200.0 } ]
+```
+- The `period` defines the amount of time that the limit should be applied over.
+- The `amount` is the maximum amount of orders that should be placed during the set `period` amount.
+
+In the example above, the `period`s are set to 1-hour and 1-day and the `amount`s are set to 50.0 orders and 200.0 orders. This means that over the course of 1-hour, only 50.0 orders can be placed and over the course of 1-day, only 200.0 orders can be placed. The amounts will be expressed in terms of either the `buy` or the `sell` token (this will depend on the section). Note that the above code snippet imposes a limit of *50.0* `buy` token within each 60-minute window. Additionally, a maximum of *200.0* `buy` tokens within each 24-hour window. 
+
+**Note:** The supported time units are `s`, `m`, `h`, `d`, and `w`.
+
+## 7. Data Templating Language
+
+*The [Jsonnet](https://github.com/google/jsonnet) data templating language can be used for the configuration file.*
+
+In the case of the data templating language, think of this like a pre-processing language for parsing the file. The whole purpose of the **jsonnet** is to set up a configuration file such that you can have it increment based on a price. Therefore, in addition to the price feed, you can also base percentages away from the market price. As you can see below, there is a hardcoded amount/price as well as the amounts below it which are dependent on the price.
+
+```
+{
+  "_price": 10,
+
+  "_buyToken": "DAI",
+  "buyBands": [
     {
-        "period": "1h",
-        "amount": 50.0
-    },
-    {
-        "period": "1d",
-        "amount": 200.0
+      "minMargin": 0.020,
+      "avgMargin": 0.050,
+      "maxMargin": 0.075,
+      "minAmount": 0.05 * $._price,
+      "avgAmount": 0.25 * $._price,
+      "maxAmount": 0.35 * $._price,
+      "dustCutoff": 0.1
     }
-]
+  ],
+
+  "_sellToken": "ETH",
+  "sellBands": []
+}
 ```
+**Notes:** 
 
-The amounts are expressed either in terms of the buy or the sell token, depending on the section.
-The above snippet imposes a limit of *50.0* buy token within each 60 minute window, and in addition
-to that a maximum of *200.0* buy token within each 24h window.
+- If you are working with a token that's price does not fluctuate wildly, you do not need to incorporate relative qualities for your amounts. This is typically used for users that want their Market Maker Keepers open for months at a time and don't want to worry about having to change any of their configurations. 
+- Another thing to note about these files is that the Market Maker Keeper reloads the configuration files automatically when it detects a change in them. This makes it easier as you don't have to constantly restart your Keeper bot when you change your band configurations. In short, this works by periodically taking a hash of the configuration file and comparing that hash with the current version. This means that when it sees a change in the hash of the file, it will reload the configuration file and cancel orders as necessary to maintain the newly updated bands. 
 
-Supported time units are: `s`, `m`, `h`, `d` and `w`.
+## 8. Price Feed Configuration
 
-### Data templating language
+The price feed is one of the most important determining factors of success in a Market Maker Keeper. If you have the bands set up the way you want, the price feed will help make sure your bands are set at meaningful levels relative to the inside market. If you have wide bands and your strategy is to add liquidity to handle market imbalances, then the price feed is not as important. However, as you tighten up the spreads, the price feed is a crucial component to ensure that you are going to profit in the market. 
 
-The [Jsonnet](https://github.com/google/jsonnet) data templating language can be used
-for the configuration file.
+Below, we list some of the existing public feeds. You can also use web sockets if you have your own price feed that you want to use. In short, it works by each Market Maker Keeper taking in a  `--price-feed` command-line argument which then determines the price used for market-making. 
 
+As of today, these are the possible values of this argument ( existing public feeds)  that we list:
 
-## Price feed configuration
+- `fixed:<amount>` - uses a fixed price (`fixed:200`in this example). See below for a more in-depth example. Note that when you are on mainnet, you typically won't use a fixed amount but it is an ideal example for this walkthrough as there aren't price feeds for Kovan.
+- `eth_dai` - uses the price from the GDAX WebSocket ETH/USD price feed.
+- `eth_dai-setzer` - uses the average of Kraken and Gemini ETH/USD prices.
+- `eth_dai-tub` - uses the price feed from `Tub` (only works for keepers being able to access an Ethereum node).
+- `dai_eth` - inverse of the `eth_dai` price feed.
+- `dai_eth-setzer` - inverse of the `eth_dai-setzer` price feed.
+- `dai_eth-tub` - inverse of the `eth_dai-tub` price feed.
+- `btc_dai` - uses the price from the GDAX WebSocket BTC/USD price feed.
+- `dai_btc` - inverse of the `btc_dai` price feed.
+- `ws://...` or `wss://...` - uses a price feed advertised over a WebSocket connection (custom protocol).
 
-Each keeper takes a `--price-feed` commandline argument which determines the price used for market-making.
-As of today these are the possible values of this argument:
-* `eth_dai` - uses the price from the GDAX WebSocket ETH/USD price feed,
-* `eth_dai-setzer` - uses the average of Kraken and Gemini ETH/USD prices,
-* `eth_dai-tub` - uses the price feed from `Tub` (only works for keepers being able access an Ethereum node),
-* `dai_eth` - inverse of the `eth_dai` price feed,
-* `dai_eth-setzer` - inverse of the `eth_dai-setzer` price feed,
-* `dai_eth-tub` - inverse of the `eth_dai-tub` price feed,
-* `btc_dai` - uses the price from the GDAX WebSocket BTC/USD price feed;
-* `dai_btc` - inverse of the `btc_dai` price feed,
-* `fixed:1.56` - uses a fixed price, `1.56` in this example,
-* `ws://...` or `wss://...` - uses a price feed advertised over a WebSocket connection (custom protocol).
+**Note:** The `--price-feed` command line argument can also contain a comma-separated list of several different price feeds. In this case, if one of them becomes unavailable, the next one in the list will be used instead. All listed price feeds will be constantly running in the background where the second one listed and following ones ready to take over when the first one (or prior one) becomes unavailable. **In the example below (in the *Running Keepers* section), you can see an example of how to use a fixed price amount.** 
 
-The `--price-feed` commandline argument can also contain a comma-separated list of several different price feeds.
-In this case, if one of them becomes unavailable, the next one in the list will be used instead. All listed price
-feeds will be constantly running in background, the second one and following ones ready to take over
-when the first one becomes unavailable.
+## 9. Running Market Maker Keepers
 
+Each Market Maker Keeper is a command-line tool which takes in generic command-line arguments (such as `--config`, `--price-feed`, `--price-feed-expiry`, `--debug`, etc.) as well as some arguments which are specific to that particular Keeper. For example, Ethereum node parameters, addresses, exchange API keys, etc. All accepted command-line arguments are listed in the example section below. They can also be discovered by trying to start a Market Maker Keeper with the `--help` argument.
 
-## Running keepers
+### Example (Oasis Market Maker Keeper)
 
-Each keeper is a commandline tool which takes some generic commandline arguments (like `--config`, `--price-feed`,
-`--price-feed-expiry`, `--debug` etc.) and also some arguments which are specific to that particular keeper
-(Ethereum node parameters and addresses, exchange API keys etc.). All accepted commandline arguments are listed\
-in sections below, they can also be discovered by trying to start a keeper with the `--help` argument.
+In order to run `oasis-market-maker-keeper`, you will need to go through the following process:
+1. Firstly, you would deploy an Ethereum node (we recommend Parity).
+2. Generate an account in it.
+3. Permanently unlock that account.
+4. Transfer some tokens to it.
+5. Run the Market Maker Keeper (as seen below).
 
-For example, in order to run `oasis-market-maker-keeper` you would first need to deploy an Ethereum node (we
-recommend using Parity), generate an account in it, permanently unlock that account, transfer some tokens to it
-and then run the keeper with:
-
+The below file should be copy and pasted into a new file within the root directory of the repository (`market-maker-keeper`). This should be placed within the same folder where you put the `bands.json` file. 
 ```
-bin/oasis-market-maker-keeper \
-    --rpc-host 127.0.0.1 \
-    --rpc-port 8180 \
-    --rpc-timeout 30 \
-    --eth-from [address of the generated Ethereum account] \
-    --tub-address 0x448a5065aebb8e423f0896e6c5d525c040f59af3 \
-    --oasis-address 0x14fbca95be7e99c15cc2996c6c9d841e54b79425 \
-    --price-feed eth_dai \
-    --buy-token-address [address of the quote token, could be DAI] \
-    --sell-token-address [address of the base token, could be WETH] \
-    --config [path to the json bands configuration file] \
-    --smart-gas-price \
-    --min-eth-balance 0.2
-```
+#!/bin/bash
+    
+    bin/oasis-market-maker-keeper \
+        --rpc-host 127.0.0.1 \
+        --rpc-port <port number> \
+        --rpc-timeout 10 \
+        --eth-from [address of your generated Ethereum account] \
+    		--eth-key ${ACCOUNT_KEY} \ 
+        --tub-address 0x448a5065aebb8e423f0896e6c5d525c040f59af3 \
+        --oasis-address 0x14fbca95be7e99c15cc2996c6c9d841e54b79425 \
+        --price-feed fixed:200 \
+        --buy-token-address [address of the quote token, could be DAI] \
+        --sell-token-address [address of the base token, could be WETH] \
+        --config [path to the json bands configuration file, e.g. bands.json] \
+        --smart-gas-price \
+        --min-eth-balance 0.001  
 
-For the centralized exchanges, an account will need to be created with the exchange itself, a set of API keys
-with trading permissions will usually need to be generated as well and also some tokens
-will need to be deposited to the exchange, as the keepers do not handle deposits and withdrawals
-themselves.
-
-
-## `oasis-market-maker-keeper`
-
-This keeper supports market-making on the [OasisDEX](https://oasisdex.com/) exchange.
-
-### Usage
 
 ```
-usage: oasis-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                 [--rpc-port RPC_PORT]
-                                 [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                 ETH_FROM [--tub-address TUB_ADDRESS]
-                                 --oasis-address OASIS_ADDRESS
-                                 --buy-token-address BUY_TOKEN_ADDRESS
-                                 --sell-token-address SELL_TOKEN_ADDRESS
-                                 --config CONFIG --price-feed PRICE_FEED
-                                 [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                 [--spread-feed SPREAD_FEED]
-                                 [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                 [--round-places ROUND_PLACES]
-                                 [--min-eth-balance MIN_ETH_BALANCE]
-                                 [--gas-price GAS_PRICE] [--smart-gas-price]
-                                 [--debug]
+-  Ensure that you retrieve and paste your correct contract addresses when using the above snippet.
+- `--eth-key ${ACCOUNT_KEY}` - includes both the `.json` file (account.json) of your account and a `.pass` file (ex: account.pass) that contains your password in plaintext.
+- If you do not have an account, you can use [MyEtherWallet](https://www.myetherwallet.com/) on Kovan and export the account details (by means of the Keystore file method). Make sure that you download the .json file to your local machine as this is what you will need to set up the account.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
-  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
-  --rpc-timeout RPC_TIMEOUT
-                        JSON-RPC timeout (in seconds, default: 10)
-  --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --tub-address TUB_ADDRESS
-                        Ethereum address of the Tub contract
-  --oasis-address OASIS_ADDRESS
-                        Ethereum address of the OasisDEX contract
-  --buy-token-address BUY_TOKEN_ADDRESS
-                        Ethereum address of the buy token
-  --sell-token-address SELL_TOKEN_ADDRESS
-                        Ethereum address of the sell token
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --round-places ROUND_PLACES
-                        Number of decimal places to round order prices to
-                        (default=2)
-  --min-eth-balance MIN_ETH_BALANCE
-                        Minimum ETH balance below which keeper will cease
-                        operation
-  --gas-price GAS_PRICE
-                        Gas price (in Wei)
-  --smart-gas-price     Use smart gas pricing strategy, based on the
-                        ethgasstation.info feed
-  --debug               Enable debug output
-```
-
-
-## `oasis-market-maker-cancel`
-
-This tool immediately cancels all our open orders on [OasisDEX](https://oasisdex.com/). It may be used if the `oasis-market-maker-keeper` gets stuck or dies for some reason,
-or if the network becomes congested.
-
-### Usage
+**List of required Kovan Addresses for the above :** 
 
 ```
-usage: oasis-market-maker-cancel [-h] [--rpc-host RPC_HOST]
-                                 [--rpc-port RPC_PORT]
-                                 [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                 ETH_FROM --oasis-address OASIS_ADDRESS
-                                 [--gas-price GAS_PRICE]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
-  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
-  --rpc-timeout RPC_TIMEOUT
-                        JSON-RPC timeout (in seconds, default: 10)
-  --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --oasis-address OASIS_ADDRESS
-                        Ethereum address of the OasisDEX contract
-  --gas-price GAS_PRICE
-                        Gas price in Wei (default: node default)
+V2_OASIS_SERVER1_ADDRESS= <account address on Kovan>
+V2_OASIS_SERVER1_KEY="key_file=/home/ed/Projects/member-account.json,pass_file=/home/ed/Projects/member-account.pass"
+TUB_ADDRESS=0xa71937147b55deb8a530c7229c442fd3f31b7db2 # tub-address
+SAI_ADDRESS=0xc4375b7de8af5a38a93548eb8453a498222c4ff2 # buy-token-address
+WETH_ADDRESS=0xd0a1e359811322d97991e03f863a0c30c2cf029c # sell-token-address
+OASIS_ADDRESS_NEW=0x4a6bc4e803c62081ffebcc8d227b5a87a58f1f8f # oasis-address
 ```
 
+**General Notes:**
 
-## `etherdelta-market-maker-keeper`
+- The `OASIS_SERVER1_KEY` is simply your Kovan account private key (point this to your ETH accounts key file) and password file. If you do not have this, please set up a file with your password (in plain text).
+- ETH From is the address location where the market-maker-keeper is going to get the tokens that it uses to participate and place orders.
+    - **Example:** Since OasisDEX is a decentralized exchange, it is on-chain, so you need to provide all of the relevant addresses to the dex. Most DEX's are like this because when you are configuring with a dex you need to pass many addresses in, whereas, with a centralized exchange you are generally giving an API key, and username and password (see below for an example of how the process differs for centralized exchanges differ versus decentralized exchanges).
+- The OasisDEX example above is currently for **Single Collateral DAI** (SCD), where we configure the `TUB_ADDRESS`. However, as we move over to **Multi-Collateral DAI (MCD)** the `TUB_ADDRESS` will likely be changed to the `PIP_ADDRESS` for MCD.
 
-This keeper supports market-making on the [EtherDelta](https://etherdelta.com/) exchange.
+### Once completed, you can now run your Market Maker Keeper! Follow the next steps to get it running:
 
-### Usage
+1. **Open up your terminal** 
+2. **Run:** `chmod +x <the file name of your version of the above bin/oasis-market-maker-keeper snippet>`
+3. **Run** `./<the file name of your version of the above bin/oasis-market-maker-keeper snippet>`
+4. **That's it, your Keeper should now be running!**
 
-```
-usage: etherdelta-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                      [--rpc-port RPC_PORT]
-                                      [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                      ETH_FROM --tub-address TUB_ADDRESS
-                                      --etherdelta-address ETHERDELTA_ADDRESS
-                                      --etherdelta-socket ETHERDELTA_SOCKET
-                                      [--etherdelta-number-of-attempts ETHERDELTA_NUMBER_OF_ATTEMPTS]
-                                      [--etherdelta-retry-interval ETHERDELTA_RETRY_INTERVAL]
-                                      [--etherdelta-timeout ETHERDELTA_TIMEOUT]
-                                      --config CONFIG --price-feed PRICE_FEED
-                                      [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                      [--spread-feed SPREAD_FEED]
-                                      [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                      --order-age ORDER_AGE
-                                      [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
-                                      [--order-no-cancel-threshold ORDER_NO_CANCEL_THRESHOLD]
-                                      --eth-reserve ETH_RESERVE
-                                      [--min-eth-balance MIN_ETH_BALANCE]
-                                      --min-eth-deposit MIN_ETH_DEPOSIT
-                                      --min-sai-deposit MIN_SAI_DEPOSIT
-                                      [--cancel-on-shutdown]
-                                      [--withdraw-on-shutdown]
-                                      [--gas-price GAS_PRICE]
-                                      [--smart-gas-price] [--debug]
+### Keepers on Centralized Exchanges vs. Decentralized Exchanges
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
-  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
-  --rpc-timeout RPC_TIMEOUT
-                        JSON-RPC timeout (in seconds, default: 10)
-  --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --tub-address TUB_ADDRESS
-                        Ethereum address of the Tub contract
-  --etherdelta-address ETHERDELTA_ADDRESS
-                        Ethereum address of the EtherDelta contract
-  --etherdelta-socket ETHERDELTA_SOCKET
-                        Ethereum address of the EtherDelta API socket
-  --etherdelta-number-of-attempts ETHERDELTA_NUMBER_OF_ATTEMPTS
-                        Number of attempts of running the tool to talk to the
-                        EtherDelta API socket
-  --etherdelta-retry-interval ETHERDELTA_RETRY_INTERVAL
-                        Retry interval for sending orders over the EtherDelta
-                        API socket
-  --etherdelta-timeout ETHERDELTA_TIMEOUT
-                        Timeout for sending orders over the EtherDelta API
-                        socket
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --order-age ORDER_AGE
-                        Age of created orders (in blocks)
-  --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
-                        Remaining order age (in blocks) at which order is
-                        considered already expired, which means the keeper
-                        will send a new replacement order slightly ahead
-  --order-no-cancel-threshold ORDER_NO_CANCEL_THRESHOLD
-                        Remaining order age (in blocks) below which keeper
-                        does not try to cancel orders, assuming that they will
-                        probably expire before the cancel transaction gets
-                        mined
-  --eth-reserve ETH_RESERVE
-                        Amount of ETH which will never be deposited so the
-                        keeper can cover gas
-  --min-eth-balance MIN_ETH_BALANCE
-                        Minimum ETH balance below which keeper will cease
-                        operation
-  --min-eth-deposit MIN_ETH_DEPOSIT
-                        Minimum amount of ETH that can be deposited in one
-                        transaction
-  --min-sai-deposit MIN_SAI_DEPOSIT
-                        Minimum amount of SAI that can be deposited in one
-                        transaction
-  --cancel-on-shutdown  Whether should cancel all open orders on EtherDelta on
-                        keeper shutdown
-  --withdraw-on-shutdown
-                        Whether should withdraw all tokens from EtherDelta on
-                        keeper shutdown
-  --gas-price GAS_PRICE
-                        Gas price (in Wei)
-  --smart-gas-price     Use smart gas pricing strategy, based on the
-                        ethgasstation.info feed
-  --debug               Enable debug output
-```
+In the situation where you want to use a centralized exchange vs. a decentralized exchange, the process differs a little:
+1. You would need to have an existing account or create an account (on the exchange itself).
+2.  Get the set of API keys with trading permissions (will usually need to be generated as well).
+3. Deposit tokens in your account on the exchange (as the keepers do not handle deposits and withdrawals themselves). 
+4. Run the Market Maker Keeper. 
 
-### Known limitations
 
-* Because of some random database errors, creating some orders randomly fails. This issue has been reported
-  to the EtherDelta team (https://github.com/etherdelta/etherdelta.github.io/issues/275), but it
-  hasn't been solved yet.
+## 10. Known limitations
 
-* There is no way to reliably get the current status of the EtherDelta order book, so the keeper
-  relies on an assumption that if an order has been sent to EtherDelta it has actually made its way
-  to the order book. If it doesn't happen (because of the error mentioned above for example),
-  it will be missing from the exchange until its expiration time passes and it will get placed
-  again (refreshed) by the keeper.
+The gate.io API sometimes does not acknowledge order creation, returning following error message:
+`Oops... reloading...<font color=white> 29.148 </font> <script> function r(){window.location.reload();}setTimeout('r()',3000);</script>`. This error seems to depend on the API address of the caller. Despite these errors, orders get properly created and registered in the backend, the keeper will find out about it the next time it queries the open orders list (which happens every few seconds).
 
-* Due to the same issue with retrieving the current order book status, the keeper starts with the
-  assumption that the order book is empty. If there are already some keeper orders in it, they
-  may get recreated again by the keeper so duplicates will exist until the older ones expire.
-  That's why it is recommended to wait for the existing orders to expire before starting
-  the keeper.
+## 11. Support
 
-* There is a limit of 10 active orders per side
-  (see: https://github.com/etherdelta/etherdelta.github.io/issues/274).
+**We are here to help!**
+We welcome any questions about the market making in the [#keeper](https://chat.makerdao.com/channel/keeper) channel in the Maker Chat. 
 
-
-## `0x-market-maker-keeper`
-
-This keeper supports market-making on any 0x exchange which implements the _0x Standard Relayer HTTP API_.
-
-### Usage
-
-```
-usage: 0x-market-maker-keeper [-h] [--rpc-host RPC_HOST] [--rpc-port RPC_PORT]
-                              [--rpc-timeout RPC_TIMEOUT] --eth-from ETH_FROM
-                              --exchange-address EXCHANGE_ADDRESS
-                              --relayer-api-server RELAYER_API_SERVER
-                              [--relayer-per-page RELAYER_PER_PAGE]
-                              --buy-token-address BUY_TOKEN_ADDRESS
-                              --sell-token-address SELL_TOKEN_ADDRESS --config
-                              CONFIG --price-feed PRICE_FEED
-                              [--price-feed-expiry PRICE_FEED_EXPIRY]
-                              [--spread-feed SPREAD_FEED]
-                              [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                              --order-expiry ORDER_EXPIRY
-                              [--order-expiry-threshold ORDER_EXPIRY_THRESHOLD]
-                              [--min-eth-balance MIN_ETH_BALANCE]
-                              [--cancel-on-shutdown] [--gas-price GAS_PRICE]
-                              [--smart-gas-price] [--debug]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
-  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
-  --rpc-timeout RPC_TIMEOUT
-                        JSON-RPC timeout (in seconds, default: 10)
-  --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --exchange-address EXCHANGE_ADDRESS
-                        Ethereum address of the 0x Exchange contract
-  --relayer-api-server RELAYER_API_SERVER
-                        Address of the 0x Relayer API
-  --relayer-per-page RELAYER_PER_PAGE
-                        Number of orders to fetch per one page from the 0x
-                        Relayer API (default: 100)
-  --buy-token-address BUY_TOKEN_ADDRESS
-                        Ethereum address of the buy token
-  --sell-token-address SELL_TOKEN_ADDRESS
-                        Ethereum address of the sell token
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --order-expiry ORDER_EXPIRY
-                        Expiration time of created orders (in seconds)
-  --order-expiry-threshold ORDER_EXPIRY_THRESHOLD
-                        How long before order expiration it is considered
-                        already expired (in seconds)
-  --min-eth-balance MIN_ETH_BALANCE
-                        Minimum ETH balance below which keeper will cease
-                        operation
-  --cancel-on-shutdown  Whether should cancel all open orders on keeper
-                        shutdown
-  --gas-price GAS_PRICE
-                        Gas price (in Wei)
-  --smart-gas-price     Use smart gas pricing strategy, based on the
-                        ethgasstation.info feed
-  --debug               Enable debug output
-```
-
-### Known limitations
-
-* This keeper is confirmed to work with RadarRelay and ERCdEX.
-
-* In case of RadarRelay, expired and/or taken orders to not disappear from the UI immediately. Apparently they run
-  a backend process called _chain watching service_, which for tokens with little liquidity kicks in only
-  every 10 minutes and does order pruning. Because of that, if we configure the keeper to refresh
-  the orders too frequently (i.e. if the `--order-expiry` will be too low), the exchange users will
-  see two or even more duplicates of market maker orders.
-
-* The _0x Standard Relayer HTTP API_ specifies 100 as the maximal page size for querying open orders.
-  Having said that, some exchanges (e.g. RadarRelay) support more than that, so the `--relayer-per-page`
-  argument can be used to increase this limit. Just bear in mind this is against the spec.
-
-* Relayers tend to silently discard orders, for example if the ZRX token balance available in keeper account
-  is too low. Even after successful order placement confirmation from the API the order may still disappear
-  one or two seconds later.
-
-
-## `paradex-market-maker-keeper`
-
-This keeper supports market-making on the [Paradex](https://app.paradex.io/) exchange.
-
-### Usage
-
-```
-usage: paradex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                   [--rpc-port RPC_PORT]
-                                   [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                   ETH_FROM --exchange-address
-                                   EXCHANGE_ADDRESS
-                                   [--paradex-api-server PARADEX_API_SERVER]
-                                   --paradex-api-key PARADEX_API_KEY
-                                   [--paradex-api-timeout PARADEX_API_TIMEOUT]
-                                   --pair PAIR --buy-token-address
-                                   BUY_TOKEN_ADDRESS --sell-token-address
-                                   SELL_TOKEN_ADDRESS --config CONFIG
-                                   --price-feed PRICE_FEED
-                                   [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                   [--spread-feed SPREAD_FEED]
-                                   [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                   --order-expiry ORDER_EXPIRY
-                                   [--min-eth-balance MIN_ETH_BALANCE]
-                                   [--gas-price GAS_PRICE] [--smart-gas-price]
-                                   [--refresh-frequency REFRESH_FREQUENCY]
-                                   [--debug]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
-  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
-  --rpc-timeout RPC_TIMEOUT
-                        JSON-RPC timeout (in seconds, default: 10)
-  --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --exchange-address EXCHANGE_ADDRESS
-                        Ethereum address of the 0x Exchange contract
-  --paradex-api-server PARADEX_API_SERVER
-                        Address of the Paradex API (default:
-                        'https://api.paradex.io/consumer')
-  --paradex-api-key PARADEX_API_KEY
-                        API key for the Paradex API
-  --paradex-api-timeout PARADEX_API_TIMEOUT
-                        Timeout for accessing the Paradex API (in seconds,
-                        default: 9.5)
-  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
-  --buy-token-address BUY_TOKEN_ADDRESS
-                        Ethereum address of the buy token
-  --sell-token-address SELL_TOKEN_ADDRESS
-                        Ethereum address of the sell token
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --order-expiry ORDER_EXPIRY
-                        Expiration time of created orders (in seconds)
-  --min-eth-balance MIN_ETH_BALANCE
-                        Minimum ETH balance below which keeper will cease
-                        operation
-  --gas-price GAS_PRICE
-                        Gas price (in Wei)
-  --smart-gas-price     Use smart gas pricing strategy, based on the
-                        ethgasstation.info feed
-  --refresh-frequency REFRESH_FREQUENCY
-                        Order book refresh frequency (in seconds, default: 3)
-  --debug               Enable debug output
-```
-
-### Known limitations
-
-* The keeper needs access to an Ethereum node in order to grant token approvals to _0x_ contracts,
-  and also to constantly monitor token balances so it knows the maximum amount of orders it can place.
-  In addition to that, it uses the `eth_sign` JSON RPC call to sign all API requests.
-
-
-## `ddex-market-maker-keeper`
-
-This keeper supports market-making on the [DDEX](http://ddex.io/) exchange.
-
-### Usage
-
-```
-usage: ddex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                [--rpc-port RPC_PORT]
-                                [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                ETH_FROM --exchange-address EXCHANGE_ADDRESS
-                                [--ddex-api-server DDEX_API_SERVER]
-                                [--ddex-api-timeout DDEX_API_TIMEOUT] --pair
-                                PAIR --buy-token-address BUY_TOKEN_ADDRESS
-                                --sell-token-address SELL_TOKEN_ADDRESS
-                                --config CONFIG --price-feed PRICE_FEED
-                                [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                [--spread-feed SPREAD_FEED]
-                                [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                [--order-history ORDER_HISTORY]
-                                [--order-history-every ORDER_HISTORY_EVERY]
-                                [--min-eth-balance MIN_ETH_BALANCE]
-                                [--gas-price GAS_PRICE] [--smart-gas-price]
-                                [--refresh-frequency REFRESH_FREQUENCY]
-                                [--debug]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
-  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
-  --rpc-timeout RPC_TIMEOUT
-                        JSON-RPC timeout (in seconds, default: 10)
-  --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --exchange-address EXCHANGE_ADDRESS
-                        Ethereum address of the 0x Exchange contract
-  --ddex-api-server DDEX_API_SERVER
-                        Address of the Ddex API (default:
-                        'https://api.ddex.io')
-  --ddex-api-timeout DDEX_API_TIMEOUT
-                        Timeout for accessing the Ddex API (in seconds,
-                        default: 9.5)
-  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
-  --buy-token-address BUY_TOKEN_ADDRESS
-                        Ethereum address of the buy token
-  --sell-token-address SELL_TOKEN_ADDRESS
-                        Ethereum address of the sell token
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --order-history ORDER_HISTORY
-                        Endpoint to report active orders to
-  --order-history-every ORDER_HISTORY_EVERY
-                        Frequency of reporting active orders (in seconds,
-                        default: 30)
-  --min-eth-balance MIN_ETH_BALANCE
-                        Minimum ETH balance below which keeper will cease
-                        operation
-  --gas-price GAS_PRICE
-                        Gas price (in Wei)
-  --smart-gas-price     Use smart gas pricing strategy, based on the
-                        ethgasstation.info feed
-  --refresh-frequency REFRESH_FREQUENCY
-                        Order book refresh frequency (in seconds, default: 3)
-  --debug               Enable debug output
-```
-
-
-## `ethfinex-market-maker-keeper`
-
-This keeper supports market-making on the [IDEX](http://ethfinex.com/) exchange.
-
-### Usage
-
-```
-usage: ethfinex-market-maker-keeper [-h]
-                                    [--ethfinex-api-server ETHFINEX_API_SERVER]
-                                    --ethfinex-api-key ETHFINEX_API_KEY
-                                    --ethfinex-api-secret ETHFINEX_API_SECRET
-                                    [--ethfinex-timeout ETHFINEX_TIMEOUT]
-                                    --pair PAIR --config CONFIG --price-feed
-                                    PRICE_FEED
-                                    [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                    [--spread-feed SPREAD_FEED]
-                                    [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                    [--order-history ORDER_HISTORY]
-                                    [--order-history-every ORDER_HISTORY_EVERY]
-                                    [--refresh-frequency REFRESH_FREQUENCY]
-                                    [--debug]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --ethfinex-api-server ETHFINEX_API_SERVER
-                        Address of the Ethfinex API server (default:
-                        'https://api.ethfinex.com')
-  --ethfinex-api-key ETHFINEX_API_KEY
-                        API key for the Ethfinex API
-  --ethfinex-api-secret ETHFINEX_API_SECRET
-                        API secret for the Ethfinex API
-  --ethfinex-timeout ETHFINEX_TIMEOUT
-                        Timeout for accessing the Ethfinex API (in seconds,
-                        default: 9.5)
-  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --order-history ORDER_HISTORY
-                        Endpoint to report active orders to
-  --order-history-every ORDER_HISTORY_EVERY
-                        Frequency of reporting active orders (in seconds,
-                        default: 30)
-  --refresh-frequency REFRESH_FREQUENCY
-                        Order book refresh frequency (in seconds, default: 3)
-  --debug               Enable debug output
-```
-
-
-## `gopax-market-maker-keeper`
-
-This keeper supports market-making on the [GoPax](https://www.gopax.co.kr/) exchange.
-
-### Usage
-
-```
-usage: gopax-market-maker-keeper [-h] [--gopax-api-server GOPAX_API_SERVER]
-                                 --gopax-api-key GOPAX_API_KEY
-                                 --gopax-api-secret GOPAX_API_SECRET
-                                 [--gopax-timeout GOPAX_TIMEOUT] --pair PAIR
-                                 --config CONFIG --price-feed PRICE_FEED
-                                 [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                 [--spread-feed SPREAD_FEED]
-                                 [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                 [--order-history ORDER_HISTORY]
-                                 [--order-history-every ORDER_HISTORY_EVERY]
-                                 [--refresh-frequency REFRESH_FREQUENCY]
-                                 [--debug]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --gopax-api-server GOPAX_API_SERVER
-                        Address of the GOPAX API server (default:
-                        'https://api.gopax.co.kr')
-  --gopax-api-key GOPAX_API_KEY
-                        API key for the GOPAX API
-  --gopax-api-secret GOPAX_API_SECRET
-                        API secret for the GOPAX API
-  --gopax-timeout GOPAX_TIMEOUT
-                        Timeout for accessing the GOPAX API (in seconds,
-                        default: 9.5)
-  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --order-history ORDER_HISTORY
-                        Endpoint to report active orders to
-  --order-history-every ORDER_HISTORY_EVERY
-                        Frequency of reporting active orders (in seconds,
-                        default: 30)
-  --refresh-frequency REFRESH_FREQUENCY
-                        Order book refresh frequency (in seconds, default: 3)
-  --debug               Enable debug output
-```
-
-## `idex-market-maker-keeper`
-
-This keeper supports market-making on the [IDEX](https://idex.market/) exchange.
-
-### Usage
-
-```
-usage: idex-market-maker-keeper [-h] [--rpc-host RPC_HOST]
-                                [--rpc-port RPC_PORT]
-                                [--rpc-timeout RPC_TIMEOUT] --eth-from
-                                ETH_FROM --tub-address TUB_ADDRESS
-                                --idex-address IDEX_ADDRESS
-                                [--idex-api-server IDEX_API_SERVER]
-                                [--idex-timeout IDEX_TIMEOUT] --config CONFIG
-                                --price-feed PRICE_FEED
-                                [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                [--spread-feed SPREAD_FEED]
-                                [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                --eth-reserve ETH_RESERVE
-                                [--min-eth-balance MIN_ETH_BALANCE]
-                                --min-eth-deposit MIN_ETH_DEPOSIT
-                                --min-sai-deposit MIN_SAI_DEPOSIT
-                                [--gas-price GAS_PRICE] [--smart-gas-price]
-                                [--debug]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --rpc-host RPC_HOST   JSON-RPC host (default: `localhost')
-  --rpc-port RPC_PORT   JSON-RPC port (default: `8545')
-  --rpc-timeout RPC_TIMEOUT
-                        JSON-RPC timeout (in seconds, default: 10)
-  --eth-from ETH_FROM   Ethereum account from which to send transactions
-  --tub-address TUB_ADDRESS
-                        Ethereum address of the Tub contract
-  --idex-address IDEX_ADDRESS
-                        Ethereum address of the IDEX contract
-  --idex-api-server IDEX_API_SERVER
-                        Address of the IDEX API server (default:
-                        'https://api.idex.market')
-  --idex-timeout IDEX_TIMEOUT
-                        Timeout for accessing the IDEX API (in seconds,
-                        default: 9.5)
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --eth-reserve ETH_RESERVE
-                        Amount of ETH which will never be deposited so the
-                        keeper can cover gas
-  --min-eth-balance MIN_ETH_BALANCE
-                        Minimum ETH balance below which keeper will cease
-                        operation
-  --min-eth-deposit MIN_ETH_DEPOSIT
-                        Minimum amount of ETH that can be deposited in one
-                        transaction
-  --min-sai-deposit MIN_SAI_DEPOSIT
-                        Minimum amount of SAI that can be deposited in one
-                        transaction
-  --gas-price GAS_PRICE
-                        Gas price (in Wei)
-  --smart-gas-price     Use smart gas pricing strategy, based on the
-                        ethgasstation.info feed
-  --debug               Enable debug output
-```
-
-### Known limitations
-
-* Due to a serious bug in the IDEX API (only half of the open orders are returned via the API),
-  **this keeper should not be used yet**.
-
-
-## `bibox-market-maker-keeper`
-
-This keeper supports market-making on the [Bibox](https://www.bibox.com/exchange) centralized exchange.
-
-### Usage
-
-```
-usage: bibox-market-maker-keeper [-h] [--bibox-api-server BIBOX_API_SERVER]
-                                 --bibox-api-key BIBOX_API_KEY --bibox-secret
-                                 BIBOX_SECRET [--bibox-timeout BIBOX_TIMEOUT]
-                                 --pair PAIR --config CONFIG --price-feed
-                                 PRICE_FEED
-                                 [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                 [--spread-feed SPREAD_FEED]
-                                 [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                 [--debug]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --bibox-api-server BIBOX_API_SERVER
-                        Address of the Bibox API server (default:
-                        'https://api.bibox.com')
-  --bibox-api-key BIBOX_API_KEY
-                        API key for the Bibox API
-  --bibox-secret BIBOX_SECRET
-                        Secret for the Bibox API
-  --bibox-timeout BIBOX_TIMEOUT
-                        Timeout for accessing the Bibox API (in seconds,
-                        default: 9.5)
-  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --debug               Enable debug output
-```
-
-
-## `okex-market-maker-keeper`
-
-This keeper supports market-making on the [OKEX](https://www.okex.com/) centralized exchange.
-
-### Usage
-
-```
-usage: okex-market-maker-keeper [-h] [--okex-api-server OKEX_API_SERVER]
-                                --okex-api-key OKEX_API_KEY 
-                                --okex-secret-key OKEX_SECRET_KEY
-                                --okex-password OKEX_PASSWORD 
-                                [--okex-timeout OKEX_TIMEOUT]
-                                --pair PAIR --config CONFIG --price-feed
-                                PRICE_FEED
-                                [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                [--spread-feed SPREAD_FEED]
-                                [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                [--debug]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --okex-api-server OKEX_API_SERVER
-                        Address of the OKEX API server (default:
-                        'https://www.okex.com')
-  --okex-api-key OKEX_API_KEY
-                        API key for the OKEX API
-  --okex-secret-key OKEX_SECRET_KEY
-                        Secret key for the OKEX API
-  --okex-password OKEX_PASSWORD
-                        Password for the OKEX API key
-  --okex-timeout OKEX_TIMEOUT
-                        Timeout for accessing the OKEX API (in seconds,
-                        default: 9.5)
-  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --debug               Enable debug output
-```
-
-
-## `gateio-market-maker-keeper`
-
-This keeper supports market-making on the [gate.io](http://gate.io/) centralized exchange.
-
-### Usage
-
-```
-usage: gateio-market-maker-keeper [-h] [--gateio-api-server GATEIO_API_SERVER]
-                                  --gateio-api-key GATEIO_API_KEY
-                                  --gateio-secret-key GATEIO_SECRET_KEY
-                                  [--gateio-timeout GATEIO_TIMEOUT] --pair
-                                  PAIR --config CONFIG --price-feed PRICE_FEED
-                                  [--price-feed-expiry PRICE_FEED_EXPIRY]
-                                  [--spread-feed SPREAD_FEED]
-                                  [--spread-feed-expiry SPREAD_FEED_EXPIRY]
-                                  [--debug]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --gateio-api-server GATEIO_API_SERVER
-                        Address of the Gate.io API server (default:
-                        'https://data.gate.io')
-  --gateio-api-key GATEIO_API_KEY
-                        API key for the Gate.io API
-  --gateio-secret-key GATEIO_SECRET_KEY
-                        Secret key for the Gate.io API
-  --gateio-timeout GATEIO_TIMEOUT
-                        Timeout for accessing the Gate.io API (in seconds,
-                        default: 9.5)
-  --pair PAIR           Token pair (sell/buy) on which the keeper will operate
-  --config CONFIG       Bands configuration file
-  --price-feed PRICE_FEED
-                        Source of price feed
-  --price-feed-expiry PRICE_FEED_EXPIRY
-                        Maximum age of the price feed (in seconds, default:
-                        120)
-  --spread-feed SPREAD_FEED
-                        Source of spread feed
-  --spread-feed-expiry SPREAD_FEED_EXPIRY
-                        Maximum age of the spread feed (in seconds, default:
-                        3600)
-  --debug               Enable debug output
-```
-
-### Known limitations
-
-* The gate.io API sometimes does not acknowledge order creation, returning following error message:
-  `Oops... reloading...<font color=white> 29.148 </font> <script> function
-  r(){window.location.reload();}setTimeout('r()',3000);</script>`. This error
-  seems to depend on the API address of the caller. Despite these errors, orders get properly
-  created and registered in the backend, the keeper will find out about it the next time it
-  queries the open orders list (which happens every few seconds).
-
-
-## License
+### License
 
 See [COPYING](https://github.com/makerdao/market-maker-keeper/blob/master/COPYING) file.
 
