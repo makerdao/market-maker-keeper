@@ -142,11 +142,11 @@ class PriceHandler(tornado.web.RequestHandler):
             price = band.avg_price(target_price.sell_price)
 
         if self.is_base_pair(query_pair) and our_side == "SELL":
-            band = bands.sell_bands[0]
+            band = bands.buy_bands[0]
             price = Wad.from_number(1) / band.avg_price(target_price.sell_price)
 
         if self.is_base_pair(query_pair) and our_side == "BUY":
-            band = bands.buy_bands[0]
+            band = bands.sell_bands[0]
             price = Wad.from_number(1) / band.avg_price(target_price.buy_price)
 
         logging.info(f"price: {str(price)}  minAmount: {str(band.min_amount)}  maxAmount: {str(band.max_amount)}")
