@@ -119,8 +119,13 @@ class KrakenMarketMakerKeeper:
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
+            lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
+
+    def startup(self):
+        # Get decimals for pair.
+        self.pair_precision = self.kraken_api.get_markets()[self.pair()]['pair_decimals']
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
@@ -184,7 +189,7 @@ class KrakenMarketMakerKeeper:
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
-            price = new_order_to_be_placed.price
+            price = round(new_order_to_be_placed.price, self.pair_precision)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
 
             order_id = self.kraken_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
