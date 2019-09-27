@@ -175,7 +175,7 @@ pip3 install -r requirements-dev.txt
 
 The Bands configuration file is directly related to how your Market Maker Keeper will work. As mentioned in the introduction, these Keepers continuously monitor and adjust their positions in the order book, maintaining open buy and sell orders in multiple bands at the same time. For each `buy` and `sell` band, the Keepers aim to have open orders for at least the `minAmount`. In both cases, they will ensure that the price of open orders stays within the `<minMargin, maxMargin>` range from the current price. When running, Keepers place orders for the average amounts (`avgAmount`) in each band by using use `avgMargin` to calculate the order price.
 
-As long as the price of orders stays within the set band(s) (i.e. it's in between the `<minMargin,maxMargin>` range from the current price), the Keepers are kept open/running. If some orders leave the band, they either enter another adjacent band or fall outside all bands. In the case of the latter, they would be immediately canceled. In the case of the former, Keepers can keep these orders open as long as their amount is within the `<minAmount,maxAmount>` ranges for the band they just entered. If it is above the maximum, some of the open orders will get canceled and potentially a new one will be created to bring the total amount back within the range. If it is below the minimum, a new order gets created for the remaining amount so that the total amount of orders in this band is equal to `avgAmount`. The same process will happen if the total amount of open orders in a band falls below the `minAmount` as a result of other market participants taking these orders. In this case, a new order gets created for the remaining amount so the total amount of orders in this band is equal to `avgAmount`. There are some Keepers that will constantly use gas to cancel orders (ex: OasisDEX, EtherDelta and 0x) and create new ones (OasisDEX) as the price changes. Gas usage can be limited by setting the margin and amount ranges wide enough but also by making sure that the bands are always adjacent to each other and that their `<min,max>` amount ranges overlap.
+As long as the price of orders stays within the set band(s) (i.e. it's in between the `<minMargin,maxMargin>` range from the current price), the Keepers are kept open/running. If some orders leave the band, they either enter another adjacent band or fall outside all bands. In the case of the latter, they would be immediately canceled. In the case of the former, Keepers can keep these orders open as long as their amount is within the `<minAmount,maxAmount>` ranges for the band they just entered. If it is above the maximum, some of the open orders will get canceled and potentially a new one will be created to bring the total amount back within the range. If it is below the minimum, a new order gets created for the remaining amount so that the total amount of orders in this band is equal to `avgAmount`. The same process will happen if the total amount of open orders in a band falls below the `minAmount` as a result of other market participants taking these orders. In this case, a new order gets created for the remaining amount so the total amount of orders in this band is equal to `avgAmount`. There are some Keepers (which operate on decentralized exchanges) that will constantly use gas to cancel orders (ex: OasisDEX, EtherDelta and 0x) and create new ones (OasisDEX) as the price changes. Gas usage can be limited by setting the margin and amount ranges wide enough as well as by making sure that the bands are always adjacent to each other/set to the same value.
 
 ### File format
 
@@ -183,7 +183,7 @@ The bands configuration file consists of two main sections:
 1. **buyBands**
 2. **sellBands**
 
-**Note:** Each of the sections is an array containing one object per each band.
+**Note:** Each section is an array containing one object (band).
 
 The *`minMargin`* and *`maxMargin`* fields in each band object represent the margin (spread) range of that band. These ranges may not overlap for bands of the same type (*`buy`* or *`sell`*), and should be adjacent to each other for better Keeper performance (where fewer orders will get canceled if the bands are adjacent to each other). The *`avgMargin`* represents the margin (spread) of newly created orders within a band.
 
@@ -352,15 +352,15 @@ Below, we list some of the existing public feeds. You can also use web sockets i
 As of today, these are the possible values of this argument ( existing public feeds)  that we list:
 
 - `fixed:<amount>` - uses a fixed price (`fixed:200`in this example). See below for a more in-depth example. Note that when you are on mainnet, you typically won't use a fixed amount but it is an ideal example for this walkthrough as there aren't price feeds for Kovan.
-- `eth_dai` - uses the price from the GDAX WebSocket ETH/USD price feed.
+- `eth_dai` - uses the price from the GDAX (Coinbase) WebSocket ETH/USD price feed.
 - `eth_dai-setzer` - uses the average of Kraken and Gemini ETH/USD prices.
 - `eth_dai-tub` - uses the price feed from `Tub` (only works for keepers being able to access an Ethereum node).
-- `eth_dai-pair` - uses the price from the GDAX WebSocket ETH/DAI price feed.
-- `eth_dai-pair-midpoint` - uses the midpoint orderbook price from the GDAX WebSocket ETH/DAI pair.
+- `eth_dai-pair` - uses the price from the GDAX (Coinbase) WebSocket ETH/DAI price feed.
+- `eth_dai-pair-midpoint` - uses the midpoint orderbook price from the GDAX (Coinbase) WebSocket ETH/DAI pair.
 - `dai_eth` - inverse of the `eth_dai` price feed.
 - `dai_eth-setzer` - inverse of the `eth_dai-setzer` price feed.
 - `dai_eth-tub` - inverse of the `eth_dai-tub` price feed.
-- `btc_dai` - uses the price from the GDAX WebSocket BTC/USD price feed.
+- `btc_dai` - uses the price from the GDAX (Coinbase) WebSocket BTC/USD price feed.
 - `dai_btc` - inverse of the `btc_dai` price feed.
 - `ws://...` or `wss://...` - uses a price feed advertised over a WebSocket connection (custom protocol).
 
@@ -388,7 +388,7 @@ The below file should be copy and pasted into a new file within the root directo
         --rpc-port <port number> \
         --rpc-timeout 10 \
         --eth-from [address of your generated Ethereum account] \
-    		--eth-key ${ACCOUNT_KEY} \ 
+    		--eth-key "key_file=./keystore.json,pass_file=keystore.pass" \ 
         --tub-address 0x448a5065aebb8e423f0896e6c5d525c040f59af3 \
         --oasis-address 0x14fbca95be7e99c15cc2996c6c9d841e54b79425 \
         --price-feed fixed:200 \
