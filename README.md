@@ -39,6 +39,12 @@ A big part of the DAI Stablecoin System (DSS) is the incentivization of external
 - GoPax (`gopax-market-maker-keeper`)
 - OKEX (`okex-market-maker-keeper`)
 - TheOcean (`theocean-market-maker-keeper`)
+- 0x (`0x-market-maker-keeper`)
+- Kraken (`kraken-market-maker-keeper`)
+- Coinbase (`coinbase-market-maker-keeper`)
+- Bittrex (`bittrex-market-maker-keeper`)
+- Kucoin (`kucoin-market-maker-keeper`)
+- Liquid (`liquid-market-maker-keeper`)
 
 ## 2. Prerequisite
 - Git
@@ -57,23 +63,15 @@ cd market-maker-keeper
 2. **Initializing the git submodules that will bring in both the pymaker and the pyexchange library.** 
 ```
 git submodule update --init --recursive
-   ``` 
-
-3. **Set up the virtual env and activate it:**
-```
-python3 -m venv _virtualenv
-source _virtualenv/bin/activate
-```
-4. **Check to make sure you have the correct version (Python 3.6.6) of Python by running:**  
+``` 
+3. **Check to make sure you have the correct version (Python 3.6.6) of Python by running:**
 ```
 python3 -V
 ```
-
-5. **Install Requirements** 
+4. **To set up the virtual environment and install requirements, run the following script:**
 ```
-pip3 install $(cat requirements.txt $(find lib -name requirements.txt | sort) | sort | uniq | sed 's/ *== */==/g')
+./install.sh
 ```
-- **Note:** This command is used in place of `pip install -r requirements.txt` and is used for iterating through all the dependencies in the lib directory to grab all of the requirements needed.
 
 ### Potential errors that could arise:
 
@@ -357,6 +355,8 @@ As of today, these are the possible values of this argument ( existing public fe
 - `eth_dai` - uses the price from the GDAX WebSocket ETH/USD price feed.
 - `eth_dai-setzer` - uses the average of Kraken and Gemini ETH/USD prices.
 - `eth_dai-tub` - uses the price feed from `Tub` (only works for keepers being able to access an Ethereum node).
+- `eth_dai-pair` - uses the price from the GDAX WebSocket ETH/DAI price feed.
+- `eth_dai-pair-midpoint` - uses the midpoint orderbook price from the GDAX WebSocket ETH/DAI pair.
 - `dai_eth` - inverse of the `eth_dai` price feed.
 - `dai_eth-setzer` - inverse of the `eth_dai-setzer` price feed.
 - `dai_eth-tub` - inverse of the `eth_dai-tub` price feed.
