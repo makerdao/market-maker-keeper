@@ -299,6 +299,14 @@ class PriceFeedFactory:
         elif price_feed_argument == 'dai_btc':
             return ReversePriceFeed(PriceFeedFactory._create_price_feed('btc_dai', price_feed_expiry_argument, tub))
 
+        elif price_feed_argument == 'zrx_usd-pair-midpoint':
+             return GdaxMidpointPriceFeed(product_id="ZRX-USD",
+                                          expiry=price_feed_expiry_argument)
+
+        elif price_feed_argument == 'bat_usdc-pair-midpoint':
+             return GdaxMidpointPriceFeed(product_id="BAT-USDC",
+                                          expiry=price_feed_expiry_argument)
+
         elif price_feed_argument.startswith("fixed:"):
             price_feed = FixedPriceFeed(Wad.from_number(price_feed_argument[6:]))
 
