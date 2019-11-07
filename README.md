@@ -57,7 +57,7 @@ A big part of the DAI Stablecoin System (DSS) is the incentivization of external
 
 1. **Clone the `market-maker-keeper` repository and switch into its directory:**
 ```
-git clone git@github.com:makerdao/market-maker-keeper.git
+git clone https://github.com/makerdao/market-maker-keeper.git
 cd market-maker-keeper 
 ```
 2. **Initializing the git submodules that will bring in both the pymaker and the pyexchange library.** 
