@@ -142,7 +142,6 @@ class OasisMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
     
-        #------------WARNING changed below line to include https, need to remove the final s
         self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
@@ -198,7 +197,6 @@ class OasisMarketMakerKeeper:
             return self.buy_token.normalize_amount(token.balance_of(self.our_address))
         else:
             return self.sell_token.normalize_amount(token.balance_of(self.our_address))
-
 
     def our_orders(self):
         return list(filter(lambda order: order.maker == self.our_address,
@@ -311,8 +309,6 @@ class OasisMarketMakerKeeper:
                          timestamp=0)
         else:
             return None
-
-
 
     def cancel_order_function(self, order):
         transact = self.otc.kill(order.order_id).transact(gas_price=self.gas_price)
