@@ -311,6 +311,10 @@ class PriceFeedFactory:
               return GdaxMidpointPriceFeed(product_id="DAI-USDC",
                                            expiry=price_feed_expiry_argument)
 
+        elif price_feed_argument == 'rep_usd-pair-midpoint':
+              return GdaxMidpointPriceFeed(product_id="REP-USD",
+                                           expiry=price_feed_expiry_argument)
+
         elif price_feed_argument.startswith("fixed:"):
             price_feed = FixedPriceFeed(Wad.from_number(price_feed_argument[6:]))
 
