@@ -181,8 +181,12 @@ class LeverjMarketMakerKeeper:
             if our_balances[key]['symbol'] == token:
                 if (token == "LEV") or (token == "FEE"): 
                     return Wad(int(our_balances[key]['available'])*10**9)
-                elif (token == "USDC"):
+                elif (token == "USDC") or (token == "USDT"):
                     return Wad(int(our_balances[key]['available'])*10**12)
+                elif (token == "WBTC"):
+                    return Wad(int(our_balances[key]['available'])*10**10)
+                elif (token == "GUSD"):
+                    return Wad(int(our_balances[key]['available'])*10**16)
                 else:
                     return Wad(int(our_balances[key]['available']))
 
@@ -233,7 +237,6 @@ class LeverjMarketMakerKeeper:
                          amount=amount)
 
         for new_order in new_orders:
-            self.logger.info(f'new order is {new_order}')
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
 
