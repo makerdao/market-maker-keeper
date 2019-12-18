@@ -8,3 +8,4 @@ mock == 2.0.0
 asynctest == 0.11.1
 Sphinx == 1.6.2
 flask == 1.0.3
+attrs==19.1.0
