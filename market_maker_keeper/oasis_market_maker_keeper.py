@@ -200,8 +200,8 @@ class OasisMarketMakerKeeper:
 
     def our_orders(self):
         return list(filter(lambda order: order.maker == self.our_address,
-                           self.otc.get_orders(self.token_sell.address, self.sell_token, self.token_buy.address, self.buy_token) +
-                           self.otc.get_orders(self.token_buy.address, self.buy_token, self.token_sell.address, self.sell_token)))
+                           self.otc.get_orders(self.sell_token, self.buy_token) +
+                           self.otc.get_orders(self.buy_token, self.sell_token)))
 
     def our_sell_orders(self, our_orders: list):
         return list(filter(lambda order: order.buy_token == self.token_buy.address and
@@ -256,45 +256,42 @@ class OasisMarketMakerKeeper:
         assert(isinstance(new_order, NewOrder))
 
         if new_order.is_sell:
+            buy_or_sell = "SELL"
             pay_token = self.token_sell.address
             buy_token = self.token_buy.address
             new_order.buy_amount = self.buy_token.unnormalize_amount(new_order.buy_amount)
             b_token = self.buy_token
-            new_order.pay_amount = self.sell_token.unnormalize_amount(new_order.pay_amount)
             p_token = self.sell_token
+            new_order.pay_amount = self.sell_token.unnormalize_amount(new_order.pay_amount)
+            token_name = self.sell_token.name
+            quote_token = self.buy_token.name
+
         else:
+            buy_or_sell = "BUY"
             pay_token = self.token_buy.address
             buy_token = self.token_sell.address
             new_order.pay_amount = self.buy_token.unnormalize_amount(new_order.pay_amount)
             p_token = self.buy_token
-            new_order.buy_amount = self.sell_token.unnormalize_amount(new_order.buy_amount)
             b_token = self.sell_token
+            new_order.buy_amount = self.sell_token.unnormalize_amount(new_order.buy_amount)
+            token_name = self.sell_token.name
+            quote_token = self.buy_token.name
 
 
-        transact = self.otc.make(pay_token=pay_token, p_token=p_token, pay_amount=new_order.pay_amount,
-                                 buy_token=buy_token, b_token=b_token, buy_amount=new_order.buy_amount).transact(gas_price=self.gas_price)
+        transact = self.otc.make(p_token=p_token, pay_amount=new_order.pay_amount,
+                                 b_token=b_token, buy_amount=new_order.buy_amount).transact(gas_price=self.gas_price)
 
         if new_order.is_sell:
-            pay_token = self.token_sell.address
-            buy_token = self.token_buy.address
             new_order.buy_amount = self.buy_token.normalize_amount(new_order.buy_amount)
             new_order.pay_amount = self.sell_token.normalize_amount(new_order.pay_amount)
-            buy_or_sell = "SELL"
             buy_or_sell_price = new_order.buy_amount/new_order.pay_amount
             amount = new_order.pay_amount
-            token_name = self.sell_token.name
-            quote_token = self.buy_token.name
 
         else:
-            pay_token = self.token_buy.address
-            buy_token = self.token_sell.address
             new_order.pay_amount = self.buy_token.normalize_amount(new_order.pay_amount)
             new_order.buy_amount = self.sell_token.normalize_amount(new_order.buy_amount)
-            buy_or_sell = "BUY"
             buy_or_sell_price = new_order.pay_amount/new_order.buy_amount
             amount = new_order.buy_amount
-            token_name = self.sell_token.name
-            quote_token = self.buy_token.name
 
         if transact is not None and transact.successful and transact.result is not None:
             self.logger.info(f'Placing {buy_or_sell} order of amount {amount} {token_name} @ price {buy_or_sell_price} {quote_token}') 
