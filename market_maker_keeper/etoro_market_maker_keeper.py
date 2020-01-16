@@ -43,19 +43,19 @@ class EToroMarketMakerKeeper:
     def __init__(self, args: list):
         parser = argparse.ArgumentParser(prog='eToro-market-maker-keeper')
 
-        parser.add_argument("--eToro-api-server", type=str, default="https://www.eToro.com",
-                            help="Address of the eToro API server (default: 'https://www.eToro.com')")
+        parser.add_argument("--etoro-api-server", type=str, default="https://7vriaeqd.hft.etorox.com",
+                            help="Address of the eToro API server (default: 'https://7vriaeqd.hft.etorox.com')")
 
-        parser.add_argument("--eToro-api-key", type=str, required=True,
+        parser.add_argument("--etoro-account", type=str, default="mm@liquidityproviders.io",
+                            help="Username for eToroX account)
+
+        parser.add_argument("--etoro-api-key", type=str, required=True,
                             help="API key for the eToro API")
 
-        parser.add_argument("--eToro-secret-key", type=str, required=True,
+        parser.add_argument("--etoro-secret-key", type=str, required=True,
                             help="Secret key for the eToro API")
 
-        parser.add_argument("--eToro-password", type=str, required=True,
-                            help="Password for the eToro API key")
-
-        parser.add_argument("--eToro-timeout", type=float, default=9.5,
+        parser.add_argument("--etoro-timeout", type=float, default=9.5,
                             help="Timeout for accessing the eToro API (in seconds, default: 9.5)")
 
         parser.add_argument("--pair", type=str, required=True,
@@ -104,16 +104,16 @@ class EToroMarketMakerKeeper:
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
-        self.eToro_api = EToroApi(api_server=self.arguments.eToro_api_server,
-                                api_key=self.arguments.eToro_api_key,
+        self.etoro_api = EToroApi(api_server=self.arguments.etoro_api_server,
+                                account=self.arguments.etoro_api_account,
+                                api_key=self.arguments.etoro_api_key,
                                 secret_key=self.arguments.eToro_secret_key,
-                                password=self.arguments.eToro_password,
                                 timeout=self.arguments.eToro_timeout)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
-        self.order_book_manager.get_orders_with(lambda: self.eToro_api.get_orders(self.pair()))
-        self.order_book_manager.get_balances_with(lambda: self.eToro_api.get_balances())
-        self.order_book_manager.cancel_orders_with(lambda order: self.eToro_api.cancel_order(self.pair(), order.order_id))
+        self.order_book_manager.get_orders_with(lambda: self.etoro_api.get_orders(self.pair()))
+        self.order_book_manager.get_balances_with(lambda: self.etoro_api.get_balances())
+        self.order_book_manager.cancel_orders_with(lambda order: self.etoro_api.cancel_order(self.pair(), order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -172,7 +172,7 @@ class EToroMarketMakerKeeper:
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            order_id = self.eToro_api.place_order(pair=self.pair(),
+            order_id = self.etoro_api.place_order(pair=self.pair(),
                                                  is_sell=new_order_to_be_placed.is_sell,
                                                  price=new_order_to_be_placed.price,
                                                  amount=amount)

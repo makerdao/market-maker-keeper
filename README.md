@@ -36,6 +36,7 @@ A big part of the DAI Stablecoin System (DSS) is the incentivization of external
 - Paradex (`paradex-market-maker-keeper`)
 - DDEX (`ddex-market-maker-keeper`)
 - Ethfinex (`ethfinex-market-maker-keeper`)
+- Etoro (`etoro-market-maker-keeper`)
 - GoPax (`gopax-market-maker-keeper`)
 - OKEX (`okex-market-maker-keeper`)
 - TheOcean (`theocean-market-maker-keeper`)
