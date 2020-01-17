@@ -47,7 +47,7 @@ class EToroMarketMakerKeeper:
                             help="Address of the eToro API server (default: 'https://7vriaeqd.hft.etorox.com')")
 
         parser.add_argument("--etoro-account", type=str, default="mm@liquidityproviders.io",
-                            help="Username for eToroX account)
+                            help="Username for eToroX account")
 
         parser.add_argument("--etoro-api-key", type=str, required=True,
                             help="API key for the eToro API")
