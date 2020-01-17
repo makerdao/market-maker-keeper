@@ -7,17 +7,17 @@
             "avgMargin": 0.03,
             "maxMargin": 0.04,
             "minAmount": 0.5 * $.ethprice,
-            "avgAmount": 30.0,
-            "maxAmount": 40.0,
+            "avgAmount": 0.75 * $.ethprice,
+            "maxAmount": 1.0 * $.ethprice,
             "dustCutoff": 0.0
         },
         {
             "minMargin": 0.04,
             "avgMargin": 0.05,
             "maxMargin": 0.06,
-            "minAmount": 40.0,
-            "avgAmount": 60.0,
-            "maxAmount": 80.0,
+            "minAmount": 0.5 * $.ethprice,
+            "avgAmount": 0.75 * $.ethprice,
+            "maxAmount": 1.0 * $.ethprice,
             "dustCutoff": 0.0
         }
     ],

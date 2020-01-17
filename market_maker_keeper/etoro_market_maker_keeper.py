@@ -113,7 +113,7 @@ class EToroMarketMakerKeeper:
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.etoro_api.get_orders(self.pair()))
         self.order_book_manager.get_balances_with(lambda: self.etoro_api.get_balances())
-        self.order_book_manager.cancel_orders_with(lambda order: self.etoro_api.cancel_order(self.pair(), order.order_id))
+        self.order_book_manager.cancel_orders_with(lambda order: self.etoro_api.cancel_order(order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -172,8 +172,9 @@ class EToroMarketMakerKeeper:
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
+            side = "sell" if new_order_to_be_placed.is_sell == True else "buy"
             order_id = self.etoro_api.place_order(pair=self.pair(),
-                                                 is_sell=new_order_to_be_placed.is_sell,
+                                                 side=side,
                                                  price=new_order_to_be_placed.price,
                                                  amount=amount)
 
