@@ -18,8 +18,8 @@
 import argparse
 import logging
 import sys
-
 from retry import retry
+from datetime import datetime, timezone
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.control_feed import create_control_feed
@@ -105,13 +105,13 @@ class EToroMarketMakerKeeper:
 
         self.history = History()
         self.etoro_api = EToroApi(api_server=self.arguments.etoro_api_server,
-                                account=self.arguments.etoro_api_account,
+                                account=self.arguments.etoro_account,
                                 api_key=self.arguments.etoro_api_key,
-                                secret_key=self.arguments.eToro_secret_key,
-                                timeout=self.arguments.eToro_timeout)
+                                secret_key=open(f'{self.arguments.etoro_secret_key}', 'r').read(),
+                                timeout=self.arguments.etoro_timeout)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
-        self.order_book_manager.get_orders_with(lambda: self.etoro_api.get_orders(self.pair()))
+        self.order_book_manager.get_orders_with(lambda: self.etoro_api.get_orders(self._join_string(self.pair()), "open"))
         self.order_book_manager.get_balances_with(lambda: self.etoro_api.get_balances())
         self.order_book_manager.cancel_orders_with(lambda order: self.etoro_api.cancel_order(order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
@@ -135,8 +135,9 @@ class EToroMarketMakerKeeper:
     def token_buy(self) -> str:
         return self.arguments.pair.split('_')[1].lower()
 
-    def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        return Wad.from_number(our_balances[token.upper()]['available'])
+    def our_available_balance(self, our_balances: list, token: str) -> Wad:
+        balance = list(filter(lambda x: x['currency'] == token, our_balances))[0]['balance']
+        return Wad.from_number(balance)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -173,16 +174,22 @@ class EToroMarketMakerKeeper:
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             side = "sell" if new_order_to_be_placed.is_sell == True else "buy"
-            order_id = self.etoro_api.place_order(pair=self.pair(),
+            order_id = self.etoro_api.place_order(instrument_id=self._join_string(self.pair()),
                                                  side=side,
                                                  price=new_order_to_be_placed.price,
                                                  amount=amount)
 
-            return Order(str(order_id), 0, self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount, Wad(0))
+            timestamp = datetime.now(tz=timezone.utc).isoformat()
+
+            return Order(str(order_id), timestamp, self._join_string(self.pair()), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount, Wad(0))
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
+    # Return lower case concatted string. Assumes inputted string is an _ delimited pair
+    def _join_string(self, string: str) -> str:
+        assert(isinstance(string, str))
+        return "".join(string.split('_')).lower()
 
 if __name__ == '__main__':
     EToroMarketMakerKeeper(sys.argv[1:]).main()
