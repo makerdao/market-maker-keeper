@@ -123,6 +123,8 @@ class IdexMarketMakerKeeper:
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
+        parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
+
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 

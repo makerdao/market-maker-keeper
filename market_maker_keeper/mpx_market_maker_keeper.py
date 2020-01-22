@@ -92,6 +92,8 @@ class MpxMarketMakerKeeper:
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
+        parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
+
         parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
 

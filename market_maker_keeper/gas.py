@@ -31,8 +31,8 @@ class SmartGasPrice(GasPrice):
 
     GWEI = 1000000000
 
-    def __init__(self):
-        self.gas_station = EthGasStation(refresh_interval=60, expiry=600)
+    def __init__(self, api_key: None):
+        self.gas_station = EthGasStation(refresh_interval=60, expiry=600, api_key=api_key)
 
     def get_gas_price(self, time_elapsed: int) -> Optional[int]:
         fast_price = self.gas_station.fast_price()
@@ -53,7 +53,7 @@ class GasPriceFactory:
     @staticmethod
     def create_gas_price(arguments) -> GasPrice:
         if arguments.smart_gas_price:
-            return SmartGasPrice()
+            return SmartGasPrice(arguments.ethgasstation_api_key)
         elif arguments.gas_price:
             return FixedGasPrice(arguments.gas_price)
         else:
