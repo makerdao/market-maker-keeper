@@ -174,7 +174,7 @@ class EToroMarketMakerKeeper:
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             side = "sell" if new_order_to_be_placed.is_sell == True else "buy"
-            order_id = self.etoro_api.place_order(instrument_id=self._join_string(self.pair()),
+            order_id = self.etoro_api.place_order(pair=self._join_string(self.pair()),
                                                  side=side,
                                                  price=new_order_to_be_placed.price,
                                                  amount=amount)
