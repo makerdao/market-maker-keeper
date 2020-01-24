@@ -1,6 +1,6 @@
 # This file is part of Maker Keeper Framework.
 #
-# Copyright (C) 2017-2018 reverendus
+# Copyright (C) 2020 MakerDAO
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -181,7 +181,7 @@ class EToroMarketMakerKeeper:
 
             timestamp = datetime.now(tz=timezone.utc).isoformat()
 
-            return Order(str(order_id), timestamp, self._join_string(self.pair()), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount, Wad(0))
+            return Order(str(order_id), timestamp, self._join_string(self.pair()), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
