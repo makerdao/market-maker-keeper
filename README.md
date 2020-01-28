@@ -397,6 +397,7 @@ The below file should be copy and pasted into a new file within the root directo
         --sell-token-address [address of the base token, could be WETH] \
         --config [path to the json bands configuration file, e.g. bands.json] \
         --smart-gas-price \
+        --ethgasstation-api-key API_KEY_HERE \
         --min-eth-balance 0.001  
 
 
