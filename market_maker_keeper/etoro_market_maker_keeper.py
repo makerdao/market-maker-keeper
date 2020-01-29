@@ -43,8 +43,8 @@ class EToroMarketMakerKeeper:
     def __init__(self, args: list):
         parser = argparse.ArgumentParser(prog='eToro-market-maker-keeper')
 
-        parser.add_argument("--etoro-api-server", type=str, default="https://7vriaeqd.hft.etorox.com",
-                            help="Address of the eToro API server (default: 'https://7vriaeqd.hft.etorox.com')")
+        parser.add_argument("--etoro-api-server", type=str, required=True,
+                            help="Address of the eToro API server")
 
         parser.add_argument("--etoro-account", type=str, default="mm@liquidityproviders.io",
                             help="Username for eToroX account")
