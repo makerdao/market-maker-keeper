@@ -9,3 +9,7 @@ __pycache__
 .pytest_cache/
 
 .DS_Store
+.vscode
+*.swp
+*.dev.sh
+.key
