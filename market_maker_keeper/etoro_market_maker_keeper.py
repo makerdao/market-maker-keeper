@@ -52,8 +52,8 @@ class EToroMarketMakerKeeper:
         parser.add_argument("--etoro-api-key", type=str, required=True,
                             help="API key for the eToro API")
 
-        parser.add_argument("--etoro-secret-key", type=str, required=True,
-                            help="Secret key for the eToro API")
+        parser.add_argument("--etoro-secret-key", type=argparse.FileType('r'), required=True,
+                            help="RSA Private Key for signing requests to the eToroX API")
 
         parser.add_argument("--etoro-timeout", type=float, default=9.5,
                             help="Timeout for accessing the eToro API (in seconds, default: 9.5)")
@@ -107,7 +107,7 @@ class EToroMarketMakerKeeper:
         self.etoro_api = EToroApi(api_server=self.arguments.etoro_api_server,
                                 account=self.arguments.etoro_account,
                                 api_key=self.arguments.etoro_api_key,
-                                secret_key=open(f'{self.arguments.etoro_secret_key}', 'r').read(),
+                                secret_key=self.arguments.etoro_secret_key,
                                 timeout=self.arguments.etoro_timeout)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
