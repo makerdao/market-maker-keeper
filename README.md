@@ -42,6 +42,7 @@ A big part of the DAI Stablecoin System (DSS) is the incentivization of external
 - TheOcean (`theocean-market-maker-keeper`)
 - 0x (`0x-market-maker-keeper`)
 - Kraken (`kraken-market-maker-keeper`)
+- Korbit (`korbit-market-maker-keeper`)
 - Coinbase (`coinbase-market-maker-keeper`)
 - Bittrex (`bittrex-market-maker-keeper`)
 - Kucoin (`kucoin-market-maker-keeper`)
