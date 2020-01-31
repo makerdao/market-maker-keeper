@@ -18,6 +18,7 @@
 import argparse
 import logging
 import sys
+import time
 from retry import retry
 from datetime import datetime, timezone
 
@@ -49,8 +50,8 @@ class KorbitMarketMakerKeeper:
         parser.add_argument("--korbit-api-key", type=str, required=True,
                             help="API key for the Korbit API")
 
-        parser.add_argument("--korbit-secret-key", type=argparse.FileType('r'), required=True,
-                            help="Secret key for the coinbase API")
+        parser.add_argument("--korbit-secret-key", type=str, required=True,
+                            help="Secret key for the Korbit API")
 
         parser.add_argument("--korbit-timeout", type=float, default=9.5,
                             help="Timeout for accessing the Korbit API (in seconds, default: 9.5)")
@@ -107,9 +108,9 @@ class KorbitMarketMakerKeeper:
                                 timeout=self.arguments.korbit_timeout)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
-        self.order_book_manager.get_orders_with(lambda: self.korbit_api.get_orders(self.pair())
+        self.order_book_manager.get_orders_with(lambda: self.korbit_api.get_orders(self.pair()))
         self.order_book_manager.get_balances_with(lambda: self.korbit_api.get_balances())
-        self.order_book_manager.cancel_orders_with(lambda order: self.korbit_api.cancel_order(order.order_id, self.pair()))
+        self.order_book_manager.cancel_orders_with(lambda order: self.korbit_api.cancel_order(int(order.order_id), self.pair()))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -132,7 +133,7 @@ class KorbitMarketMakerKeeper:
         return self.arguments.pair.split('_')[1].lower()
 
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        balance = response[f"{token}"]["available"]
+        balance = our_balances[f"{token}"]["available"]
         return Wad.from_number(balance)
 
     def our_sell_orders(self, our_orders: list) -> list:
@@ -169,10 +170,10 @@ class KorbitMarketMakerKeeper:
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            order_id = self.korbit_api.place_order(pair=self.pair()),
-                                                 is_sell=new_order_to_be_placed.is_sell,
-                                                 price=new_order_to_be_placed.price,
-                                                 amount=amount)
+            order_id = self.korbit_api.place_order(pair=self.pair(),
+                                                   is_sell=new_order_to_be_placed.is_sell,
+                                                   price=new_order_to_be_placed.price,
+                                                   amount=amount)
 
             timestamp = int(round(time.time()))
             return Order(str(order_id), timestamp, self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
