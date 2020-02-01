@@ -30,23 +30,25 @@ A big part of the DAI Stablecoin System (DSS) is the incentivization of external
 
 ### List of current exchanges that Market Maker Keeper Bots can be built for
 
-- OasisDEX (`oasis-market-maker-keeper`)
-- EtherDelta (`etherdelta-market-maker-keeper`)
-- RadarRelay and ERCdEX (`0x-market-maker-keeper`)
-- Paradex (`paradex-market-maker-keeper`)
+- Bitso (`bitso-market-maker-keeper`)
+- Bittrex (`bittrex-market-maker-keeper`)
+- Coinbase (`coinbase-market-maker-keeper`)
 - DDEX (`ddex-market-maker-keeper`)
+- EtherDelta (`etherdelta-market-maker-keeper`)
 - Ethfinex (`ethfinex-market-maker-keeper`)
 - Etoro (`etoro-market-maker-keeper`)
 - GoPax (`gopax-market-maker-keeper`)
-- OKEX (`okex-market-maker-keeper`)
-- TheOcean (`theocean-market-maker-keeper`)
-- 0x (`0x-market-maker-keeper`)
 - Kraken (`kraken-market-maker-keeper`)
 - Korbit (`korbit-market-maker-keeper`)
-- Coinbase (`coinbase-market-maker-keeper`)
-- Bittrex (`bittrex-market-maker-keeper`)
 - Kucoin (`kucoin-market-maker-keeper`)
 - Liquid (`liquid-market-maker-keeper`)
+- OasisDEX (`oasis-market-maker-keeper`)
+- OKEX (`okex-market-maker-keeper`)
+- 0x (`0x-market-maker-keeper`)
+- Paradex (`paradex-market-maker-keeper`)
+- RadarRelay and ERCdEX (`0x-market-maker-keeper`)
+- TheOcean (`theocean-market-maker-keeper`)
+
 
 ## 2. Prerequisite
 - Git
