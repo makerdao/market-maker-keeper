@@ -69,7 +69,13 @@ git submodule update --init --recursive
 ```
 python3 -V
 ```
-4. **To set up the virtual environment and install requirements, run the following script:**
+
+4. ** Install virtual environment**
+```
+pip install virtualenv
+```
+
+5. **To set up the virtual environment and install requirements, run the following script:**
 ```
 ./install.sh
 ```
