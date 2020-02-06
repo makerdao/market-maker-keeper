@@ -41,6 +41,7 @@ A big part of the DAI Stablecoin System (DSS) is the incentivization of external
 - OKEX (`okex-market-maker-keeper`)
 - TheOcean (`theocean-market-maker-keeper`)
 - 0x (`0x-market-maker-keeper`)
+- Okcoin (`okcoin-market-maker-keeper`)
 - Kraken (`kraken-market-maker-keeper`)
 - Korbit (`korbit-market-maker-keeper`)
 - Coinbase (`coinbase-market-maker-keeper`)
