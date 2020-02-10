@@ -92,6 +92,7 @@ python3 -V
 
 Read the following document for other known Ubuntu and macOS issues ([here](https://github.com/makerdao/pymaker)).
 
+
 ## 4. Testing
 
 There is quite a lot of value in running all the unit tests to make sure `market-maker keeper` has been installed properly. After the repository has been cloned and the installation has been completed, you can run unit tests by executing the following commands.
@@ -445,12 +446,60 @@ In the situation where you want to use a centralized exchange vs. a decentralize
 The gate.io API sometimes does not acknowledge order creation, returning following error message:
 `Oops... reloading...<font color=white> 29.148 </font> <script> function r(){window.location.reload();}setTimeout('r()',3000);</script>`. This error seems to depend on the API address of the caller. Despite these errors, orders get properly created and registered in the backend, the keeper will find out about it the next time it queries the open orders list (which happens every few seconds).
 
-## 11. Support
+## 11. Install and run using Docker and Docker Compose
+1. **Install Docker Community Edition for your OS:**
+```
+https://docs.docker.com/install/
+```
+2. **Install Docker Compose for your OS:**
+```
+https://docs.docker.com/compose/install/
+```
+3. **Clone the `market-maker-keeper` repository and switch into its directory:**
+```
+git clone https://github.com/makerdao/market-maker-keeper.git
+cd market-maker-keeper 
+```
+4. **Initializing the git submodules that will bring in both the pymaker and the pyexchange library.** 
+```
+git submodule update --init --recursive
+```
+5. **Build keeper Docker image.** 
+```
+docker-compose build keeper
+```
+6. **Create configuration directory.**   
+This directory will hold all configuration files (bands) for keepers
+```
+mkdir docker-config
+```    
+7. **Create environment variables.**  
+Create a file named `.env` and add all environment variables required to run keeper.
+`docker-compose.yml` file contains a configuration example for Coinbase ETH-DAI keeper that can be started with an `.env` file similar with the one below
+```
+COINBASE_API_KEY=API_KEY_HERE
+COINBASE_SECRET_KEY=SECRET_KEY_HERE
+COINBASE_PASSWORD=PASSWORD_HERE
+ETH_DAI_PRICE_FEED=ws://user:readonly@localhost:7777/price/ETH-DAI/socket
+COINBASE_ETH_DAI_BANDS=coinbase-ethdai-bands.json
+```
+where:  
+`COINBASE_API_KEY`, `COINBASE_SECRET_KEY` and `COINBASE_PASSWORD` are specific to your Coinbase account  
+`ETH_DAI_PRICE_FEED` is the price feed that keeper will use to place orders on Coinbase
+(see https://github.com/makerdao/uniswap-price-feed for how you can start a Uniswap price feed)  
+`COINBASE_ETH_DAI_BANDS` is the name of bands file to be used by keeper (file should be placed in `docker-config` directory)
+
+8. **Run keeper.**
+```
+docker-compose up coinbase-ethdai-keeper
+```
+
+## 12. Support
 
 **We are here to help!**
 We welcome any questions about the market making in the [#keeper](https://chat.makerdao.com/channel/keeper) channel in the Maker Chat. 
 
-## 12. License
+## 13. License
 
 See [COPYING](https://github.com/makerdao/market-maker-keeper/blob/master/COPYING) file.
 

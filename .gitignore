@@ -13,3 +13,4 @@ __pycache__
 *.swp
 *.dev.sh
 .key
+docker-config/

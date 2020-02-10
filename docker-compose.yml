@@ -1,0 +1,20 @@
+version: "3.2"
+services:
+  keeper:
+    build: .
+    image: makerdao/market-maker-keeper
+
+  coinbase-ethdai-keeper:
+    image: makerdao/market-maker-keeper
+    env_file:
+      - .env
+    volumes:
+      - $PWD/docker-config:/opt/maker/config
+    command: >
+      bash -c "./coinbase-market-maker-keeper \
+      --coinbase-api-key $${COINBASE_API_KEY} \
+      --coinbase-secret-key $${COINBASE_SECRET_KEY} \
+      --coinbase-password $${COINBASE_PASSWORD} \
+      --price-feed $${ETH_DAI_PRICE_FEED?:} \
+      --pair ETH-DAI \
+      --config /opt/maker/config/$${COINBASE_ETH_DAI_BANDS?:}"
