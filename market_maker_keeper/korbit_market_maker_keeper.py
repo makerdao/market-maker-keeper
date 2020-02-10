@@ -44,8 +44,8 @@ class KorbitMarketMakerKeeper:
     def __init__(self, args: list):
         parser = argparse.ArgumentParser(prog='Korbit-market-maker-keeper')
 
-        parser.add_argument("--korbit-api-server", type=str, required=True,
-                            help="Address of the Korbit API server")
+        parser.add_argument("--korbit-api-server", type=str, default="https://api.korbit.co.kr",
+                            help="Address of the korbit API server (default: 'https://api.korbit.co.kr')")
 
         parser.add_argument("--korbit-api-key", type=str, required=True,
                             help="API key for the Korbit API")
