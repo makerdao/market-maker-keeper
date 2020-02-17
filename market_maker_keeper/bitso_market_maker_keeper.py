@@ -171,8 +171,8 @@ class BitsoMarketMakerKeeper:
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             
             # Convert wad to float as Bitso limits decimal places to 8
-            float_price = Wad.__float__(new_order_to_be_placed.price)
-            float_amount = Wad.__float__(Wad.__round__(amount, 5))
+            float_price = round(Wad.__float__(new_order_to_be_placed.price), 8)
+            float_amount = round(Wad.__float__(amount), 8)
             
             side = "sell" if new_order_to_be_placed.is_sell == True else "buy"
             order_id = self.bitso_api.place_order(book=self.pair(),
