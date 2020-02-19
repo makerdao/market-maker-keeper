@@ -1,6 +1,6 @@
 # This file is part of Maker Keeper Framework.
 #
-# Copyright (C) 2020 MikeHathaway
+# Copyright (C) 2017-2018 reverendus
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -18,10 +18,10 @@
 import argparse
 import logging
 import sys
-from typing import List
-from math import log10
 
-from market_maker_keeper.band import Bands, NewOrder
+from retry import retry
+
+from market_maker_keeper.band import Bands
 from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
@@ -30,13 +30,13 @@ from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
+from pyexchange.okcoin import OkcoinApi, Order
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
-from pyexchange.okcoin import OkcoinApi, Order
 
 
 class OkcoinMarketMakerKeeper:
-    """Keeper acting as a market maker on okcoin."""
+    """Keeper acting as a market maker on OkCoin."""
 
     logger = logging.getLogger()
 
@@ -44,19 +44,20 @@ class OkcoinMarketMakerKeeper:
         parser = argparse.ArgumentParser(prog='okcoin-market-maker-keeper')
 
         parser.add_argument("--okcoin-api-server", type=str, default="https://www.okcoin.com",
-                            help="Address of the okcoin API server (default: 'https://www.okcoin.com')")
+                            help="Address of the OkCoin API server (default: 'https://www.okcoin.com')")
 
         parser.add_argument("--okcoin-api-key", type=str, required=True,
-                            help="API key for the okcoin API")
+                            help="API key for the OkCoin API")
 
         parser.add_argument("--okcoin-secret-key", type=str, required=True,
-                            help="Secret key for the okcoin API")
+                            help="Secret key for the OkCoin API")
 
         parser.add_argument("--okcoin-password", type=str, required=True,
-                            help="Secret key for the okcoin API")
+                            help="Password for the OkCoin API key")
 
         parser.add_argument("--okcoin-timeout", type=float, default=9.5,
-                            help="Timeout for accessing the okcoin API (in seconds, default: 9.5)")
+                            help="Timeout for accessing the OkCoin API (in seconds, default: 9.5)")
+
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
 
@@ -103,51 +104,39 @@ class OkcoinMarketMakerKeeper:
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
-
         self.okcoin_api = OkcoinApi(api_server=self.arguments.okcoin_api_server,
-                                        api_key=self.arguments.okcoin_api_key,
-                                        secret_key=self.arguments.okcoin_secret_key,
-                                        password=self.arguments.okcoin_password,
-                                        timeout=self.arguments.okcoin_timeout)
+                                api_key=self.arguments.okcoin_api_key,
+                                secret_key=self.arguments.okcoin_secret_key,
+                                password=self.arguments.okcoin_password,
+                                timeout=self.arguments.okcoin_timeout)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.okcoin_api.get_orders(self.pair()))
         self.order_book_manager.get_balances_with(lambda: self.okcoin_api.get_balances())
-        self.order_book_manager.cancel_orders_with(lambda order: self.okcoin_api.cancel_order(order.order_id, self.pair()))
-        self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders,
-                                                         self.our_sell_orders)
+        self.order_book_manager.cancel_orders_with(lambda order: self.okcoin_api.cancel_order(self.pair(), order.order_id))
+        self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
-            lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
-
-    def startup(self):
-        # Get maximum number of decimals for prices and amounts.
-        quote_increment = self.okcoin_api.get_product(self.arguments.pair)["quote_increment"]
-        self.precision = -(int(log10(float(quote_increment)))+1)
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
 
     def pair(self):
-        return self.arguments.pair.upper()
+        return self.arguments.pair.lower()
 
     def token_sell(self) -> str:
-        return self.arguments.pair.split('-')[0].upper()
+        return self.arguments.pair.split('_')[0].lower()
 
     def token_buy(self) -> str:
-        return self.arguments.pair.split('-')[1].upper()
+        return self.arguments.pair.split('_')[1].lower()
 
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        token_balances = list(filter(lambda coin: coin['currency'].upper() == token, our_balances))
-        if token_balances:
-            return Wad.from_number(token_balances[0]['available'])
-        else:
-            return Wad(0)
+        return Wad.from_number(our_balances[token.upper()]['available'])
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -157,9 +146,9 @@ class OkcoinMarketMakerKeeper:
 
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
+
         # Cancel orders
         cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                                       our_sell_orders=self.our_sell_orders(order_book.orders),
@@ -174,27 +163,21 @@ class OkcoinMarketMakerKeeper:
             return
 
         # Place new orders
-        new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                      our_sell_orders=self.our_sell_orders(order_book.orders),
-                                      our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
-                                      our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
-                                      target_price=target_price)[0]
+        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                           our_sell_orders=self.our_sell_orders(order_book.orders),
+                                           our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
+                                           our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
+                                           target_price=target_price)[0])
 
-        self.place_orders(new_orders)
-
-    def place_orders(self, new_orders: List[NewOrder]):
+    def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
-            price = round(new_order_to_be_placed.price, self.precision)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            amount = round(amount, self.precision)
+            order_id = self.okcoin_api.place_order(pair=self.pair(),
+                                                 is_sell=new_order_to_be_placed.is_sell,
+                                                 price=new_order_to_be_placed.price,
+                                                 amount=amount)
 
-            order_id = self.okcoin_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
-
-            return Order(order_id=order_id,
-                         pair=self.pair(),
-                         is_sell=new_order_to_be_placed.is_sell,
-                         price=price,
-                         amount=amount)
+            return Order(str(order_id), 0, self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount, Wad(0))
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
