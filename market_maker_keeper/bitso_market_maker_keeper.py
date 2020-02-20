@@ -18,7 +18,6 @@
 import argparse
 import logging
 import sys
-import time
 from retry import retry
 from datetime import datetime, timezone
 
@@ -31,30 +30,30 @@ from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
-from pyexchange.korbit import KorbitApi, Order
+from pyexchange.bitso import BitsoApi, Order
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 
 
-class KorbitMarketMakerKeeper:
-    """Keeper acting as a market maker on Korbit."""
+class BitsoMarketMakerKeeper:
+    """Keeper acting as a market maker on Bitso."""
 
     logger = logging.getLogger()
 
     def __init__(self, args: list):
-        parser = argparse.ArgumentParser(prog='Korbit-market-maker-keeper')
+        parser = argparse.ArgumentParser(prog='bitso-market-maker-keeper')
 
-        parser.add_argument("--korbit-api-server", type=str, default="https://api.korbit.co.kr",
-                            help="Address of the korbit API server (default: 'https://api.korbit.co.kr')")
+        parser.add_argument("--bitso-api-server", type=str, default="https://api.bitso.com",
+                            help="Address of the bitso API server (default: 'https://api.bitso.com')")
 
-        parser.add_argument("--korbit-api-key", type=str, required=True,
-                            help="API key for the Korbit API")
+        parser.add_argument("--bitso-api-key", type=str, required=True,
+                            help="API key for the Bitso API")
 
-        parser.add_argument("--korbit-secret-key", type=str, required=True,
-                            help="Secret key for the Korbit API")
+        parser.add_argument("--bitso-secret-key", type=str, required=True,
+                            help="RSA Private Key for signing requests to the BitsoX API")
 
-        parser.add_argument("--korbit-timeout", type=float, default=9.5,
-                            help="Timeout for accessing the Korbit API (in seconds, default: 9.5)")
+        parser.add_argument("--bitso-timeout", type=float, default=9.5,
+                            help="Timeout for accessing the Bitso API (in seconds, default: 9.5)")
 
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
@@ -102,15 +101,15 @@ class KorbitMarketMakerKeeper:
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
-        self.korbit_api = KorbitApi(api_server=self.arguments.korbit_api_server,
-                                api_key=self.arguments.korbit_api_key,
-                                secret_key=self.arguments.korbit_secret_key,
-                                timeout=self.arguments.korbit_timeout)
+        self.bitso_api = BitsoApi(api_server=self.arguments.bitso_api_server,
+                                api_key=self.arguments.bitso_api_key,
+                                secret_key=self.arguments.bitso_secret_key,
+                                timeout=self.arguments.bitso_timeout)
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
-        self.order_book_manager.get_orders_with(lambda: self.korbit_api.get_orders(self.pair()))
-        self.order_book_manager.get_balances_with(lambda: self.korbit_api.get_balances())
-        self.order_book_manager.cancel_orders_with(lambda order: self.korbit_api.cancel_order(int(order.order_id), self.pair()))
+        self.order_book_manager.get_orders_with(lambda: self.bitso_api.get_orders(self.pair()))
+        self.order_book_manager.get_balances_with(lambda: self.bitso_api.get_balances())
+        self.order_book_manager.cancel_orders_with(lambda order: self.bitso_api.cancel_order(order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -132,8 +131,8 @@ class KorbitMarketMakerKeeper:
     def token_buy(self) -> str:
         return self.arguments.pair.split('_')[1].lower()
 
-    def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        balance = our_balances[f"{token}"]["available"]
+    def our_available_balance(self, our_balances: list, token: str) -> Wad:
+        balance = list(filter(lambda x: x['currency'] == token, our_balances))[0]['total']
         return Wad.from_number(balance)
 
     def our_sell_orders(self, our_orders: list) -> list:
@@ -170,16 +169,23 @@ class KorbitMarketMakerKeeper:
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            order_id = self.korbit_api.place_order(pair=self.pair(),
-                                                   is_sell=new_order_to_be_placed.is_sell,
-                                                   price=new_order_to_be_placed.price,
-                                                   amount=amount)
+            
+            # Convert wad to float as Bitso limits decimal places to 8
+            float_price = round(Wad.__float__(new_order_to_be_placed.price), 8)
+            float_amount = round(Wad.__float__(amount), 8)
+            
+            side = "sell" if new_order_to_be_placed.is_sell == True else "buy"
+            order_id = self.bitso_api.place_order(book=self.pair(),
+                                                 side=side,
+                                                 price=float_price,
+                                                 amount=float_amount)
 
-            timestamp = int(round(time.time()))
+            timestamp = datetime.now(tz=timezone.utc).isoformat()
+
             return Order(str(order_id), timestamp, self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
 if __name__ == '__main__':
-    KorbitMarketMakerKeeper(sys.argv[1:]).main()
+    BitsoMarketMakerKeeper(sys.argv[1:]).main()
