@@ -30,7 +30,8 @@ from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
-from pyexchange.okcoin import OkcoinApi, Order
+from pyexchange.okcoin import OkcoinApi
+from pyexchange.okex import Order
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 
