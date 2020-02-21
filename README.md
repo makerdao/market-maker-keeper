@@ -45,6 +45,7 @@ A big part of the DAI Stablecoin System (DSS) is the incentivization of external
 - Liquid (`liquid-market-maker-keeper`)
 - OasisDEX (`oasis-market-maker-keeper`)
 - OKEX (`okex-market-maker-keeper`)
+- Okcoin (`okcoin-market-maker-keeper`)
 - 0x (`0x-market-maker-keeper`)
 - Paradex (`paradex-market-maker-keeper`)
 - RadarRelay and ERCdEX (`0x-market-maker-keeper`)
