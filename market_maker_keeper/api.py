@@ -15,13 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import argparse
 from argparse import Namespace
-
-import logging
-import sys
-
-from retry import retry
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.control_feed import create_control_feed
@@ -33,14 +27,17 @@ from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
 
-from pyexchange.API import PyexAPI
+from pymaker.lifecycle import Lifecycle
+from pymaker.numeric import Wad
+from pyexchange.api import PyexAPI
+
 
 class KeeperAPI:
     """
     Define a common abstract API for keepers
     """
 
-    def init__(self, arguments: Namespace, pyex_api: PyexAPI):
+    def __init__(self, arguments: Namespace, pyex_api: PyexAPI):
 
         setup_logging(arguments)
 
@@ -52,13 +49,12 @@ class KeeperAPI:
 
         self.history = History()
 
-        # TODO: determine how to pass self.pair() state through
-
         self.order_book_manager = OrderBookManager(refresh_frequency=arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: pyex_api.get_orders(self.pair()))
         self.order_book_manager.get_balances_with(lambda: pyex_api.get_balances())
-        self.order_book_manager.cancel_orders_with(lambda order: pyex_api.cancel_order(self.pair(), order.order_id))
-        self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
+        self.order_book_manager.cancel_orders_with(lambda order: pyex_api.cancel_order(order.order_id))
+        self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders,
+                                                         self.our_sell_orders)
         self.order_book_manager.start()
 
     def main(self):
@@ -80,6 +76,7 @@ class KeeperAPI:
     def token_buy(self) -> str:
         raise NotImplementedError()
 
+    # Different keys are used to access balance object for different exchanges
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
         raise NotImplementedError()
 
@@ -110,8 +107,10 @@ class KeeperAPI:
         # Place new orders
         self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                            our_sell_orders=self.our_sell_orders(order_book.orders),
-                                           our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
-                                           our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
+                                           our_buy_balance=self.our_available_balance(order_book.balances,
+                                                                                      self.token_buy()),
+                                           our_sell_balance=self.our_available_balance(order_book.balances,
+                                                                                       self.token_sell()),
                                            target_price=target_price)[0])
 
     def place_orders(self, new_orders: list):

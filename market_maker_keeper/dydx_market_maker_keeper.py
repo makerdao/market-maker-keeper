@@ -18,26 +18,17 @@
 import argparse
 import logging
 import sys
+import time
 
-from retry import retry
+from eth_utils import from_wei
 
-from market_maker_keeper.band import Bands
-from market_maker_keeper.control_feed import create_control_feed
-from market_maker_keeper.limit import History
-from market_maker_keeper.order_book import OrderBookManager
-from market_maker_keeper.order_history_reporter import create_order_history_reporter
-from market_maker_keeper.price_feed import PriceFeedFactory
-from market_maker_keeper.reloadable_config import ReloadableConfig
-from market_maker_keeper.spread_feed import create_spread_feed
-from market_maker_keeper.util import setup_logging
-from pyexchange.dydx import DyDxApi, Order
-from pymaker.lifecycle import Lifecycle
+from pyexchange.dydx import DydxApi, Order
 from pymaker.numeric import Wad
 
-from market_maker_keeper.api import Keeper
+from market_maker_keeper.api import KeeperAPI
 
 
-class DyDxMarketMakerKeeper(Keeper):
+class DyDxMarketMakerKeeper(KeeperAPI):
     """Keeper acting as a market maker on DyDx."""
 
     logger = logging.getLogger()
@@ -92,32 +83,43 @@ class DyDxMarketMakerKeeper(Keeper):
 
         self.arguments = parser.parse_args(args)
 
-        self.dydx_api = DyDxApi(node=self.arguments.dydx_api_server,
+        self.dydx_api = DydxApi(node=self.arguments.dydx_api_server,
                                 private_key=self.arguments.dydx_private_key)
 
-        super().init(self.arguments, self.dydx_api)
+        super().__init__(self.arguments, self.dydx_api)
 
     def pair(self):
-        return self.arguments.pair.lower()
+        return self.arguments.pair
 
     def token_sell(self) -> str:
-        return self.arguments.pair.split('_')[0].lower()
+        return self.arguments.pair.split('-')[0].lower()
 
     def token_buy(self) -> str:
-        return self.arguments.pair.split('_')[1].lower()
+        return self.arguments.pair.split('-')[1].lower()
 
+    # TODO: fix handling negative balances
+    # DyDx can have negative balances from native margin trading
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        return Wad.from_number(our_balances[token.upper()]['available'])
+        if token == 'weth':
+            token = 'eth'
+
+        wei_balance = list(filter(lambda x: x['currency'] == token.upper(), our_balances))[0]['wei']
+        ## reconvert Wad to negative value if balance is negative
+        # is_negative = False
+        # if wei_balance < 0:
+        #    is_negative = True
+        balance = from_wei(abs(int(float(wei_balance))), 'ether')
+        return Wad.from_number(balance)
 
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            order_id = self.dydx_api.place_order(pair=self.pair(),
+            order_id = self.dydx_api.place_order(pair=self.pair().upper(),
                                                  is_sell=new_order_to_be_placed.is_sell,
-                                                 price=new_order_to_be_placed.price,
-                                                 amount=amount)
+                                                 price=round(Wad.__float__(new_order_to_be_placed.price), 18),
+                                                 amount=round(Wad.__float__(amount), 18))
 
-            return Order(str(order_id), 0, self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount, Wad(0))
+            return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
