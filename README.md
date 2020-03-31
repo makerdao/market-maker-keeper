@@ -35,6 +35,7 @@ A big part of the DAI Stablecoin System (DSS) is the incentivization of external
 - Bittrex (`bittrex-market-maker-keeper`)
 - Coinbase (`coinbase-market-maker-keeper`)
 - DDEX (`ddex-market-maker-keeper`)
+- DyDx (`dydx-market-maker-keeper`)
 - EtherDelta (`etherdelta-market-maker-keeper`)
 - Ethfinex (`ethfinex-market-maker-keeper`)
 - Etoro (`etoro-market-maker-keeper`)
