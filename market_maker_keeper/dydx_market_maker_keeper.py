@@ -36,14 +36,11 @@ class DyDxMarketMakerKeeper(KeeperAPI):
     def __init__(self, args: list):
         parser = argparse.ArgumentParser(prog='dydx-market-maker-keeper')
 
-        parser.add_argument("--dydx-api-server", type=str, default="https://www.dydx.com",
-                            help="Address of the DyDx API server (default: 'https://www.dydx.com')")
+        parser.add_argument("--dydx-api-server", type=str, required=True,
+                            help="Address of the Eth RPC node used for Dydx connection")
 
         parser.add_argument("--dydx-private-key", type=str, required=True,
                             help="API key for the DyDx API")
-
-        parser.add_argument("--dydx-timeout", type=float, default=9.5,
-                            help="Timeout for accessing the DyDx API (in seconds, default: 9.5)")
 
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
