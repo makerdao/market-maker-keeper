@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from argparse import Namespace
+from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.control_feed import create_control_feed
@@ -27,19 +28,32 @@ from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
 
+from pymaker import Address
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pyexchange.api import PyexAPI
-
+from pymaker.token import ERC20Token
+from pymaker.keys import register_keys
 
 class KeeperAPI:
     """
-    Define a common abstract API for keepers
+    Define a common abstract API for keepers on decentralized exchanges
     """
 
     def __init__(self, arguments: Namespace, pyex_api: PyexAPI):
 
         setup_logging(arguments)
+
+        if arguments.__contains__('web3'):
+            self.web3 = arguments.web3
+        else:
+            web3_endpoint = f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}"
+            web3_options = {"timeout": self.arguments.rpc_timeout}
+            self.web3 = Web3(HTTPProvider(endpoint_uri=web3_endpoint, request_kwargs=web3_options))
+
+        self.web3.eth.defaultAccount = self.arguments.eth_from
+        self.our_address = Address(self.arguments.eth_from)
+        register_keys(self.web3, self.arguments.eth_key)
 
         self.bands_config = ReloadableConfig(arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(arguments)
@@ -60,11 +74,21 @@ class KeeperAPI:
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
+
+            if self.is_zrx:
+                lifecycle.on_startup(self.startup)
+
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
+    def startup(self):
+        self.approve()
+
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
+
+    def approve(self):
+        raise NotImplementedError()
 
     # Each exchange takes pair input as a different format
     def pair(self):
@@ -87,31 +111,7 @@ class KeeperAPI:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-        order_book = self.order_book_manager.get_order_book()
-        target_price = self.price_feed.get_price()
-
-        # Cancel orders
-        cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                                      our_sell_orders=self.our_sell_orders(order_book.orders),
-                                                      target_price=target_price)
-        if len(cancellable_orders) > 0:
-            self.order_book_manager.cancel_orders(cancellable_orders)
-            return
-
-        # Do not place new orders if order book state is not confirmed
-        if order_book.orders_being_placed or order_book.orders_being_cancelled:
-            self.logger.debug("Order book is in progress, not placing new orders")
-            return
-
-        # Place new orders
-        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                           our_sell_orders=self.our_sell_orders(order_book.orders),
-                                           our_buy_balance=self.our_available_balance(order_book.balances,
-                                                                                      self.token_buy()),
-                                           our_sell_balance=self.our_available_balance(order_book.balances,
-                                                                                       self.token_sell()),
-                                           target_price=target_price)[0])
+        raise NotImplementedError()
 
     def place_orders(self, new_orders: list):
         raise NotImplementedError()
