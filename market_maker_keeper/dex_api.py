@@ -35,7 +35,7 @@ from pyexchange.api import PyexAPI
 from pymaker.token import ERC20Token
 from pymaker.keys import register_keys
 
-class KeeperAPI:
+class DEXKeeperAPI:
     """
     Define a common abstract API for keepers on decentralized exchanges
     """

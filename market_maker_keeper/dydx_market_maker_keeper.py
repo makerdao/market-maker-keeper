@@ -25,11 +25,15 @@ from eth_utils import from_wei
 from pyexchange.dydx import DydxApi, Order
 from pymaker.numeric import Wad
 
-from market_maker_keeper.api import KeeperAPI
+from market_maker_keeper.cex_api import CEXKeeperAPI
 
 
-class DyDxMarketMakerKeeper(KeeperAPI):
-    """Keeper acting as a market maker on DyDx."""
+class DyDxMarketMakerKeeper(CEXKeeperAPI):
+    """
+    Keeper acting as a market maker on DyDx.
+    Although portions of DyDx are onchain, 
+    full order book functionality requires offchain components.
+    """
 
     logger = logging.getLogger()
 

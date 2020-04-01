@@ -31,7 +31,7 @@ from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pyexchange.api import PyexAPI
 
-class KeeperAPI:
+class CEXKeeperAPI:
     """
     Define a common abstract API for keepers on centralized and hybrid exchanges
     """
