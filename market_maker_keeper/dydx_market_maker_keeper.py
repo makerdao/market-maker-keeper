@@ -87,7 +87,7 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         self.dydx_api = DydxApi(node=self.arguments.dydx_api_server,
                                 private_key=self.arguments.dydx_private_key)
 
-        super().__init__(self.arguments, self.dydx_api)
+        super().__init__(self.arguments, self.dydx_api, True)
 
     def pair(self):
         return self.arguments.pair
