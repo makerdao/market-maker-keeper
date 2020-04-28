@@ -49,9 +49,9 @@ class CEXKeeperAPI:
 
         self.history = History()
 
-        self.init_order_book_manager(self.arguments, self.dydx_api)
+        self.init_order_book_manager(arguments, pyex_api)
 
-    def init_order_book_manager(self, arguments, pyex_api):
+    def init_order_book_manager(self, arguments: Namespace, pyex_api: PyexAPI):
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: pyex_api.get_orders(self.pair()))
         self.order_book_manager.get_balances_with(lambda: pyex_api.get_balances())
