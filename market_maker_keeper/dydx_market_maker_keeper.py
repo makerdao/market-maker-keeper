@@ -89,6 +89,8 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
 
         super().__init__(self.arguments, self.dydx_api)
 
+        self.init_order_book_manager(self.arguments, self.dydx_api)
+
     def pair(self):
         return self.arguments.pair
 
