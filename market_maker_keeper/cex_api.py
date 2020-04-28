@@ -31,6 +31,7 @@ from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pyexchange.api import PyexAPI
 
+import logging
 class CEXKeeperAPI:
     """
     Define a common abstract API for keepers on centralized and hybrid exchanges
@@ -47,6 +48,8 @@ class CEXKeeperAPI:
 
         self.order_history_reporter = create_order_history_reporter(arguments)
         self.history = History()
+
+        self.init_order_book_manager(self.arguments, self.erisx_api)
 
     def init_order_book_manager(self, arguments, pyex_api):
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)

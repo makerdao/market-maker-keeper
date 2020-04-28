@@ -52,7 +52,7 @@ class ErisXOrderBookManager(OrderBookManager):
             self._currently_placing_orders += 1
 
         self._report_order_book_updated()
-
+        logging.debug("BEING USED!:!!!")
         try:
             with self._lock:
                 new_order = place_order_function()
@@ -186,7 +186,6 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                              api_key=self.arguments.erisx_api_key, api_secret=self.arguments.erisx_api_secret)
 
         super().__init__(self.arguments, self.erisx_api)
-        self.init_order_book_manager(self.arguments, self.erisx_api)
 
     def init_order_book_manager(self, arguments, erisx_api):
         self.order_book_manager = ErisXOrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
@@ -227,10 +226,6 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                                  is_sell=new_order_to_be_placed.is_sell,
                                                  price=round(Wad.__float__(new_order_to_be_placed.price), 18),
                                                  amount=round(Wad.__float__(amount), order_qty_precision))
-
-            # done, pending = await asyncio.wait({order_id})
-            # logging.debug("WTF IS GOING ON HERE?")
-            # logging.debug(f"task result{done} {pending}")
 
             return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
 
