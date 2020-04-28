@@ -185,12 +185,10 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                              clearing_url=self.arguments.erisx_clearing_url,
                              api_key=self.arguments.erisx_api_key, api_secret=self.arguments.erisx_api_secret)
 
-        super().__init__(self.arguments, self.erisx_api, False)
+        super().__init__(self.arguments, self.erisx_api)
+        self.init_order_book_manager(self.arguments, self.erisx_api)
 
-        self.order_history_reporter = create_order_history_reporter(self.arguments)
-
-        self.history = History()
-
+    def init_order_book_manager(self, arguments, erisx_api):
         self.order_book_manager = ErisXOrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         # self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.erisx_api.get_orders(self.pair()))
@@ -238,8 +236,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
 
         # self._async_order_placement(new_orders, place_order_function)
         for new_order in new_orders:
-            # await asyncio.sleep(1)
-            time.sleep(10)
+            time.sleep(5)
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
     # throttle order placement until response has been recieved

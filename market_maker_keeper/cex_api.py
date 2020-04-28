@@ -36,7 +36,7 @@ class CEXKeeperAPI:
     Define a common abstract API for keepers on centralized and hybrid exchanges
     """
 
-    def __init__(self, arguments: Namespace, pyex_api: PyexAPI, standard_order_history: bool):
+    def __init__(self, arguments: Namespace, pyex_api: PyexAPI):
 
         setup_logging(arguments)
 
@@ -46,12 +46,7 @@ class CEXKeeperAPI:
         self.control_feed = create_control_feed(arguments)
 
         self.order_history_reporter = create_order_history_reporter(arguments)
-
-        # Check to see if exchange is using a standard PyEx interface for get_orders, and cancel_orders
-        if standard_order_history is True:
-            self.order_history_reporter = create_order_history_reporter(arguments)
-
-        self.init_order_book_manager(arguments, pyex_api)
+        self.history = History()
 
     def init_order_book_manager(self, arguments, pyex_api):
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
