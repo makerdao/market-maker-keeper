@@ -122,8 +122,8 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             order_id = self.dydx_api.place_order(pair=self.pair().upper(),
                                                  is_sell=new_order_to_be_placed.is_sell,
-                                                 price=round(Wad.__float__(new_order_to_be_placed.price), 18),
-                                                 amount=round(Wad.__float__(amount), 18))
+                                                 price=Wad.__float__(new_order_to_be_placed.price),
+                                                 amount=Wad.__float__(amount))
 
             return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
 
