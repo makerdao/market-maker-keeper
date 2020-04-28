@@ -44,16 +44,20 @@ class CEXKeeperAPI:
         self.price_feed = PriceFeedFactory().create_price_feed(arguments)
         self.spread_feed = create_spread_feed(arguments)
         self.control_feed = create_control_feed(arguments)
+
         self.order_history_reporter = create_order_history_reporter(arguments)
 
         self.history = History()
 
-        self.order_book_manager = OrderBookManager(refresh_frequency=arguments.refresh_frequency)
+        self.init_order_book_manager(arguments, pyex_api)
+
+    def init_order_book_manager(self, arguments, pyex_api):
+        self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: pyex_api.get_orders(self.pair()))
         self.order_book_manager.get_balances_with(lambda: pyex_api.get_balances())
         self.order_book_manager.cancel_orders_with(lambda order: pyex_api.cancel_order(order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders,
-                                                         self.our_sell_orders)
+                                                        self.our_sell_orders)
         self.order_book_manager.start()
 
     def main(self):

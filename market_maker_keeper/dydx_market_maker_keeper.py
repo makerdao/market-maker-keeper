@@ -102,15 +102,19 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         if token == 'weth':
             token = 'eth'
 
-        wei_balance = list(filter(lambda x: x['currency'] == token.upper(), our_balances))[0]['wei']
-        balance = from_wei(abs(int(float(wei_balance))), 'ether')
+        wei_balance = float(list(filter(lambda x: x['currency'] == token.upper(), our_balances))[0]['wei'])
 
         ## DyDx can have negative balances from native margin trading
+        is_negative = False
+        if wei_balance < 0:
+           is_negative = True
+
+        balance = from_wei(abs(int(wei_balance)), 'ether')
+
         # reconvert Wad to negative value if balance is negative
-        # is_negative = False
-        # if wei_balance < 0:
-        #    is_negative = True
-        # balance = balance * -1
+        if is_negative == True:
+            balance = balance * -1
+
         return Wad.from_number(balance)
 
     def place_orders(self, new_orders):
@@ -118,8 +122,8 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             order_id = self.dydx_api.place_order(pair=self.pair().upper(),
                                                  is_sell=new_order_to_be_placed.is_sell,
-                                                 price=round(Wad.__float__(new_order_to_be_placed.price), 18),
-                                                 amount=round(Wad.__float__(amount), 18))
+                                                 price=Wad.__float__(new_order_to_be_placed.price),
+                                                 amount=Wad.__float__(amount))
 
             return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
 
