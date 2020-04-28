@@ -40,7 +40,7 @@ class DEXKeeperAPI:
     Define a common abstract API for keepers on decentralized exchanges
     """
 
-    def __init__(self, arguments: Namespace, pyex_api: PyexAPI, standard_pyex: bool):
+    def __init__(self, arguments: Namespace, pyex_api: PyexAPI):
 
         setup_logging(arguments)
 
@@ -60,19 +60,20 @@ class DEXKeeperAPI:
         self.spread_feed = create_spread_feed(arguments)
         self.control_feed = create_control_feed(arguments)
 
-        # Check to see if exchange is using a standard PyEx interface or needs to be overriden
-        if standard_pyex == True:
-            self.order_history_reporter = create_order_history_reporter(arguments)
+        self.order_history_reporter = create_order_history_reporter(arguments)
 
-            self.history = History()
+        self.history = History()
 
-            self.order_book_manager = OrderBookManager(refresh_frequency=arguments.refresh_frequency)
-            self.order_book_manager.get_orders_with(lambda: pyex_api.get_orders(self.pair()))
-            self.order_book_manager.get_balances_with(lambda: pyex_api.get_balances())
-            self.order_book_manager.cancel_orders_with(lambda order: pyex_api.cancel_order(order.order_id))
-            self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders,
-                                                            self.our_sell_orders)
-            self.order_book_manager.start()
+        self.init_order_book_manager(arguments, pyex_api)
+
+    def init_order_book_manager(self, arguments, pyex_api):
+        self.order_book_manager = OrderBookManager(refresh_frequency=arguments.refresh_frequency)
+        self.order_book_manager.get_orders_with(lambda: pyex_api.get_orders(self.pair()))
+        self.order_book_manager.get_balances_with(lambda: pyex_api.get_balances())
+        self.order_book_manager.cancel_orders_with(lambda order: pyex_api.cancel_order(order.order_id))
+        self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders,
+                                                        self.our_sell_orders)
+        self.order_book_manager.start()
 
     def main(self):
         with Lifecycle() as lifecycle:
