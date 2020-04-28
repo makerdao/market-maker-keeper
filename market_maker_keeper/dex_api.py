@@ -64,6 +64,8 @@ class DEXKeeperAPI:
 
         self.history = History()
 
+        self.init_order_book_manager(self.arguments, self.dydx_api)
+
     def init_order_book_manager(self, arguments, pyex_api):
         self.order_book_manager = OrderBookManager(refresh_frequency=arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: pyex_api.get_orders(self.pair()))
