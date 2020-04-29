@@ -22,6 +22,8 @@ import time
 import asyncio
 from functools import partial
 
+import threading
+
 from pyexchange.erisx import ErisxApi
 from pyexchange.model import Order
 
@@ -50,60 +52,62 @@ class ErisXOrderBookManager(OrderBookManager):
 
         with self._lock:
             self._currently_placing_orders += 1
-
+        # self._lock.acquire()
+        # self._currently_placing_orders += 1
         self._report_order_book_updated()
-        logging.debug("BEING USED!:!!!")
         try:
             with self._lock:
+            # with self._lock.acquire(True, 10):
                 new_order = place_order_function()
 
-            if new_order is not None:
-                with self._lock:
+                if new_order is not None:
+                    # with self._lock:
                     self._orders_placed.append(new_order)
         except BaseException as exception:
             self.logger.exception(exception)
         finally:
             with self._lock:
                 self._currently_placing_orders -= 1
-
             self._report_order_book_updated()
-        # self._executor.submit(self._thread_place_order(place_order_function))
 
-    # def cancel_orders(self, orders: list):
-    #     """Cancels existing orders. Order cancellation will happen in a background thread.
-    #
-    #     Args:
-    #         orders: List of orders to cancel.
-    #     """
-    #     assert(isinstance(orders, list))
-    #     assert(callable(self.cancel_order_function))
-    #
-    #     with self._lock:
-    #         for order in orders:
-    #             self._order_ids_cancelling.add(order.order_id)
-    #
-    #     self._report_order_book_updated()
-    #
-    #     for order in orders:
-    #         order_id = order.order_id
-    #         try:
-    #             if self.cancel_order_function():
-    #                 with self._lock:
-    #                     self._order_ids_cancelled.add(order_id)
-    #                     self._order_ids_cancelling.remove(order_id)
-    #         except BaseException as exception:
-    #             self.logger.exception(f"Failed to cancel {order_id}")
-    #         finally:
-    #             with self._lock:
-    #                 try:
-    #                     self._order_ids_cancelling.remove(order_id)
-    #                 except KeyError:
-    #                     pass
-    #
-    #             self._report_order_book_updated()
-    #         # self._executor.submit(self._thread_cancel_order(order.order_id.split('|')[0], partial(self.cancel_order_function, order)))
+            # self._lock.release()
 
+    def cancel_orders(self, orders: list):
+        """Cancels existing orders. Order cancellation will happen in a background thread.
 
+        Args:
+            orders: List of orders to cancel.
+        """
+        assert(isinstance(orders, list))
+        assert(callable(self.cancel_order_function))
+
+        with self._lock:
+            for order in orders:
+                self._order_ids_cancelling.add(order.order_id)
+
+        self._report_order_book_updated()
+
+        for order in orders:
+            order_id = order.order_id
+            try:
+                # with self._lock:
+                # with self._lock.acquire(True, 10):
+                    if self.cancel_order_function(order):
+                        with self._lock:
+                            self._order_ids_cancelled.add(order_id)
+                            self._order_ids_cancelling.remove(order_id)
+
+                    # self._lock.release()
+            except BaseException as exception:
+                self.logger.exception(f"Failed to cancel {order_id}")
+            finally:
+                with self._lock:
+                    try:
+                        self._order_ids_cancelling.remove(order_id)
+                    except KeyError:
+                        self.logger.info(f"Failed to remove {order_id}")
+                        pass
+                self._report_order_book_updated()
 
 class ErisXMarketMakerKeeper(CEXKeeperAPI):
     """
@@ -195,6 +199,8 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         self.order_book_manager.cancel_orders_with(lambda order: self.erisx_api.cancel_order(order.order_id, self.pair(), order.is_sell))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders,
                                                          self.our_sell_orders)
+
+        self.order_book_manager.pair = self.pair()
         self.order_book_manager.start()
 
     def pair(self):
@@ -231,7 +237,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
 
         # self._async_order_placement(new_orders, place_order_function)
         for new_order in new_orders:
-            time.sleep(5)
+            # time.sleep(5)
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
     # throttle order placement until response has been recieved
