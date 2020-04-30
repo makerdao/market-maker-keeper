@@ -31,7 +31,8 @@ from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pyexchange.api import PyexAPI
 
-import logging
+import threading
+
 class CEXKeeperAPI:
     """
     Define a common abstract API for keepers on centralized and hybrid exchanges
@@ -50,6 +51,7 @@ class CEXKeeperAPI:
         self.history = History()
 
         self.init_order_book_manager(arguments, pyex_api)
+        self._lock = threading.Lock()
 
     def init_order_book_manager(self, arguments, pyex_api):
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
@@ -99,22 +101,24 @@ class CEXKeeperAPI:
                                                       our_sell_orders=self.our_sell_orders(order_book.orders),
                                                       target_price=target_price)
         if len(cancellable_orders) > 0:
-            self.order_book_manager.cancel_orders(cancellable_orders)
-            return
+            with self._lock:
+                self.order_book_manager.cancel_orders(cancellable_orders)
+                return
 
         # Do not place new orders if order book state is not confirmed
         if order_book.orders_being_placed or order_book.orders_being_cancelled:
             self.logger.debug("Order book is in progress, not placing new orders")
             return
 
-        # Place new orders
-        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                           our_sell_orders=self.our_sell_orders(order_book.orders),
-                                           our_buy_balance=self.our_available_balance(order_book.balances,
-                                                                                      self.token_buy()),
-                                           our_sell_balance=self.our_available_balance(order_book.balances,
-                                                                                       self.token_sell()),
-                                           target_price=target_price)[0])
+        with self._lock:
+            # Place new orders
+            self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
+                                               our_sell_orders=self.our_sell_orders(order_book.orders),
+                                               our_buy_balance=self.our_available_balance(order_book.balances,
+                                                                                          self.token_buy()),
+                                               our_sell_balance=self.our_available_balance(order_book.balances,
+                                                                                           self.token_sell()),
+                                               target_price=target_price)[0])
 
     def place_orders(self, new_orders: list):
         raise NotImplementedError()
