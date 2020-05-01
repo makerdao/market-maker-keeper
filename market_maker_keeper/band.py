@@ -360,6 +360,9 @@ class Bands:
                 price = band.avg_price(target_price)
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, limit_amount)
                 buy_amount = pay_amount * price
+                # Ensure that any order placed in margin trading doesn't exceed available balance
+                if total_amount + pay_amount > our_sell_balance:
+                    continue
                 missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
                 if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
@@ -396,6 +399,9 @@ class Bands:
                 price = band.avg_price(target_price)
                 pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance, limit_amount)
                 buy_amount = pay_amount / price
+                # Ensure that any order placed in margin trading doesn't exceed available balance
+                if total_amount + pay_amount > our_buy_balance:
+                    continue
                 missing_amount += Wad.max((band.avg_amount - total_amount) - our_buy_balance, Wad(0))
                 if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
                     self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
