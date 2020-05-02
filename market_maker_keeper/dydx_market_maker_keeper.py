@@ -160,16 +160,30 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         our_sell_balance = self.our_available_balance(order_book.balances, self.token_sell())
         total_in_buy_orders = total_buy_amount(self.our_buy_orders(order_book.orders))
         total_in_sell_orders = total_sell_amount(self.our_sell_orders(order_book.orders))
+        our_buy_orders = self.our_buy_orders(order_book.orders)
+        our_sell_orders = self.our_sell_orders(order_book.orders)
 
-        if total_in_buy_orders + our_buy_balance > our_buy_balance:
-            target_price.buy_price = None
+        # check that placing buy new orders won't require margin
+        for band in bands.buy_bands:
+            orders = [order for order in our_buy_orders if band.includes(order, target_price.buy_price)]
+            total_amount = total_buy_amount(orders)
+            if total_amount < band.min_amount:
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance)
+                if total_in_buy_orders + pay_amount > our_buy_balance:
+                    band.min_amount = Wad(0)
 
-        if total_in_sell_orders + our_sell_balance > our_sell_balance:
-            target_price.sell_price = None
+        # check that placing new sell orders won't require margin
+        for band in bands.sell_bands:
+            orders = [order for order in our_sell_orders if band.includes(order, target_price.sell_price)]
+            total_amount = total_sell_amount(orders)
+            if total_amount < band.min_amount:
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance)
+                if total_in_sell_orders + pay_amount > our_sell_balance:
+                    band.min_amount = Wad(0)
 
         # Place new orders
-        self.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
-                                           our_sell_orders=self.our_sell_orders(order_book.orders),
+        self.place_orders(bands.new_orders(our_buy_orders=our_buy_orders,
+                                           our_sell_orders=our_sell_orders,
                                            our_buy_balance=our_buy_balance,
                                            our_sell_balance=our_sell_balance,
                                            target_price=target_price)[0])
