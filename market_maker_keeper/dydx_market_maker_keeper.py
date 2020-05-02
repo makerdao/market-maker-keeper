@@ -159,12 +159,12 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         our_buy_balance = self.our_available_balance(order_book.balances, self.token_buy())
         our_sell_balance = self.our_available_balance(order_book.balances, self.token_sell())
         total_in_buy_orders = total_buy_amount(self.our_buy_orders(order_book.orders))
-        total_in_sell_orders = total_sell_amount(self.our_buy_orders(order_book.orders))
+        total_in_sell_orders = total_sell_amount(self.our_sell_orders(order_book.orders))
 
         if total_in_buy_orders + our_buy_balance > our_buy_balance:
             target_price.buy_price = None
 
-        if total_in_sell_orders + our_buy_balance > our_sell_balance:
+        if total_in_sell_orders + our_sell_balance > our_sell_balance:
             target_price.sell_price = None
 
         # Place new orders
