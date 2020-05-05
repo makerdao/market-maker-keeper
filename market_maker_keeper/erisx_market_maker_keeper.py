@@ -48,20 +48,18 @@ class ErisXOrderBookManager(OrderBookManager):
         Args:
             place_order_function: Function used to place the order.
         """
-        assert(callable(place_order_function))
+        assert (callable(place_order_function))
 
         with self._lock:
             self._currently_placing_orders += 1
-        # self._lock.acquire()
-        # self._currently_placing_orders += 1
+
         self._report_order_book_updated()
+
         try:
             with self._lock:
-            # with self._lock.acquire(True, 10):
                 new_order = place_order_function()
 
                 if new_order is not None:
-                    # with self._lock:
                     self._orders_placed.append(new_order)
         except BaseException as exception:
             self.logger.exception(exception)
@@ -70,16 +68,14 @@ class ErisXOrderBookManager(OrderBookManager):
                 self._currently_placing_orders -= 1
             self._report_order_book_updated()
 
-            # self._lock.release()
-
     def cancel_orders(self, orders: list):
         """Cancels existing orders. Order cancellation will happen in a background thread.
 
         Args:
             orders: List of orders to cancel.
         """
-        assert(isinstance(orders, list))
-        assert(callable(self.cancel_order_function))
+        assert (isinstance(orders, list))
+        assert (callable(self.cancel_order_function))
 
         with self._lock:
             for order in orders:
@@ -90,24 +86,61 @@ class ErisXOrderBookManager(OrderBookManager):
         for order in orders:
             order_id = order.order_id
             try:
-                # with self._lock:
-                # with self._lock.acquire(True, 10):
-                    if self.cancel_order_function(order):
-                        with self._lock:
-                            self._order_ids_cancelled.add(order_id)
-                            self._order_ids_cancelling.remove(order_id)
+                with self._lock:
+                    cancel_result = self.cancel_order_function(order)
 
-                    # self._lock.release()
+                    if cancel_result:
+                        self._order_ids_cancelled.add(order_id)
+                        self._order_ids_cancelling.remove(order_id)
             except BaseException as exception:
                 self.logger.exception(f"Failed to cancel {order_id}")
             finally:
-                with self._lock:
-                    try:
-                        self._order_ids_cancelling.remove(order_id)
-                    except KeyError:
-                        self.logger.info(f"Failed to remove {order_id}")
-                        pass
+                try:
+                    self._order_ids_cancelling.remove(order_id)
+                except KeyError:
+                    self.logger.info(f"Failed to remove {order_id}")
+                    pass
                 self._report_order_book_updated()
+
+    def _thread_refresh_order_book(self):
+        while True:
+            try:
+                with self._lock:
+                    orders_already_cancelled_before = set(self._order_ids_cancelled)
+                    orders_already_placed_before = set(self._orders_placed)
+
+                # get orders, get balances
+                with self._lock:
+                    orders = self.get_orders_function()
+
+                balances = self.get_balances_function() if self.get_balances_function is not None else None
+
+                if self.order_history_reporter:
+                    orders_buy = self.buy_filter_function(orders)
+                    orders_sell = self.sell_filter_function(orders)
+
+                    self.order_history_reporter.report_orders(orders_buy, orders_sell)
+
+                with self._lock:
+                    self._order_ids_cancelled = self._order_ids_cancelled - orders_already_cancelled_before
+                    for order in orders_already_placed_before:
+                        self._orders_placed.remove(order)
+
+                    if self._state is None:
+                        self.logger.info("Order book became available")
+
+                    self._state = {'orders': orders, 'balances': balances}
+                    self._refresh_count += 1
+
+                self._report_order_book_updated()
+
+                self.logger.debug(f"Fetched the order book"
+                                  f" (orders: {[order.order_id for order in orders]})")
+            except Exception as e:
+                self.logger.info(f"Failed to fetch the order book ({e})")
+
+            time.sleep(self.refresh_frequency)
+
 
 class ErisXMarketMakerKeeper(CEXKeeperAPI):
     """
@@ -143,7 +176,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                             help="API key for ErisX REST API")
 
         parser.add_argument("--erisx-api-secret", type=str, required=True,
-                            help="API secret for ErisX REST API")                                                        
+                            help="API secret for ErisX REST API")
 
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
@@ -183,20 +216,22 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
 
         self.arguments = parser.parse_args(args)
 
-        self.erisx_api = ErisxApi(fix_trading_endpoint=self.arguments.fix_trading_endpoint, fix_trading_user=self.arguments.fix_trading_user,
-                             fix_marketdata_endpoint=self.arguments.fix_marketdata_endpoint, fix_marketdata_user=self.arguments.fix_marketdata_user,
-                             password=self.arguments.erisx_password,
-                             clearing_url=self.arguments.erisx_clearing_url,
-                             api_key=self.arguments.erisx_api_key, api_secret=self.arguments.erisx_api_secret)
+        self.erisx_api = ErisxApi(fix_trading_endpoint=self.arguments.fix_trading_endpoint,
+                                  fix_trading_user=self.arguments.fix_trading_user,
+                                  fix_marketdata_endpoint=self.arguments.fix_marketdata_endpoint,
+                                  fix_marketdata_user=self.arguments.fix_marketdata_user,
+                                  password=self.arguments.erisx_password,
+                                  clearing_url=self.arguments.erisx_clearing_url,
+                                  api_key=self.arguments.erisx_api_key, api_secret=self.arguments.erisx_api_secret)
 
         super().__init__(self.arguments, self.erisx_api)
 
     def init_order_book_manager(self, arguments, erisx_api):
         self.order_book_manager = ErisXOrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
-        # self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
         self.order_book_manager.get_orders_with(lambda: self.erisx_api.get_orders(self.pair()))
         self.order_book_manager.get_balances_with(lambda: self.erisx_api.get_balances())
-        self.order_book_manager.cancel_orders_with(lambda order: self.erisx_api.cancel_order(order.order_id, self.pair(), order.is_sell))
+        self.order_book_manager.cancel_orders_with(
+            lambda order: self.erisx_api.cancel_order(order.order_id, self.pair(), order.is_sell))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders,
                                                          self.our_sell_orders)
 
@@ -229,22 +264,15 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
             order_qty_precision = 1
 
             order_id = self.erisx_api.place_order(pair=self.pair().upper(),
-                                                 is_sell=new_order_to_be_placed.is_sell,
-                                                 price=round(Wad.__float__(new_order_to_be_placed.price), 18),
-                                                 amount=round(Wad.__float__(amount), order_qty_precision))
+                                                  is_sell=new_order_to_be_placed.is_sell,
+                                                  price=round(Wad.__float__(new_order_to_be_placed.price), 18),
+                                                  amount=round(Wad.__float__(amount), order_qty_precision))
 
-            return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
+            return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell,
+                         new_order_to_be_placed.price, amount)
 
-        # self._async_order_placement(new_orders, place_order_function)
         for new_order in new_orders:
-            # time.sleep(5)
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
-
-    # throttle order placement until response has been recieved
-    # orders_to_place = len(new_orders)
-    async def _async_order_placement(self, new_orders, place_order_function):
-        for new_order in new_orders:
-            await self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
 
 
 if __name__ == '__main__':
