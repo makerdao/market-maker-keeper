@@ -222,7 +222,8 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                   fix_marketdata_user=self.arguments.fix_marketdata_user,
                                   password=self.arguments.erisx_password,
                                   clearing_url=self.arguments.erisx_clearing_url,
-                                  api_key=self.arguments.erisx_api_key, api_secret=self.arguments.erisx_api_secret)
+                                  api_key=self.arguments.erisx_api_key, api_secret=self.arguments.erisx_api_secret,
+                                  web_api_only=False)
 
         super().__init__(self.arguments, self.erisx_api)
 
