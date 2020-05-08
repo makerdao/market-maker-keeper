@@ -133,10 +133,12 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
                          new_order_to_be_placed.price, amount)
 
         for new_order in new_orders:
+            amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
+            minimumOrderSize = float(self.market_info[self.pair().upper()]['minimumOrderSize'])
             if self._should_place_order(new_order):
                 self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
             else:
-                logging.info(f"New Order below size minimum. Order ignored.")
+                logging.info(f"New Order below size minimum of {minimumOrderSize}. Order of amount {amount} ignored.")
 
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
