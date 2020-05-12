@@ -19,29 +19,24 @@ import argparse
 import logging
 import sys
 import time
-import asyncio
-from functools import partial
-
-import threading
 
 from pyexchange.erisx import ErisxApi
 from pyexchange.model import Order
 
 from pymaker.numeric import Wad
 
-# from lib.pyexchange.pyexchange.erisx import ErisxApi
 from market_maker_keeper.cex_api import CEXKeeperAPI
-from market_maker_keeper.order_history_reporter import create_order_history_reporter
-from market_maker_keeper.limit import History
-from market_maker_keeper.order_book import OrderBookManager, OrderBook
+from market_maker_keeper.order_book import OrderBookManager
 
 
 # Subclass orderboook to enable support for different order schema required by ErisX
 class ErisXOrderBookManager(OrderBookManager):
 
-    # place orders sequentially instead of spinning up seperate threads
-    # Due to nature of FIX engine, there is a single socket connection controlled by a single event loop.
-    # ThreadExecutor collides with eachother
+    """
+    Due to nature of FIX engine, there is a single socket connection controlled by a single event loop.
+    ThreadExecutor as used in the standard OrderBookManager thereby doesn't work.
+    Subclassing enables order actions to be made synchronously without interfering with the FIX event loop.
+    """
     def place_order(self, place_order_function):
         """Places new order. Order placement will happen in a background thread.
 
@@ -145,8 +140,6 @@ class ErisXOrderBookManager(OrderBookManager):
 class ErisXMarketMakerKeeper(CEXKeeperAPI):
     """
     Keeper acting as a market maker on ErisX.
-    Although portions of ErisX are onchain, 
-    full order book functionality requires offchain components.
     """
 
     logger = logging.getLogger()
@@ -216,6 +209,9 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
 
         self.arguments = parser.parse_args(args)
 
+        logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
+                            level=(logging.DEBUG if self.arguments.debug else logging.INFO))
+
         self.erisx_api = ErisxApi(fix_trading_endpoint=self.arguments.fix_trading_endpoint,
                                   fix_trading_user=self.arguments.fix_trading_user,
                                   fix_marketdata_endpoint=self.arguments.fix_marketdata_endpoint,
@@ -223,7 +219,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                   password=self.arguments.erisx_password,
                                   clearing_url=self.arguments.erisx_clearing_url,
                                   api_key=self.arguments.erisx_api_key, api_secret=self.arguments.erisx_api_secret,
-                                  web_api_only=False)
+                                  account_id=0)
 
         super().__init__(self.arguments, self.erisx_api)
 
@@ -261,8 +257,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            # TODO: dynamically determine the allowed decimals
-            order_qty_precision = 1
+            order_qty_precision = 2
 
             order_id = self.erisx_api.place_order(pair=self.pair().upper(),
                                                   is_sell=new_order_to_be_placed.is_sell,
