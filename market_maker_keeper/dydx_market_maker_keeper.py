@@ -42,7 +42,6 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
     Although portions of DyDx are onchain, 
     full order book functionality requires offchain components.
     """
-
     logger = logging.getLogger()
 
     def __init__(self, args: list):
@@ -134,11 +133,12 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
 
         for new_order in new_orders:
             amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
+            side = 'Sell' if new_order.is_sell else 'Buy'
             minimumOrderSize = float(self.market_info[self.pair().upper()]['minimumOrderSize'])
             if self._should_place_order(new_order):
                 self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
             else:
-                logging.info(f"New Order below size minimum of {minimumOrderSize}. Order of amount {amount} ignored.")
+                logging.info(f"New {side} Order below size minimum of {minimumOrderSize}. Order of amount {amount} ignored.")
 
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
