@@ -248,6 +248,9 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         if token == 'ETH':
             token = 'TETH'
 
+        if token == 'BTC':
+            token = 'TBTC'
+
         token_balances = list(filter(lambda asset: asset['asset_type'].upper() == token, our_balances))
         if token_balances:
             return Wad.from_number(float(token_balances[0]['available_to_trade']))
