@@ -19,6 +19,7 @@ import argparse
 import logging
 import sys
 import time
+from decimal import Decimal
 
 from pyexchange.erisx import ErisxApi
 from pyexchange.model import Order
@@ -221,6 +222,8 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                   api_key=self.arguments.erisx_api_key, api_secret=self.arguments.erisx_api_secret,
                                   account_id=0)
 
+        self.market_info = self.erisx_api.get_markets()
+
         super().__init__(self.arguments, self.erisx_api)
 
     def init_order_book_manager(self, arguments, erisx_api):
@@ -260,7 +263,9 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            order_qty_precision = 2
+            # automatically retrive qty precision
+            round_lot = str(self.market_info[self.pair()]["RoundLot"])
+            order_qty_precision = abs(Decimal(round_lot).as_tuple().exponent)
 
             order_id = self.erisx_api.place_order(pair=self.pair().upper(),
                                                   is_sell=new_order_to_be_placed.is_sell,
