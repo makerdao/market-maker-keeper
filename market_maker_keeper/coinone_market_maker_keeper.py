@@ -38,8 +38,8 @@ class CoinoneMarketMakerKeeper(CEXKeeperAPI):
     def __init__(self, args: list):
         parser = argparse.ArgumentParser(prog='coinone-market-maker-keeper')
 
-        parser.add_argument("--coinone-api-server", type=str, required=True,
-                            help="Address of the Eth RPC node used for Coinone connection")
+        parser.add_argument("--coinone-api-server", type=str, default="https://api.coinone.co.kr",
+                            help="Address of the Coinone API server (default: 'https://api.coinone.co.kr')")
 
         parser.add_argument("--coinone-access-token", type=str, required=True,
                             help="API access token for the Coinone API")
