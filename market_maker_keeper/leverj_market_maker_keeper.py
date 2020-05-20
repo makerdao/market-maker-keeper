@@ -168,10 +168,14 @@ class LeverjMarketMakerKeeper:
     def token_sell(self) -> str:
         if self.arguments.pair.startswith("USDC"):
             return "USDC"
+        elif self.arguments.pair.startswith("WBTC"):
+            return "WBTC"
+        elif self.arguments.pair.startswith("GUSD"):
+            return "GUSD"
         return self.arguments.pair[:3]
 
     def token_buy(self) -> str:
-        if self.arguments.pair.startswith("USDC"):
+        if self.arguments.pair.startswith(("USDC","WBTC","GUSD")):
             return self.arguments.pair[4:]
         return self.arguments.pair[3:]
 
