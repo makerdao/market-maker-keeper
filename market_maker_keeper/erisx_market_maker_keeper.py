@@ -19,6 +19,7 @@ import argparse
 import logging
 import sys
 import time
+import json
 from decimal import Decimal
 
 from pyexchange.erisx import ErisxApi
@@ -172,6 +173,9 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         parser.add_argument("--erisx-api-secret", type=str, required=True,
                             help="API secret for ErisX REST API")
 
+        parser.add_argument("--erisx-certs", type=str, default=None,
+                            help="Client key pair used to authenticate to Production FIX endpoints")
+
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
 
@@ -219,7 +223,9 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                   fix_marketdata_user=self.arguments.fix_marketdata_user,
                                   password=self.arguments.erisx_password,
                                   clearing_url=self.arguments.erisx_clearing_url,
-                                  api_key=self.arguments.erisx_api_key, api_secret=self.arguments.erisx_api_secret,
+                                  api_key=self.arguments.erisx_api_key,
+                                  api_secret=self.arguments.erisx_api_secret,
+                                  certs=self.arguments.erisx_certs,
                                   account_id=0)
 
         self.market_info = self.erisx_api.get_markets()
