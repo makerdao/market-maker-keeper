@@ -176,6 +176,9 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         parser.add_argument("--erisx-certs", type=str, default=None,
                             help="Client key pair used to authenticate to Production FIX endpoints")
 
+        parser.add_argument("--account-id", type=int, default=0,
+                            help="ErisX account ID index")
+
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
 
@@ -226,7 +229,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                   api_key=self.arguments.erisx_api_key,
                                   api_secret=self.arguments.erisx_api_secret,
                                   certs=self.arguments.erisx_certs,
-                                  account_id=0)
+                                  account_id=self.arguments.account_id)
 
         self.market_info = self.erisx_api.get_markets()
 
