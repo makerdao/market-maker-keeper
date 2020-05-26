@@ -158,10 +158,10 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         parser.add_argument("--fix-trading-user", type=str, required=True,
                             help="Account ID for ErisX trading")
 
-        parser.add_argument("--fix-marketdata_endpoint", type=str, required=True,
+        parser.add_argument("--fix-marketdata-endpoint", type=str, required=True,
                             help="FIX endpoint for ErisX market data")
 
-        parser.add_argument("--fix-marketdata_user", type=str, required=True,
+        parser.add_argument("--fix-marketdata-user", type=str, required=True,
                             help="Account ID for ErisX market data")
 
         parser.add_argument("--erisx-password", type=str, required=True,
