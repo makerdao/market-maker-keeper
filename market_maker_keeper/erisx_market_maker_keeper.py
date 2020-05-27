@@ -274,11 +274,13 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             # automatically retrive qty precision
             round_lot = str(self.market_info[self.pair()]["RoundLot"])
+            price_increment = str(self.market_info[self.pair()]["MinPriceIncrement"])
             order_qty_precision = abs(Decimal(round_lot).as_tuple().exponent)
+            price_precision = abs(Decimal(price_increment).as_tuple().exponent)
 
             order_id = self.erisx_api.place_order(pair=self.pair().upper(),
                                                   is_sell=new_order_to_be_placed.is_sell,
-                                                  price=round(Wad.__float__(new_order_to_be_placed.price), 18),
+                                                  price=round(Wad.__float__(new_order_to_be_placed.price), price_precision),
                                                   amount=round(Wad.__float__(amount), order_qty_precision))
 
             return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell,
