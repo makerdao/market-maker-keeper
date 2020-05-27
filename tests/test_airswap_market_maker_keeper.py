@@ -38,6 +38,7 @@ def test_new_buy_orders_maker_amount_success_case(tmpdir):
     bands_config = ReloadableConfig(str(bands_file))
     airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 
+    # maker_amount -> denominated in DAI
     maker_amount = Wad(156200000000000000)
     taker_amount = Wad(0)
     our_buy_balance = Wad(1562000000000000000000)
@@ -56,7 +57,7 @@ def test_new_buy_orders_maker_amount_success_case(tmpdir):
     # buyPrice = 120 * minMargin = 0.02 = 117.6
     # maker_amount = .1562000 * 117.6 = 18.36912000
 
-    assert new_order['taker_amount'].__float__() == 18.36912000
+    assert new_order['taker_amount'].__float__() == 0.001328231292517006
     assert new_order['maker_amount'].__float__() == 0.1562000
 
 def test_new_buy_orders_taker_amount_success_case(tmpdir):
@@ -64,6 +65,7 @@ def test_new_buy_orders_taker_amount_success_case(tmpdir):
     bands_config = ReloadableConfig(str(bands_file))
     airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 
+    # maker_amount -> denominated in DAI
     maker_amount = Wad(0)
     taker_amount = Wad(11360000000000000000)
     our_buy_balance = Wad(1562000000000000000000)
@@ -92,6 +94,7 @@ def test_new_buy_orders_taker_amount_exceed_buy_balance_fail_case(tmpdir):
     bands_config = ReloadableConfig(str(bands_file))
     airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 
+    # maker_amount -> denominated in DAI
     maker_amount = Wad(0)
     taker_amount = Wad(11360000000000000000)
     our_buy_balance = Wad(50000000000000000)
@@ -119,6 +122,8 @@ def test_new_buy_orders_maker_amount_exceed_buy_balance_fail_case(tmpdir):
     bands_config = ReloadableConfig(str(bands_file))
     airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 
+
+    # maker_amount -> denominated in DAI
     maker_amount = Wad(156200000000000000)
     taker_amount = Wad(0)
     our_buy_balance = Wad(50000000000000000)
@@ -146,6 +151,7 @@ def test_new_sell_orders_maker_amount_success_case(tmpdir):
     bands_config = ReloadableConfig(str(bands_file))
     airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 
+    # maker_amount -> denominated in WETH
     maker_amount = Wad(106200000000000000000)
     taker_amount = Wad(0)
     our_sell_balance = Wad(1562000000000000000000)
@@ -166,13 +172,14 @@ def test_new_sell_orders_maker_amount_success_case(tmpdir):
     # taker_amount = 106.2000 / 140.4 = 0.7564102564102564102564
 
     assert new_order['maker_amount'].__float__() == 106.2000
-    assert new_order['taker_amount'].__float__() == 0.7564102564102564102564
+    assert new_order['taker_amount'].__float__() == 14910.48
 
 def test_new_sell_orders_taker_amount_success_case(tmpdir):
     bands_file = BandConfig.sample_config_dif_margins(tmpdir)
     bands_config = ReloadableConfig(str(bands_file))
     airswap_bands = AirswapBands.read(bands_config, EmptyFeed(), FixedFeed({'canBuy': True, 'canSell': True}), History())
 
+    # maker_amount -> denominated in WETH
     maker_amount = Wad(0)
     taker_amount = Wad(1770600000000000000)
     our_sell_balance = Wad(1562000000000000000000)

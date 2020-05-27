@@ -1,6 +1,6 @@
 # This file is part of Maker Keeper Framework.
 #
-# Copyright (C) 2017-2018 reverendus
+# Copyright (C) 2019, grandizzy
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -18,12 +18,10 @@
 import argparse
 import logging
 import sys
-
 from web3 import Web3, HTTPProvider
 
 from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.control_feed import create_control_feed
-from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.order_history_reporter import create_order_history_reporter
@@ -31,23 +29,26 @@ from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
-from pyexchange.theocean import TheOceanApi, Pair, Order
-from pymaker import Address
-from pymaker.approval import directly
-from pymaker.keys import register_keys
+from market_maker_keeper.gas import GasPriceFactory
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
+from pyexchange.mpx import MpxApi, MpxPair, Order
+from pymaker.keys import register_keys
+from pymaker import Address
+from pymaker.zrxv2 import ZrxExchangeV2, ZrxRelayerApiV2
 from pymaker.token import ERC20Token
-from pymaker.zrxv2 import ZrxExchangeV2
+from pymaker.approval import directly
+from pyexchange.zrxv2 import ZrxApiV2
+from pymaker.util import eth_balance
 
 
-class TheOceanMarketMakerKeeper:
-    """Keeper acting as a market maker on TheOcean."""
+class MpxMarketMakerKeeper:
+    """Keeper acting as a market maker on MPExchange."""
 
     logger = logging.getLogger()
 
     def __init__(self, args: list, **kwargs):
-        parser = argparse.ArgumentParser(prog='theocean-market-maker-keeper')
+        parser = argparse.ArgumentParser(prog='mpx-market-maker-keeper')
 
         parser.add_argument("--rpc-host", type=str, default="localhost",
                             help="JSON-RPC host (default: `localhost')")
@@ -64,26 +65,34 @@ class TheOceanMarketMakerKeeper:
         parser.add_argument("--eth-key", type=str, nargs='*',
                             help="Ethereum private key(s) to use (e.g. 'key_file=aaa.json,pass_file=aaa.pass')")
 
+        parser.add_argument("--mpx-api-server", type=str, default='https://api.mpexchange.io',
+                            help="Address of the MPX API server (default: 'https://api.mpexchange.io')")
+
+        parser.add_argument("--mpx-api-timeout", type=float, default=9.5,
+                            help="Timeout for accessing the MPX API (in seconds, default: 9.5)")
+
         parser.add_argument("--exchange-address", type=str, required=True,
-                            help="Ethereum address of the 0x Exchange contract")
+                            help="Ethereum address of the Mpx Exchange contract")
 
-        parser.add_argument("--theocean-api-server", type=str, default='https://api.theocean.trade',
-                            help="Address of the TheOcean API (default: 'https://api.theocean.trade')")
+        parser.add_argument("--fee-address", type=str, required=True,
+                            help="Ethereum address of the Mpx Fee contract")
 
-        parser.add_argument("--theocean-api-key", type=str, required=True,
-                            help="API key for the TheOcean API")
-
-        parser.add_argument("--theocean-api-secret", type=str, required=True,
-                            help="API secret for the TheOcean API")
-
-        parser.add_argument("--theocean-api-timeout", type=float, default=9.5,
-                            help="Timeout for accessing the TheOcean API (in seconds, default: 9.5)")
-
-        parser.add_argument("--buy-token-address", type=str, required=True,
-                            help="Ethereum address of the buy token")
+        parser.add_argument("--pair", type=str, required=True,
+                            help="Token pair (sell/buy) on which the keeper will operate")
 
         parser.add_argument("--sell-token-address", type=str, required=True,
-                            help="Ethereum address of the sell token")
+                            help="Ethereum address of the Sell Token")
+
+        parser.add_argument("--buy-token-address", type=str, required=True,
+                            help="Ethereum address of the Buy Token")
+
+        parser.add_argument("--gas-price", type=int, default=0,
+                            help="Gas price (in Wei)")
+
+        parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
+                            help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
+
+        parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
 
         parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
@@ -112,14 +121,6 @@ class TheOceanMarketMakerKeeper:
         parser.add_argument("--order-history-every", type=int, default=30,
                             help="Frequency of reporting active orders (in seconds, default: 30)")
 
-        parser.add_argument("--gas-price", type=int, default=0,
-                            help="Gas price (in Wei)")
-
-        parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
-                            help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
-
-        parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
-
         parser.add_argument("--refresh-frequency", type=int, default=3,
                             help="Order book refresh frequency (in seconds, default: 3)")
 
@@ -137,7 +138,7 @@ class TheOceanMarketMakerKeeper:
 
         self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
         self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
-        self.pair = Pair(self.token_sell.address, self.token_buy.address)
+
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_max_decimals = None
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
@@ -147,18 +148,29 @@ class TheOceanMarketMakerKeeper:
         self.order_history_reporter = create_order_history_reporter(self.arguments)
 
         self.history = History()
+
         self.zrx_exchange = ZrxExchangeV2(web3=self.web3, address=Address(self.arguments.exchange_address))
-        self.theocean_api = TheOceanApi(self.zrx_exchange,
-                                        self.arguments.theocean_api_server,
-                                        self.arguments.theocean_api_key,
-                                        self.arguments.theocean_api_secret,
-                                        self.arguments.theocean_api_timeout)
+        self.mpx_api = MpxApi(api_server=self.arguments.mpx_api_server,
+                              zrx_exchange=self.zrx_exchange,
+                              fee_recipient=Address(self.arguments.fee_address),
+                              timeout=self.arguments.mpx_api_timeout,
+                              our_address=self.arguments.eth_from)
+
+        self.zrx_relayer_api = ZrxRelayerApiV2(exchange=self.zrx_exchange, api_server=self.arguments.mpx_api_server)
+        self.zrx_api = ZrxApiV2(zrx_exchange=self.zrx_exchange, zrx_api=self.zrx_relayer_api)
+
+        markets = self.mpx_api.get_markets()['data']
+        market = next(filter(lambda item: item['attributes']['pair-name'] == self.arguments.pair, markets))
+
+        self.pair = MpxPair(self.arguments.pair,
+                            self.token_buy.address, int(market['attributes']['base-token-decimals']),
+                            self.token_sell.address, int(market['attributes']['quote-token-decimals']))
 
         self.order_book_manager = OrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
-        self.order_book_manager.get_orders_with(lambda: self.theocean_api.get_orders(self.pair))
+        self.order_book_manager.get_orders_with(lambda: self.get_orders())
         self.order_book_manager.get_balances_with(lambda: self.get_balances())
+        self.order_book_manager.cancel_orders_with(self.cancel_order_function)
         self.order_book_manager.place_orders_with(self.place_order_function)
-        self.order_book_manager.cancel_orders_with(lambda order: self.theocean_api.cancel_order(order.order_id))
         self.order_book_manager.enable_history_reporting(self.order_history_reporter, self.our_buy_orders, self.our_sell_orders)
         self.order_book_manager.start()
 
@@ -172,31 +184,22 @@ class TheOceanMarketMakerKeeper:
     def startup(self):
         self.approve()
 
-        # Get maximum number of decimals for prices.
-        market = self.theocean_api.get_market(self.pair)
-
-        assert(int(market['baseToken']['decimals']) == 18)
-        assert(int(market['quoteToken']['decimals']) == 18)
-        assert(int(market['baseToken']['precision']) == int(market['quoteToken']['precision']))
-
-        self.price_max_decimals = 0 - int(market['baseToken']['precision'])
-
-        assert(self.price_max_decimals >= 0)
+    def approve(self):
+        self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
 
-    def approve(self):
-        self.zrx_exchange.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
-
     def get_balances(self):
-        return self.theocean_api.get_balance(self.pair.sell_token), self.theocean_api.get_balance(self.pair.buy_token)
+        balances = self.zrx_api.get_balances(self.pair)
+        return balances[0], balances[1], eth_balance(self.web3, self.our_address)
 
-    def our_sell_balance(self, balances) -> Wad:
-        return balances[0]
+    def get_orders(self) -> list:
+        orders = self.mpx_api.get_orders(self.pair)
+        return self.zrx_api.get_orders(self.pair, orders)
 
-    def our_buy_balance(self, balances) -> Wad:
-        return balances[1]
+    def our_total_balance(self, token: ERC20Token) -> Wad:
+        return token.balance_of(self.our_address)
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -222,33 +225,41 @@ class TheOceanMarketMakerKeeper:
             self.logger.debug("Order book is in progress, not placing new orders")
             return
 
+        # In case of MPX, balances returned by `our_total_balance` still contain amounts "locked"
+        # by currently open orders, so we need to explicitly subtract these amounts.
+        our_buy_balance = self.our_total_balance(self.token_buy) - Bands.total_amount(self.our_buy_orders(order_book.orders))
+        our_sell_balance = self.our_total_balance(self.token_sell) - Bands.total_amount(self.our_sell_orders(order_book.orders))
+
         # Place new orders
         self.order_book_manager.place_orders(bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                                               our_sell_orders=self.our_sell_orders(order_book.orders),
-                                                              our_buy_balance=self.our_buy_balance(order_book.balances),
-                                                              our_sell_balance=self.our_sell_balance(order_book.balances),
+                                                              our_buy_balance=our_buy_balance,
+                                                              our_sell_balance=our_sell_balance,
                                                               target_price=target_price)[0])
 
     def place_order_function(self, new_order: NewOrder):
         assert(isinstance(new_order, NewOrder))
 
-        pair = self.pair
-        is_sell = new_order.is_sell
         price = round(new_order.price, self.price_max_decimals)
         amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
+        zrx_order = self.mpx_api.place_order(pair=self.pair,
+                                             is_sell=new_order.is_sell,
+                                             price=price,
+                                             amount=amount)
 
-        new_order_id = self.theocean_api.place_order(pair=pair, is_sell=is_sell, price=price, amount=amount)
-
-        if new_order_id is not None:
-            return Order(order_id=new_order_id,
-                         pair=pair,
-                         is_sell=is_sell,
-                         price=price,
-                         amount=amount)
-
+        if zrx_order is not None:
+            return self.zrx_api.get_orders(self.pair, [zrx_order])[0]
         else:
             return None
 
+    def cancel_order_function(self, order):
+        self.logger.info(f"Canceling order {order.zrx_order.order_hash}")
+        if self.mpx_api.cancel_order(order.zrx_order.order_hash):
+            transact = self.zrx_exchange.cancel_order(order.zrx_order).transact(gas_price=self.gas_price)
+            return transact is not None and transact.successful
+
+        return False
+
 
 if __name__ == '__main__':
-    TheOceanMarketMakerKeeper(sys.argv[1:]).main()
+    MpxMarketMakerKeeper(sys.argv[1:]).main()

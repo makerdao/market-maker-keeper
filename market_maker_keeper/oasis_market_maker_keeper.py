@@ -36,6 +36,7 @@ from pymaker.approval import directly
 from pymaker.keys import register_keys
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
+from pymaker.model import Token
 from pymaker.oasis import Order, MatchingMarket
 from pymaker.sai import Tub
 from pymaker.token import ERC20Token
@@ -81,6 +82,18 @@ class OasisMarketMakerKeeper:
         parser.add_argument("--sell-token-address", type=str, required=True,
                             help="Ethereum address of the sell token")
 
+        parser.add_argument("--buy-token-name", type=str, required=True,
+                            help="Ethereum address of the buy token")
+
+        parser.add_argument("--sell-token-name", type=str, required=True,
+                            help="Ethereum address of the sell token")
+        
+        parser.add_argument("--buy-token-decimals", type=int, required=True,
+                            help="Ethereum address of the buy token")
+
+        parser.add_argument("--sell-token-decimals", type=int, required=True,
+                            help="Ethereum address of the sell token")
+        
         parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
 
@@ -120,6 +133,8 @@ class OasisMarketMakerKeeper:
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
+        parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
+
         parser.add_argument("--refresh-frequency", type=int, default=10,
                             help="Order book refresh frequency (in seconds, default: 10)")
 
@@ -128,7 +143,7 @@ class OasisMarketMakerKeeper:
 
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
-
+    
         self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
         self.web3.eth.defaultAccount = self.arguments.eth_from
@@ -144,6 +159,8 @@ class OasisMarketMakerKeeper:
 
         self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
         self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
+        self.buy_token = Token(name=self.arguments.buy_token_name, address=Address(self.arguments.buy_token_address), decimals=self.arguments.buy_token_decimals)
+        self.sell_token = Token(name=self.arguments.sell_token_name, address=Address(self.arguments.sell_token_address), decimals=self.arguments.sell_token_decimals)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
@@ -178,12 +195,15 @@ class OasisMarketMakerKeeper:
         self.otc.approve([self.token_sell, self.token_buy], directly(gas_price=self.gas_price))
 
     def our_available_balance(self, token: ERC20Token) -> Wad:
-        return token.balance_of(self.our_address)
+        if token.symbol() == self.buy_token.name:
+            return self.buy_token.normalize_amount(token.balance_of(self.our_address))
+        else:
+            return self.sell_token.normalize_amount(token.balance_of(self.our_address))
 
     def our_orders(self):
         return list(filter(lambda order: order.maker == self.our_address,
-                           self.otc.get_orders(self.token_sell.address, self.token_buy.address) +
-                           self.otc.get_orders(self.token_buy.address, self.token_sell.address)))
+                           self.otc.get_orders(self.sell_token, self.buy_token) +
+                           self.otc.get_orders(self.buy_token, self.sell_token)))
 
     def our_sell_orders(self, our_orders: list):
         return list(filter(lambda order: order.buy_token == self.token_buy.address and
@@ -211,7 +231,6 @@ class OasisMarketMakerKeeper:
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
-
         # Cancel orders
         cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                                       our_sell_orders=self.our_sell_orders(order_book.orders),
@@ -239,16 +258,46 @@ class OasisMarketMakerKeeper:
         assert(isinstance(new_order, NewOrder))
 
         if new_order.is_sell:
+            buy_or_sell = "SELL"
             pay_token = self.token_sell.address
             buy_token = self.token_buy.address
+            new_order.buy_amount = self.buy_token.unnormalize_amount(new_order.buy_amount)
+            b_token = self.buy_token
+            p_token = self.sell_token
+            new_order.pay_amount = self.sell_token.unnormalize_amount(new_order.pay_amount)
+            token_name = self.sell_token.name
+            quote_token = self.buy_token.name
+
         else:
+            buy_or_sell = "BUY"
             pay_token = self.token_buy.address
             buy_token = self.token_sell.address
+            new_order.pay_amount = self.buy_token.unnormalize_amount(new_order.pay_amount)
+            p_token = self.buy_token
+            b_token = self.sell_token
+            new_order.buy_amount = self.sell_token.unnormalize_amount(new_order.buy_amount)
+            token_name = self.sell_token.name
+            quote_token = self.buy_token.name
 
-        transact = self.otc.make(pay_token=pay_token, pay_amount=new_order.pay_amount,
-                                 buy_token=buy_token, buy_amount=new_order.buy_amount).transact(gas_price=self.gas_price)
+
+        transact = self.otc.make(p_token=p_token, pay_amount=new_order.pay_amount,
+                                 b_token=b_token, buy_amount=new_order.buy_amount).transact(gas_price=self.gas_price)
+
+        if new_order.is_sell:
+            new_order.buy_amount = self.buy_token.normalize_amount(new_order.buy_amount)
+            new_order.pay_amount = self.sell_token.normalize_amount(new_order.pay_amount)
+            buy_or_sell_price = new_order.buy_amount/new_order.pay_amount
+            amount = new_order.pay_amount
+
+        else:
+            new_order.pay_amount = self.buy_token.normalize_amount(new_order.pay_amount)
+            new_order.buy_amount = self.sell_token.normalize_amount(new_order.buy_amount)
+            buy_or_sell_price = new_order.pay_amount/new_order.buy_amount
+            amount = new_order.buy_amount
 
         if transact is not None and transact.successful and transact.result is not None:
+            self.logger.info(f'Placing {buy_or_sell} order of amount {amount} {token_name} @ price {buy_or_sell_price} {quote_token}') 
+            self.logger.info(f'Placing {buy_or_sell} order pay token: {p_token.name} with amount: {new_order.pay_amount}, buy token: {b_token.name} with amount: {new_order.buy_amount}')
             return Order(market=self.otc,
                          order_id=transact.result,
                          maker=self.our_address,

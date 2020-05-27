@@ -101,8 +101,11 @@ class AirswapMarketMakerKeeper:
         parser.add_argument("--buy-token-address", type=str, required=True,
                             help="Ethereum address of the buy token")
 
-        parser.add_argument("--sell-token-address", type=str, required=True,
-                            help="Ethereum address of the sell token")
+        parser.add_argument("--eth-sell-token-address", type=str, required=True,
+                            help="eth Ethereum address of the sell token")
+
+        parser.add_argument("--weth-sell-token-address", type=str, required=True,
+                            help="weth Ethereum address of the sell token")
 
         parser.add_argument("--config", type=str, required=True,
                             help="Bands configuration file")
@@ -150,10 +153,8 @@ class AirswapMarketMakerKeeper:
         else:
             self.token_buy = ERC20Token(web3=self.web3, address=Address(self.arguments.buy_token_address))
 
-        if self.arguments.sell_token_address == '0x0000000000000000000000000000000000000000':
-            self.token_sell = EthToken(web3=self.web3, address=Address(self.arguments.buy_token_address))
-        else:
-            self.token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.sell_token_address))
+        self.eth_token_sell = EthToken(web3=self.web3, address=Address(self.arguments.eth_sell_token_address))
+        self.weth_token_sell = ERC20Token(web3=self.web3, address=Address(self.arguments.weth_sell_token_address))
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
@@ -168,25 +169,54 @@ class AirswapMarketMakerKeeper:
         app.run(host=self.arguments.orderserver_host, port=self.arguments.orderserver_port)
 
     def startup(self):
+        #approvals are a bit tricky as the call below is made to the airswap API but the actual approval takes place on the blockchain. They only need to be run once so double check on etherscan that this has been executed for all token pairs.
+
         bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-        self.airswap_api.approve(self.token_buy.address, self.token_sell.address)
-        self.airswap_api.set_intents(self.token_buy.address, self.token_sell.address)
-        self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.address}, {self.token_sell.address.address}")
+
+        self.airswap_api.approve(self.token_buy.address, self.eth_token_sell.address)
+        self.airswap_api.approve(self.token_buy.address, self.weth_token_sell.address)
+
+        self.airswap_api.set_intents(self.token_buy.address, self.eth_token_sell.address, self.weth_token_sell.address)
+
+        self.logger.info(f"intents to buy/sell set successfully: {self.token_buy.address.address}, {self.eth_token_sell.address.address}, {self.weth_token_sell.address.address}")
 
    # def shutdown(self):
-   # not implemented, will be added when cancel order is finnished
+   # not implemented, will be added when cancel order is finished
 
     def our_total_balance(self, token) -> Wad:
         return token.balance_of(self.our_address)
 
     def _error_handler(self, err):
-        return err.to_json()
+        return err.dont_respond()
 
     def r_get_order(self):
-        # main application logic. Started by the `app.run` call in the `main` method
-        bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
         req = request.get_json()
-        logging.info("Received getOrder: {req}".format(req=req))
+        logging.info(f"receiving getOrder: {req}")
+        order = self._order_handler(req)
+
+        # build & sign order with our private key
+        signed_order = self.airswap_api.sign_order(order['maker_address'],
+                                                   order['maker_token'],
+                                                   order['maker_amount'],
+                                                   order['taker_address'],
+                                                   order['taker_token'],
+                                                   order['taker_amount'])
+
+        # send signed order back to the taker
+        logging.info(f"Sending signed order: {signed_order}")
+        return signed_order, 200
+
+    def r_get_quote(self):
+        req = request.get_json()
+        logging.info(f"receiving quoteOrder: {req}")
+        order = self._order_handler(req)
+
+        # send quote order back to the taker
+        logging.info(f"Sending quote order: {order}")
+        return json.dumps(order)
+
+    def _order_handler(self, req):
+        bands = AirswapBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
 
         assert('makerAddress' in req)
         assert('takerAddress' in req)
@@ -200,11 +230,11 @@ class AirswapMarketMakerKeeper:
 
         # Only makerAmount or takerAmount should be sent in the request
         # Takers will usually request a makerAmount, however they can request takerAmount
-        if 'makerAmount' in req:
+        if req.get('makerAmount') != None:
             maker_amount = Wad(int(req["makerAmount"]))
             taker_amount = Wad(0)
 
-        elif 'takerAmount' in req:
+        elif req.get('takerAmount') != None:
             taker_amount = Wad(int(req["takerAmount"]))
             maker_amount = Wad(0)
 
@@ -214,31 +244,38 @@ class AirswapMarketMakerKeeper:
         # V2 should adjust for signed orders we already have out there (essentially create an orderbook)?
         # still debating...
 
-        if (maker_token != self.token_buy.address) and (maker_token != self.token_sell.address):
+        if (maker_token != self.token_buy.address) and (maker_token != self.eth_token_sell.address) and (maker_token != self.weth_token_sell.address):
             raise CustomException("Not set to trade this token pair", self.logger)
 
-        amount_side = 'buy' if maker_token == self.token_buy.address else 'sell'
-        our_buy_balance = self.our_total_balance(self.token_buy)
-        our_sell_balance = self.our_total_balance(self.token_sell)
+        if maker_token == self.token_buy.address:
+            amount_side = 'buy'
+            our_buy_balance = self.our_total_balance(self.token_buy)
+            our_sell_balance = self.our_total_balance(self.eth_token_sell) \
+                               if taker_token == self.eth_token_sell.address \
+                               else self.our_total_balance(self.weth_token_sell)
+
+        else:
+            amount_side = 'sell'
+            our_buy_balance = self.our_total_balance(self.token_buy)
+            our_sell_balance = self.our_total_balance(self.eth_token_sell) \
+                               if maker_token == self.eth_token_sell.address \
+                               else self.our_total_balance(self.weth_token_sell)
+
         target_price = self.price_feed.get_price()
 
         token_amnts = bands.new_orders(amount_side, maker_amount, taker_amount, our_buy_balance, our_sell_balance, target_price)
         if not token_amnts:
             raise CustomException("bands.new_orders did not return orders", self.logger)
 
-        else:
-            # build & sign order with our private key
-            signed_order = self.airswap_api.sign_order(maker_address.address,
-                                                       maker_token.address,
-                                                       str(token_amnts["maker_amount"].value),
-                                                       taker_address.address,
-                                                       taker_token.address,
-                                                       str(token_amnts["taker_amount"].value))
-
-            # send signed order back to the taker
-            logging.info(f"Sending order: {signed_order}")
-            return signed_order
-
+        # return successfully built order
+        return {
+                "maker_address": str(maker_address.address).lower(),
+                "maker_token": str(maker_token.address).lower(),
+                "maker_amount": str(token_amnts["maker_amount"].value),
+                "taker_address": str(taker_address.address).lower(),
+                "taker_token": str(taker_token.address).lower(),
+                "taker_amount": str(token_amnts["taker_amount"].value)
+                }
 
 class CustomException(Exception):
 
@@ -252,8 +289,8 @@ class CustomException(Exception):
         self.logger.info(f" {self.message} --> responding to taker with empty dict")
         return {}
 
-    def to_json(self):
-        return json.dumps(self.empty_dict())
+    def dont_respond(self):
+        return ('', 400)
 
 class AirswapBands(Bands):
 
@@ -374,10 +411,11 @@ class AirswapBands(Bands):
             # finds closest margin to amount
             pay_amount = Wad.min(maker_amount, limit_amount, our_side_balance)
             price = closest_margin_to_amount(band, maker_amount, target_price)
+
             if side == 'buy':
-                buy_amount = pay_amount * price
-            else:
                 buy_amount = pay_amount / price
+            else:
+                buy_amount = pay_amount * price
 
         if (price > Wad(0)) and \
            (pay_amount > Wad(0)) and \
@@ -448,5 +486,6 @@ def _find_closest(val1, val2, target):
 if __name__ == '__main__':
     airswap_app = AirswapMarketMakerKeeper(sys.argv[1:])
     app.add_url_rule('/getOrder', view_func=airswap_app.r_get_order, methods=["POST"])
+    app.add_url_rule('/getQuote', view_func=airswap_app.r_get_quote, methods=["POST"])
     app.register_error_handler(CustomException, airswap_app._error_handler)
     airswap_app.main()

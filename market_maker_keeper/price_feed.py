@@ -141,6 +141,18 @@ class GdaxPriceFeed(PriceFeed):
             return Price(buy_price=None, sell_price=None)
 
 
+class GdaxMidpointPriceFeed(GdaxPriceFeed):
+
+    def get_price(self) -> Price:
+        gdax_midpoint_price = self.gdax_price_client.get_obook_price()
+
+        if gdax_midpoint_price:
+            return Price(buy_price=Wad.from_number(gdax_midpoint_price), sell_price=Wad.from_number(gdax_midpoint_price))
+
+        else:
+            return Price(buy_price=None, sell_price=None)
+
+
 class WebSocketPriceFeed(PriceFeed):
     def __init__(self, feed: Feed):
         assert(isinstance(feed, Feed))
@@ -246,6 +258,14 @@ class PriceFeedFactory:
         assert(isinstance(price_feed_expiry_argument, int))
         assert(isinstance(tub, Tub) or tub is None)
 
+        if price_feed_argument == 'eth_dai-pair':
+            return GdaxPriceFeed(product_id="ETH-DAI",
+                                 expiry=price_feed_expiry_argument)
+
+        if price_feed_argument == 'eth_dai-pair-midpoint':
+            return GdaxMidpointPriceFeed(product_id="ETH-DAI",
+                                         expiry=price_feed_expiry_argument)
+
         if price_feed_argument == 'eth_dai':
             return GdaxPriceFeed(product_id="ETH-USD",
                                  expiry=price_feed_expiry_argument)
@@ -267,6 +287,9 @@ class PriceFeedFactory:
         elif price_feed_argument == 'dai_eth':
             return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai', price_feed_expiry_argument, tub))
 
+        elif price_feed_argument == 'dai_eth-pair':
+            return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai-pair', price_feed_expiry_argument, tub))
+
         elif price_feed_argument == 'dai_eth-setzer':
             return ReversePriceFeed(PriceFeedFactory._create_price_feed('eth_dai-setzer', price_feed_expiry_argument, tub))
 
@@ -275,6 +298,22 @@ class PriceFeedFactory:
 
         elif price_feed_argument == 'dai_btc':
             return ReversePriceFeed(PriceFeedFactory._create_price_feed('btc_dai', price_feed_expiry_argument, tub))
+
+        elif price_feed_argument == 'zrx_usd-pair-midpoint':
+             return GdaxMidpointPriceFeed(product_id="ZRX-USD",
+                                          expiry=price_feed_expiry_argument)
+
+        elif price_feed_argument == 'bat_usdc-pair-midpoint':
+             return GdaxMidpointPriceFeed(product_id="BAT-USDC",
+                                          expiry=price_feed_expiry_argument)
+
+        elif price_feed_argument == 'dai_usdc-pair-midpoint':
+              return GdaxMidpointPriceFeed(product_id="DAI-USDC",
+                                           expiry=price_feed_expiry_argument)
+
+        elif price_feed_argument == 'rep_usd-pair-midpoint':
+              return GdaxMidpointPriceFeed(product_id="REP-USD",
+                                           expiry=price_feed_expiry_argument)
 
         elif price_feed_argument.startswith("fixed:"):
             price_feed = FixedPriceFeed(Wad.from_number(price_feed_argument[6:]))
