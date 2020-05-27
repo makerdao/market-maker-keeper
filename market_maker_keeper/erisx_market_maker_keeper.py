@@ -89,6 +89,7 @@ class ErisXOrderBookManager(OrderBookManager):
                     if cancel_result:
                         self._order_ids_cancelled.add(order_id)
                         self._order_ids_cancelling.remove(order_id)
+                        self.logger.info(f"Succesfully canceled order: {order_id}")
             except BaseException as exception:
                 self.logger.exception(f"Failed to cancel {order_id}")
             finally:
