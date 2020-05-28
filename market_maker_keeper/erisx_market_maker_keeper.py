@@ -61,7 +61,6 @@ class ErisXLifecycle(Lifecycle):
                         if self.count >= 10:
                             self.logger.debug(f"killing lifecycle as parent is no longer running")
                             self.terminated_externally = True
-                            sys.exit(1)
                         self.logger.debug(f"Ignoring timer #{idx} as previous one is already running")
                 else:
                     self.logger.debug(f"Ignoring timer #{idx} as keeper is already terminating")
