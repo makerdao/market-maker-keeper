@@ -18,6 +18,9 @@
 import argparse
 import logging
 import sys
+import threading
+import os
+import signal
 
 import time
 from decimal import Decimal
@@ -51,16 +54,18 @@ class ErisXLifecycle(Lifecycle):
 
                     def on_finish():
                         self.logger.debug(f"Finished processing the timer #{idx}")
+                        self.count = 0
 
                     if not callback.trigger(on_start, on_finish):
                         self.count += 1
-                        if self.count >= 5:
+                        if self.count >= 10:
                             self.logger.debug(f"killing lifecycle as parent is no longer running")
                             self.terminated_externally = True
                             sys.exit(1)
                         self.logger.debug(f"Ignoring timer #{idx} as previous one is already running")
                 else:
                     self.logger.debug(f"Ignoring timer #{idx} as keeper is already terminating")
+                    os._exit(1)
             except:
                 setup_timer(frequency_in_seconds)
                 raise
