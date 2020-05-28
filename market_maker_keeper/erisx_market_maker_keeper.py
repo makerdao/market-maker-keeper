@@ -39,6 +39,7 @@ class ErisXLifecycle(Lifecycle):
 
     def _start_every_timer(self, idx: int, frequency_in_seconds: int, callback):
         self.count = 0
+        self._socket_closed = False
 
         def setup_timer(delay):
             timer = threading.Timer(delay, func)
@@ -61,10 +62,13 @@ class ErisXLifecycle(Lifecycle):
                         if self.count >= 20:
                             self.logger.debug(f"killing lifecycle as parent is no longer running")
                             self.terminated_externally = True
-                            os._exit(1)
+                            self._socket_closed = True
                         self.logger.debug(f"Ignoring timer #{idx} as previous one is already running")
                 else:
                     self.logger.debug(f"Ignoring timer #{idx} as keeper is already terminating")
+                    if self._socket_closed:
+                        time.sleep(10)
+                        os._exit(1)
             except:
                 setup_timer(frequency_in_seconds)
                 raise
