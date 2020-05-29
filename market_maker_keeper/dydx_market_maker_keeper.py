@@ -166,23 +166,27 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         our_sell_orders = self.our_sell_orders(order_book.orders)
 
         # check that placing buy new orders won't require margin
+        # balance isn't lowered if an order is placed; so need to manually adjust balance with amounts in open orders
         for band in bands.buy_bands:
             orders = [order for order in our_buy_orders if band.includes(order, target_price.buy_price)]
             total_amount = total_buy_amount(orders)
             buy_limit_amount = bands.buy_limits.available_limit(time.time())
+            available_balance = our_buy_balance - total_amount
             if total_amount < band.min_amount:
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance, buy_limit_amount)
-                if total_in_buy_orders + pay_amount >= our_buy_balance:
+                pay_amount = Wad.min(band.avg_amount - total_amount, available_balance, buy_limit_amount)
+                if total_in_buy_orders + pay_amount >= available_balance:
                     band.min_amount = Wad(0)
 
         # check that placing new sell orders won't require margin
+        # balance isn't lowered if an order is placed; so need to manually adjust balance with amounts in open orders
         for band in bands.sell_bands:
             orders = [order for order in our_sell_orders if band.includes(order, target_price.sell_price)]
             total_amount = total_sell_amount(orders)
             sell_limit_amount = bands.sell_limits.available_limit(time.time())
+            available_balance = our_sell_balance - total_amount
             if total_amount < band.min_amount:
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, sell_limit_amount)
-                if total_in_sell_orders + pay_amount >= our_sell_balance:
+                pay_amount = Wad.min(band.avg_amount - total_amount, available_balance, sell_limit_amount)
+                if total_in_sell_orders + pay_amount >= available_balance:
                     band.min_amount = Wad(0)
 
         # Place new orders
