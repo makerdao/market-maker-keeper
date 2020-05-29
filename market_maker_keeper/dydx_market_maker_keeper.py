@@ -165,8 +165,18 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         our_buy_orders = self.our_buy_orders(order_book.orders)
         our_sell_orders = self.our_sell_orders(order_book.orders)
 
-        # check that placing buy new orders won't require margin
-        # balance isn't lowered if an order is placed; so need to manually adjust balance with amounts in open orders
+        """
+        Check that placing new orders doesn't exceed available balance and won't require margin. 
+        This is done separately for each band, to account for potential differences in configuration.
+        
+        On DyDx, balances aren't lowered if an order is placed,
+        so we need to manually adjust balance with amounts in open orders.
+        
+        If a potential new order would exceed available balance, 
+        setting the minimum band amount to 0 will block the order through band.py conditional checks. 
+        The band.min amount would then be reset to the original configuration on the next iteration of synchronize_orders().
+        """
+
         for band in bands.buy_bands:
             orders = [order for order in our_buy_orders if band.includes(order, target_price.buy_price)]
             total_amount = total_buy_amount(orders)
@@ -177,8 +187,6 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
                 if total_in_buy_orders + pay_amount >= available_balance:
                     band.min_amount = Wad(0)
 
-        # check that placing new sell orders won't require margin
-        # balance isn't lowered if an order is placed; so need to manually adjust balance with amounts in open orders
         for band in bands.sell_bands:
             orders = [order for order in our_sell_orders if band.includes(order, target_price.sell_price)]
             total_amount = total_sell_amount(orders)
