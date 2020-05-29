@@ -169,8 +169,9 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         for band in bands.buy_bands:
             orders = [order for order in our_buy_orders if band.includes(order, target_price.buy_price)]
             total_amount = total_buy_amount(orders)
+            limit_amount = bands.buy_limits.available_limit(time.time())
             if total_amount < band.min_amount:
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance, limit_amount)
                 if total_in_buy_orders + pay_amount > our_buy_balance:
                     band.min_amount = Wad(0)
 
@@ -178,8 +179,9 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         for band in bands.sell_bands:
             orders = [order for order in our_sell_orders if band.includes(order, target_price.sell_price)]
             total_amount = total_sell_amount(orders)
+            limit_amount = bands.sell_limits.available_limit(time.time())
             if total_amount < band.min_amount:
-                pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, limit_amount)
                 if total_in_sell_orders + pay_amount > our_sell_balance:
                     band.min_amount = Wad(0)
 
