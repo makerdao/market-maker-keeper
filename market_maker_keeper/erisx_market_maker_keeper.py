@@ -18,17 +18,63 @@
 import argparse
 import logging
 import sys
+import threading
+import os
+
 import time
-import json
 from decimal import Decimal
 
 from pyexchange.erisx import ErisxApi
 from pyexchange.model import Order
 
 from pymaker.numeric import Wad
+from pymaker.lifecycle import Lifecycle
 
 from market_maker_keeper.cex_api import CEXKeeperAPI
 from market_maker_keeper.order_book import OrderBookManager
+
+
+class ErisXLifecycle(Lifecycle):
+
+    def _start_every_timer(self, idx: int, frequency_in_seconds: int, callback):
+        self.count = 0
+        self._socket_closed = False
+
+        def setup_timer(delay):
+            timer = threading.Timer(delay, func)
+            timer.daemon = True
+
+            self._start_thread_safely(timer)
+
+        def func():
+            try:
+                if not self.terminated_internally and not self.terminated_externally and not self.fatal_termination:
+                    def on_start():
+                        self.logger.debug(f"Processing the timer #{idx}")
+
+                    def on_finish():
+                        self.logger.debug(f"Finished processing the timer #{idx}")
+                        self.count = 0
+
+                    if not callback.trigger(on_start, on_finish):
+                        self.count += 1
+                        if self.count >= 20:
+                            self.logger.debug(f"killing lifecycle as parent is no longer running")
+                            self.terminated_externally = True
+                            self._socket_closed = True
+                        self.logger.debug(f"Ignoring timer #{idx} as previous one is already running")
+                else:
+                    self.logger.debug(f"Ignoring timer #{idx} as keeper is already terminating")
+                    if self._socket_closed:
+                        time.sleep(10)
+                        os._exit(1)
+            except:
+                setup_timer(frequency_in_seconds)
+                raise
+            setup_timer(frequency_in_seconds)
+
+        setup_timer(1)
+        self._at_least_one_every = True
 
 
 # Subclass orderboook to enable support for different order schema required by ErisX
@@ -89,6 +135,7 @@ class ErisXOrderBookManager(OrderBookManager):
                     if cancel_result:
                         self._order_ids_cancelled.add(order_id)
                         self._order_ids_cancelling.remove(order_id)
+                        self.logger.info(f"Succesfully canceled order: {order_id}")
             except BaseException as exception:
                 self.logger.exception(f"Failed to cancel {order_id}")
             finally:
@@ -246,6 +293,12 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
 
         self.order_book_manager.pair = self.pair()
         self.order_book_manager.start()
+
+    def main(self):
+        with ErisXLifecycle() as lifecycle:
+            lifecycle.initial_delay(10)
+            lifecycle.every(1, self.synchronize_orders)
+            lifecycle.on_shutdown(self.shutdown)
 
     def pair(self):
         return self.arguments.pair
