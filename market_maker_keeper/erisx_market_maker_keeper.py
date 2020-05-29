@@ -20,7 +20,6 @@ import logging
 import sys
 import threading
 import os
-import signal
 
 import time
 from decimal import Decimal
