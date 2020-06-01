@@ -215,8 +215,8 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         # Place new orders
         self.place_orders(bands.new_orders(our_buy_orders=our_buy_orders,
                                            our_sell_orders=our_sell_orders,
-                                           our_buy_balance=our_buy_balance,
-                                           our_sell_balance=our_sell_balance,
+                                           our_buy_balance=self.our_available_balance(order_book.balances, self.token_buy()),
+                                           our_sell_balance=self.our_available_balance(order_book.balances, self.token_sell()),
                                            target_price=target_price)[0])
 
 
