@@ -112,10 +112,9 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
 
     def _should_place_order(self, new_order: dict) -> bool:
         amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
-        decimal_exponent = int(self.market_info[self.pair().upper()]['quoteCurrency']['decimals'])
         minimumOrderSize = float(self.market_info[self.pair().upper()]['minimumOrderSize'])
-        converted_amount = Wad.__float__(amount) * 10 ** decimal_exponent
-        return True if converted_amount > minimumOrderSize else False
+        converted_minimum = minimumOrderSize / 10 ** 17
+        return True if Wad.__float__(amount) > converted_minimum else False
 
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
