@@ -93,8 +93,6 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
 
         self.market_info = self.dydx_api.get_markets()
 
-        self.all_pairs = ['WETH-DAI', 'WETH-USDC', 'DAI-USDC']
-
         super().__init__(self.arguments, self.dydx_api)
 
     def pair(self):
@@ -175,7 +173,7 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
 
         total_in_buy_orders = total_amount(self.our_buy_orders(order_book.orders))
         total_in_sell_orders = total_amount(self.our_sell_orders(order_book.orders))
-        for pair in self.all_pairs:
+        for pair in self.market_info.keys():
             other_pair_orders = []
             if self.pair().lower() != pair.lower():
                 other_pair_orders = self.dydx_api.get_orders(pair)
@@ -200,7 +198,7 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
                 if total_in_buy_orders + pay_amount > available_balance:
                     band.min_amount = Wad(0)
                 else:
-                    available_balance -= pay_amount
+                    our_buy_balance -= pay_amount
 
         for band in bands.sell_bands:
             orders = [order for order in our_sell_orders if band.includes(order, target_price.sell_price)]
@@ -212,7 +210,7 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
                 if total_in_sell_orders + pay_amount > available_balance:
                     band.min_amount = Wad(0)
                 else:
-                    available_balance -= pay_amount
+                    our_sell_balance -= pay_amount
 
         # Place new orders
         self.place_orders(bands.new_orders(our_buy_orders=our_buy_orders,
