@@ -176,6 +176,7 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         total_in_buy_orders = total_buy_amount(self.our_buy_orders(order_book.orders))
         total_in_sell_orders = total_sell_amount(self.our_sell_orders(order_book.orders))
         for pair in self.all_pairs:
+            other_pair_orders = []
             if self.pair() != pair.lower():
                 other_pair_orders = self.dydx_api.get_orders(pair)
 
