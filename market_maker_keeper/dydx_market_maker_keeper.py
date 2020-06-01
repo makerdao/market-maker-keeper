@@ -30,10 +30,7 @@ from market_maker_keeper.cex_api import CEXKeeperAPI
 from market_maker_keeper.band import Bands
 
 
-def total_buy_amount(orders: list) -> Wad:
-    return reduce(operator.add, map(lambda order: order.remaining_buy_amount, orders), Wad(0))
-
-def total_sell_amount(orders: list) -> Wad:
+def total_amount(orders: list) -> Wad:
     return reduce(operator.add, map(lambda order: order.remaining_sell_amount, orders), Wad(0))
 
 class DyDxMarketMakerKeeper(CEXKeeperAPI):
@@ -173,17 +170,17 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         The band.min amount would then be reset to the original configuration on the next iteration of synchronize_orders().
         """
 
-        total_in_buy_orders = total_buy_amount(self.our_buy_orders(order_book.orders))
-        total_in_sell_orders = total_sell_amount(self.our_sell_orders(order_book.orders))
+        total_in_buy_orders = total_amount(self.our_buy_orders(order_book.orders))
+        total_in_sell_orders = total_amount(self.our_sell_orders(order_book.orders))
         for pair in self.all_pairs:
             other_pair_orders = []
-            if self.pair() != pair.lower():
+            if self.pair().lower() != pair.lower():
                 other_pair_orders = self.dydx_api.get_orders(pair)
 
             if self.token_buy() in pair.lower():
-                total_in_buy_orders += total_buy_amount(other_pair_orders)
+                total_in_buy_orders += total_amount(self.our_buy_orders(other_pair_orders))
             if self.token_sell() in pair.lower():
-                total_in_sell_orders += total_sell_amount(other_pair_orders)
+                total_in_sell_orders += total_amount(self.our_sell_orders(other_pair_orders))
 
         our_buy_orders = self.our_buy_orders(order_book.orders)
         our_sell_orders = self.our_sell_orders(order_book.orders)
@@ -192,22 +189,22 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
 
         for band in bands.buy_bands:
             orders = [order for order in our_buy_orders if band.includes(order, target_price.buy_price)]
-            band_total_remaining = total_buy_amount(orders)
+            band_total_remaining = total_amount(orders)
             buy_limit_amount = bands.buy_limits.available_limit(time.time())
             available_balance = our_buy_balance - total_in_buy_orders
             if band_total_remaining < band.min_amount:
                 pay_amount = Wad.min(band.avg_amount - band_total_remaining, available_balance, buy_limit_amount)
-                if total_in_buy_orders + pay_amount >= available_balance:
+                if total_in_buy_orders + pay_amount > available_balance:
                     band.min_amount = Wad(0)
 
         for band in bands.sell_bands:
             orders = [order for order in our_sell_orders if band.includes(order, target_price.sell_price)]
-            band_total_remaining = total_sell_amount(orders)
+            band_total_remaining = total_amount(orders)
             sell_limit_amount = bands.sell_limits.available_limit(time.time())
             available_balance = our_sell_balance - total_in_sell_orders
             if band_total_remaining < band.min_amount:
                 pay_amount = Wad.min(band.avg_amount - band_total_remaining, available_balance, sell_limit_amount)
-                if total_in_sell_orders + pay_amount >= available_balance:
+                if total_in_sell_orders + pay_amount > available_balance:
                     band.min_amount = Wad(0)
 
         # Place new orders
