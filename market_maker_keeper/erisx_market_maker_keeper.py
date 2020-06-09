@@ -310,16 +310,11 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         return self.arguments.pair.split('/')[1].upper()
 
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        """
-        Nonprod balances are returned with a T prefix.
-        In the event that testing is being conducted in nonprod,
-        uncomment this code.
-        """
-        # if token == 'ETH':
-        #     token = 'TETH'
-        #
-        # if token == 'BTC':
-        #     token = 'TBTC'
+        if 'newrelease' in self.arguments.erisx_clearing_url:
+            if token == 'ETH':
+                token = 'TETH'
+            if token == 'BTC':
+                token = 'TBTC'
 
         token_balances = list(filter(lambda asset: asset['asset_type'].upper() == token, our_balances))
         if token_balances:
