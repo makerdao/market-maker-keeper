@@ -18,8 +18,7 @@
 import argparse
 import logging
 import sys
-from retry import retry
-from datetime import datetime, timezone
+import time
 
 from market_maker_keeper.band import Bands
 from market_maker_keeper.control_feed import create_control_feed
@@ -181,9 +180,7 @@ class BitsoMarketMakerKeeper:
                                                  price=float_price,
                                                  amount=float_amount)
 
-            timestamp = datetime.now(tz=timezone.utc).isoformat()
-
-            return Order(str(order_id), timestamp, self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
+            return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell, new_order_to_be_placed.price, amount)
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
