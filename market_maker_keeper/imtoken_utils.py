@@ -86,6 +86,8 @@ class PriceHandler(tornado.web.RequestHandler):
         return self.write(response)
 
     def _get_price_response(self, amount):
+        #TODO: edit order calculation so as order amount increases so does our spread (the quote price).
+
         base = self.get_query_argument('base')
         quote = self.get_query_argument('quote')
         side = str(self.get_query_argument('side'))
@@ -126,7 +128,7 @@ class PriceHandler(tornado.web.RequestHandler):
                 "message": f"internal server error, please retry later"
             }
 
-        logging.info(f" Query pair is {query_pair}")
+        logging.info(f"Query pair is {query_pair}")
 
         bands = Bands.read(self.configs[query_pair]['bands_config'],
                            self.configs[query_pair]['spread_feed'],
@@ -173,11 +175,25 @@ class IndicativePriceHandler(PriceHandler):
         return self.write(self._get_price_response(amount))
 
 
-class DealHandler(tornado.web.RequestHandler):
-
+class QuoteProcessHandler(tornado.web.RequestHandler):
     def initialize(self, cache, schema):
         self.cache = cache
         self.schema = schema
+
+    def delete_quote(self, request_body, type):
+
+        quote_id = request_body['quoteId']
+        processed_quote = self.cache[quote_id]
+        self.cache.__delitem__(quote_id)
+
+        if type == 'EXCEPTION':
+            logging.warning(f"{request_body.type} quote removed from cache: {processed_quote}")
+
+        else:
+            logging.info(f"quote processing: {processed_quote}")
+
+
+class DealHandler(QuoteProcessHandler):
 
     @gen.coroutine
     def post(self):
@@ -190,22 +206,46 @@ class DealHandler(tornado.web.RequestHandler):
                 request_body = tornado.escape.json_decode(self.request.body)
                 jsonschema.validate(request_body, self.schema)
 
-                logging.debug(f"deal request: {request_body} ")
-
-                quote_id = request_body['quoteId']
-                quote = self.cache[quote_id]
-                self.cache.__delitem__(quote_id)
-
-                logging.info(f"processing quote {quote}")
-
+                self.delete_quote(request_body, 'DEAL')
                 processed = True
 
             except KeyError:
-                logging.info(f"Cannot find deal with quoteId {quote_id}")
+                logging.info(f"Cannot find quote in cache with quoteId {quote_id}")
+
             except (ValueError, jsonschema.exceptions.ValidationError, jsonschema.exceptions.SchemaError) as e:
                 logging.exception(e)
 
             response = {
                 "result": processed
             }
+
+            self.write(response)
+
+
+class ExceptionHandler(QuoteProcessHandler):
+
+    @gen.coroutine
+    def post(self):
+        if self.request.body:
+
+            processed = False
+            quote_id = None
+
+            try:
+                request_body = tornado.escape.json_decode(self.request.body)
+                jsonschema.validate(request_body, self.schema)
+
+                self.delete_quote(request_body, 'EXCEPTION')
+                processed = True
+
+            except KeyError:
+                logging.info(f"Cannot find quote in cache with quoteId {quote_id}")
+
+            except (ValueError, jsonschema.exceptions.ValidationError, jsonschema.exceptions.SchemaError) as e:
+                logging.exception(e)
+
+            response = {
+                "result": processed
+            }
+
             self.write(response)

@@ -23,7 +23,7 @@ import tornado.web
 import json
 from cachetools import TTLCache
 from market_maker_keeper.imtoken_utils import PairsHandler, IndicativePriceHandler,\
-    PriceHandler, DealHandler, ImtokenPair, MarketArgs
+    PriceHandler, DealHandler, ImtokenPair, MarketArgs, ExceptionHandler
 
 from market_maker_keeper.util import setup_logging
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -34,7 +34,19 @@ from market_maker_keeper.limit import History
 
 
 class ImtokenPricingServer:
-    """Imtoken pricing server."""
+    """
+    ImToken Market Maker Keeper -- https://docs.token.im/tokenlon-mmsk/en/
+
+    ImToken requires their market makers to maintain a rest api / server in order to interact
+    with the exchange/application. The endpoints we provide and the information we include in our reply
+    are as follows:
+
+    /pairs - Respond with what pairs we trade.
+    /price - Respond with an active order for the amount requested.
+    /deal - Respond with True if our cache is cleared. The order our /price endpoint replied with was excepted and executed. It is now a trade.
+    /indicitivePrice - Respond with our price quote for the pair
+    /exception - Respond with True if exception is handled False if error. ImToken sends errors when orders have issues being processed
+   """
 
     logger = logging.getLogger()
 
@@ -84,6 +96,8 @@ class ImtokenPricingServer:
                                            configs=configs,
                                            cache=self.cache)),
             (r"/deal", DealHandler, dict(cache=self.cache,
+                                         schema=deal_schema())),
+            (r"/exception", ExceptionHandler, dict(cache=self.cache,
                                          schema=deal_schema())),
         ])
         application.listen(port=self.arguments.http_port,address=self.arguments.http_address)
