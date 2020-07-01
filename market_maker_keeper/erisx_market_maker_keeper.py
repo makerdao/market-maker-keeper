@@ -328,20 +328,31 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
             # automatically retrive qty precision
             round_lot = str(self.market_info[self.pair()]["RoundLot"])
             price_increment = str(self.market_info[self.pair()]["MinPriceIncrement"])
-            order_qty_precision = abs(Decimal(round_lot).as_tuple().exponent)
             price_precision = abs(Decimal(price_increment).as_tuple().exponent)
+            order_qty_precision = abs(Decimal(round_lot).as_tuple().exponent)
+            rounded_amount = round(Wad.__float__(amount), order_qty_precision)
 
             order_id = self.erisx_api.place_order(pair=self.pair().upper(),
                                                   is_sell=new_order_to_be_placed.is_sell,
                                                   price=round(Wad.__float__(new_order_to_be_placed.price), price_precision),
-                                                  amount=round(Wad.__float__(amount), order_qty_precision))
+                                                  amount=rounded_amount)
 
             return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell,
                          new_order_to_be_placed.price, amount)
 
         for new_order in new_orders:
-            self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
+            # check if new order is greater than exchange minimums
+            amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
+            side = 'Sell' if new_order.is_sell else 'Buy'
+            round_lot = str(self.market_info[self.pair()]["RoundLot"])
+            order_qty_precision = abs(Decimal(round_lot).as_tuple().exponent)
+            min_amount = float(self.market_info[self.pair()]["MinTradeVol"])
+            rounded_amount = round(Wad.__float__(amount), order_qty_precision)
 
+            if min_amount < rounded_amount:
+                self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
+            else:
+                logging.info(f"New {side} Order below size minimum of {min_amount}. Order of amount {amount} ignored.")
 
 if __name__ == '__main__':
     ErisXMarketMakerKeeper(sys.argv[1:]).main()
