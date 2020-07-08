@@ -108,10 +108,10 @@ class UniswapV2MarketMakerKeeper:
         # Record if eth is in pair, so can check which liquidity method needs to be used
         self.is_eth = 'ETH' in self.pair()
 
-        # TODO: account for reverse ordering of ETH in pair
-        ## Assume token b is always eth?
-        token_a_name = 'WETH' if self.pair().split('-')[0] == 'ETH' else self.pair().split('-')[0]
-        token_b_name = 'WETH' if self.pair().split('-')[1] == 'ETH' else self.pair().split('-')[1]
+        # Assume token b is always eth
+        token_a_name = self.pair().split('-')[0]
+        token_b_name = 'WETH' if self.pair().split('-')[1] == 'ETH' or self.pair().split('-')[1] == 'WETH' else self.pair().split('-')[1]
+
         self.token_a_address = Address(self.arguments.token_a_address)
         self.token_b_address = Address(self.arguments.token_b_address)
         # TODO: add support for reloadable config to provide info on Tokens
@@ -150,9 +150,22 @@ class UniswapV2MarketMakerKeeper:
         return True if token.name == 'WETH' else False
 
     def add_liquidity(self, uniswap_current_exchange_price) -> Optional[Receipt]:
-        # TODO: account for ETH always being quote token?
+        """ Send an addLiquidity or addLiquidityETH transaction to the UniswapV2 Router Contract.
+
+        UniswapV2 differentiates between ETH and ERC20 token transactions.
+        All operations are handled in WETH, but the Router Contract handles all wrapping and unwrapping.
+
+        It is assumed that all availability should be added, except for 1 Eth for future Gas operations.
+
+        Args:
+            uniswap_current_exchange_price: The current Product of the pool
+        Returns:
+            A Pymaker Receipt object or a None
+        """
+        accepted_slippage = Wad.from_number(self.arguments.percentage_difference / 100)
         token_a_balance = self.uniswap.get_account_token_balance(self.token_a) if not self._is_weth(self.token_a) else self.uniswap.get_account_eth_balance()
         token_b_balance = self.uniswap.get_account_token_balance(self.token_b) if not self._is_weth(self.token_b) else self.uniswap.get_account_eth_balance()
+        # TODO: account for available amounts with min()
         # Need to calculate the equivalent amount of the other token given available balance and exchange rate
         token_b_eq = token_a_balance / Wad.from_number(uniswap_current_exchange_price)
 
@@ -160,10 +173,8 @@ class UniswapV2MarketMakerKeeper:
                          f"Wallet {self.token_b.name} balance: {token_b_balance}")
 
         # Use Supplied percentage difference args to calculate min off of available balance + liquidity
-        amount_a_min = token_a_balance - (token_a_balance * Wad.from_number(self.arguments.percentage_difference / 100))
-        amount_b_min = token_b_eq - (token_b_eq * Wad.from_number(self.arguments.percentage_difference / 100))
-
-        eth_balance = self.uniswap.get_account_eth_balance()
+        amount_a_min = token_a_balance - (token_a_balance * accepted_slippage)
+        amount_b_min = token_b_eq - (token_b_eq * accepted_slippage)
 
         add_liquidity_args = {
             'amount_a_desired': token_a_balance,
@@ -174,11 +185,18 @@ class UniswapV2MarketMakerKeeper:
         self.logger.info(f"Token Pair liquidity to add: {add_liquidity_args}")
 
         # Subtract Wad.from_number(1) to leave eth for gas
+        eth_balance = self.uniswap.get_account_eth_balance()
+        eth_desired = eth_balance - Wad.from_number(1.0)
         # calculate amount of token desired taking into account equivalent eth should leave some gas
+        eth_token_eq = self.uniswap.get_amounts_out(eth_desired, [self.token_b.address.address, self.token_a.address.address])[1]
+        amount_token_min = eth_token_eq - (eth_token_eq * accepted_slippage)
+        amount_eth_min = eth_desired - (eth_desired * accepted_slippage)
+
         add_liquidity_eth_args = {
-            'amount_token_desired': '',
-            'amount_token_min': '',
-            'amount_eth_min': ''
+            'amount_token_desired': eth_token_eq,
+            'amount_eth_desired': eth_desired,
+            'amount_token_min': amount_token_min,
+            'amount_eth_min': amount_eth_min
         }
         self.logger.info(f"ETH Pair liquidity to add: {add_liquidity_eth_args}")
 
@@ -194,14 +212,19 @@ class UniswapV2MarketMakerKeeper:
 
         if is_liquidity_to_add_positive and current_liquidity_tokens == Wad(0):
         # if is_liquidity_to_add_positive:
-            self.logger.info(
-                f"{self.token_a_address.address} add liquidity of: {add_liquidity_args['amount_a_desired']}")
-            self.logger.info(
-                f"{self.token_b_address.address} add liquidity of: {add_liquidity_args['amount_b_desired']}")
             if self.is_eth:
-                transact = self.uniswap.add_liquidity_eth(add_liquidity_eth_args, self.token_b).transact(
+                # TODO: account for eth ordering
+                self.logger.info(
+                    f"Add {self.token_a.name} liquidity of amount: {add_liquidity_args['amount_a_desired']}")
+                self.logger.info(
+                    f"Add {self.token_b.name} liquidity of: {add_liquidity_args['amount_b_desired']}")
+                transact = self.uniswap.add_liquidity_eth(add_liquidity_eth_args, self.token_a).transact(
                     gas_price=self.gas_price)
             else:
+                self.logger.info(
+                    f"Add {self.token_a.name} liquidity of amount: {add_liquidity_args['amount_a_desired']}")
+                self.logger.info(
+                    f"Add {self.token_b.name} liquidity of: {add_liquidity_args['amount_b_desired']}")
                 transact = self.uniswap.add_liquidity(add_liquidity_args, self.token_a, self.token_b).transact(
                     gas_price=self.gas_price)
 
@@ -234,7 +257,16 @@ class UniswapV2MarketMakerKeeper:
             self.logger.info(f"Not enough tokens to add liquidity or liquidity already added")
 
     def remove_liquidity(self, exchange_token_a_balance: Wad, exchange_token_b_balance: Wad) -> Optional[Receipt]:
-        # TODO: check if we should always remove all available current liquidity?
+        """ Send an removeLiquidity or removeLiquidityETH transaction to the UniswapV2 Router Contract.
+
+        It is assumed that all liquidity should be removed.
+
+        Args:
+            exchange_token_a_balance:
+            exchange_token_b_balance:
+        Returns:
+            A Pymaker Receipt object or a None
+        """
         liquidity_to_remove = self.uniswap.get_current_liquidity()
         self.logger.info(f"Current liquidity tokens before removing {liquidity_to_remove}")
 
@@ -243,8 +275,6 @@ class UniswapV2MarketMakerKeeper:
         token_b_balance = self.uniswap.get_account_token_balance(self.token_b) if not self._is_weth(self.token_b) else self.uniswap.get_account_eth_balance()
         eth_balance = self.uniswap.get_account_eth_balance()
 
-        # TODO: retrieve current balance in the pool
-        # (Liquidity * exchange_token_a_balance) / total_liquidity
         total_liquidity = self.uniswap.get_total_liquidity()
         amount_a_min = liquidity_to_remove * exchange_token_a_balance / total_liquidity
         amount_b_min = liquidity_to_remove * exchange_token_b_balance / total_liquidity
@@ -257,15 +287,15 @@ class UniswapV2MarketMakerKeeper:
 
         remove_liquidity_eth_args = {
             'liquidity': liquidity_to_remove,
-            'amountTokenMin': '',
-            'amountETHMin': ''
+            'amountTokenMin': amount_a_min,
+            'amountETHMin': amount_b_min
         }
 
         if liquidity_to_remove > Wad(0):
             self.logger.info(f"Removing {liquidity_to_remove} from Uniswap pool {self.uniswap.pair_address}")
 
             if self.is_eth:
-                transact = self.uniswap.remove_liquidity_eth(remove_liquidity_eth_args).transact(
+                transact = self.uniswap.remove_liquidity_eth(remove_liquidity_eth_args, self.token_a).transact(
                     gas_price=self.gas_price)
             else:
                 transact = self.uniswap.remove_liquidity(remove_liquidity_args, self.token_a, self.token_b).transact(
@@ -303,7 +333,8 @@ class UniswapV2MarketMakerKeeper:
 
         # feed_price = self.feed.get()[0]['price']
         # feed_price = .039 # triggers remove
-        feed_price = .0375 # triggers add
+        feed_price = .0375 # triggers mkr-dai add
+        # feed_price = 39.5 # triggers dai-eth add
 
         # uniswap_price = Wad.from_number(1 / self.utils.get_future_price())
         # TODO: Temporarily hardcode while in development
