@@ -32,7 +32,7 @@ from pymaker.lifecycle import Lifecycle
 
 from market_maker_keeper.cex_api import CEXKeeperAPI
 from market_maker_keeper.order_book import OrderBookManager
-
+from market_maker_keeper.util import setup_logging
 
 class ErisXLifecycle(Lifecycle):
 
@@ -264,8 +264,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
 
         self.arguments = parser.parse_args(args)
 
-        logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
-                            level=(logging.DEBUG if self.arguments.debug else logging.INFO))
+        setup_logging(self.arguments)
 
         self.erisx_api = ErisxApi(fix_trading_endpoint=self.arguments.fix_trading_endpoint,
                                   fix_trading_user=self.arguments.fix_trading_user,
