@@ -56,11 +56,40 @@ class TestUniswapV2MarketMakerKeeper:
     def orders_sorted(orders: list) -> list:
         return sorted(orders, key=lambda order: (order.pay_amount, order.buy_amount))
 
+    def test_should_calculate_exchange_rate(self, deployment: Deployment, tmpdir: py.path.local):
+        pass
+
+    def test_should_calculate_liquidity_tokens(self) :
+        keeper = UniswapV2MarketMakerKeeper(args=args(f"--eth-from {deployment.our_address} --rpc-host {config_file}"
+                                                      f" --rpc-port 8545"
+                                                      f" --eth-key {eth_key}"
+                                                      f" --graph-url https://127.0.0.1:99999/"
+                                                      f" --pair MKR-DAI"
+                                                      f" --token-a-address {deployed_token_a_contract_address}"
+                                                      f" --token-b-address {deployed_token_b_contract_address}"
+                                                      f" --pair MKR-DAI"
+                                                      f" --uniswap-feed ws://"),
+                                            web3=deployment.web3)
+        keeper.lifecycle = Lifecycle(web3=keeper.web3)
+
+        token_a_balance = ''
+        token_b_balance = ''
+        uniswap_current_exchange_price = Wad.from_number()
+        accepted_slippage = Wad.from_number()
+
+        keeper._calculate_liquidity_tokens = MagicMock()
+
+        expected_args_output = {
+
+        }
+
+
     @unittest.skip
     def test_should_run_approval_on_startup(self, deployment: Deployment, tmpdir: py.path.local):
+        pass
 
     def test_should_add_eth_dai_liquidity_if_not_added_already(self, deployment: Deployment, tmpdir: py.path.local):
-
+        pass
 
     def test_should_add_mkr_dai_liquidity_if_not_added_already(self, deployment: Deployment, tmpdir: py.path.local):
         # given

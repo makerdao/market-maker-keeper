@@ -19,10 +19,6 @@
       "tokenAddress": "0xe0c9275e44ea80ef17579d33c55136b7da269aeb",
       "tokenDecimals": 8
     },
-    "USDC": {
-      "tokenAddress": "0x198419c5c340e8de47ce4c0e4711a03664d42cb2",
-      "tokenDecimals": 6
-    },
     "EUR": {},
     "USD": {},
     "BTC": {}
