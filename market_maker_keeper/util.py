@@ -16,7 +16,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-
 import re
 
 
@@ -25,7 +24,6 @@ def setup_logging(arguments):
                         level=(logging.DEBUG if arguments.debug else logging.INFO))
     logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
     logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.INFO)
-
 
 def sanitize_url(url):
     return re.sub("://([^:@]+):([^:@]+)@", "://\g<1>@", url)

@@ -382,7 +382,8 @@ class UniswapV2MarketMakerKeeper:
         # feed_price = 0.000000883181818181 # trigger dai-wbtc add
         # feed_price = 38 # triggers wbtc-eth add
         # feed_price = 0.0041753653444676405 # trigger usdc-eth add
-        feed_price = 0.99009 # trigger usdc-dai add
+        # feed_price = 0.99009 # trigger usdc-dai add
+        feed_price = 239 # triggers usdc-eth add
 
         # TODO: Temporarily hardcode while in development
         # uniswap_price = Wad.from_number(1 / self.utils.get_future_price())

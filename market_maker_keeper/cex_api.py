@@ -91,6 +91,7 @@ class CEXKeeperAPI:
 
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
+        # tokens = Tokens.read()
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 

@@ -52,9 +52,9 @@ class SmartGasPrice(GasPrice):
 class GasPriceFactory:
     @staticmethod
     def create_gas_price(arguments) -> GasPrice:
-        if arguments.smart_gas_price:
-            return SmartGasPrice(arguments.ethgasstation_api_key)
-        elif arguments.gas_price:
+        # if arguments.smart_gas_price:
+        #     return SmartGasPrice(arguments.ethgasstation_api_key)
+        if arguments.gas_price:
             return FixedGasPrice(arguments.gas_price)
         else:
             return DefaultGasPrice()
