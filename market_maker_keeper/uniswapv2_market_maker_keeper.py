@@ -175,7 +175,7 @@ class UniswapV2MarketMakerKeeper:
             token_desired = min(token_a_balance, eth_desired / uniswap_current_exchange_price)
         else:
             token_desired = \
-                self.uniswap.get_amounts_out(eth_desired, [self.token_b.address.address, self.token_a.address.address])[1]
+                self.uniswap.get_amounts_out(eth_desired, [self.token_b, self.token_a])[1]
         amount_token_min = token_desired - (token_desired * accepted_slippage)
         eth_desired = min(eth_desired, token_desired * uniswap_current_exchange_price)
         amount_eth_min = eth_desired - (eth_desired * accepted_slippage)
@@ -382,7 +382,8 @@ class UniswapV2MarketMakerKeeper:
         # feed_price = 0.000000883181818181 # trigger dai-wbtc add
         # feed_price = 38 # triggers wbtc-eth add
         # feed_price = 0.0041753653444676405 # trigger usdc-eth add
-        feed_price = 0.99009 # trigger usdc-dai add
+        # feed_price = 0.99009 # trigger usdc-dai add
+        feed_price = 239  # triggers usdc-eth add
 
         # TODO: Temporarily hardcode while in development
         # uniswap_price = Wad.from_number(1 / self.utils.get_future_price())
