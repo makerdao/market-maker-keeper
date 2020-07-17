@@ -59,9 +59,6 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--eth-key", type=str, nargs='*',
                             help="Ethereum private key(s) to use (e.g. 'key_file=aaa.json,pass_file=aaa.pass')")
 
-        parser.add_argument("--graph-url", type=str, required=True,
-                            help="Graph Protocol host")
-
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
 
@@ -120,7 +117,7 @@ class UniswapV2MarketMakerKeeper:
 
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
 
-        self.uniswap = UniswapV2(self.web3, self.arguments.graph_url, self.token_a, self.token_b)
+        self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b)
 
         self.initial_exchange_rate = self.arguments.initial_exchange_rate
 
