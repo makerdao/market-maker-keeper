@@ -25,6 +25,7 @@ import time
 from decimal import Decimal
 
 from pyexchange.erisx import ErisxApi
+from pyexchange.fix import FixConnectionState
 from pyexchange.model import Order
 
 from pymaker.numeric import Wad
@@ -276,6 +277,12 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                   api_secret=self.arguments.erisx_api_secret,
                                   certs=self.arguments.erisx_certs,
                                   account_id=self.arguments.account_id)
+
+        termination_time = time.time() + 15
+        while self.erisx_api.fix_trading.connection_state != FixConnectionState.LOGGED_IN and self.erisx_api.fix_marketdata.connection_state != FixConnectionState.LOGGED_IN:
+            time.sleep(0.3)
+            if time.time() > termination_time:
+                raise RuntimeError("Timed out while waiting to log in")
 
         self.market_info = self.erisx_api.get_markets()
 
