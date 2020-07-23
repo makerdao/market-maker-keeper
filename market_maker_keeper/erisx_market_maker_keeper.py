@@ -23,8 +23,10 @@ import os
 
 import time
 from decimal import Decimal
+from typing import List
 
 from pyexchange.erisx import ErisxApi
+from pyexchange.fix import FixConnectionState
 from pyexchange.model import Order
 
 from pymaker.numeric import Wad
@@ -32,7 +34,7 @@ from pymaker.lifecycle import Lifecycle
 
 from market_maker_keeper.cex_api import CEXKeeperAPI
 from market_maker_keeper.order_book import OrderBookManager
-
+from market_maker_keeper.util import setup_logging
 
 class ErisXLifecycle(Lifecycle):
 
@@ -157,6 +159,12 @@ class ErisXOrderBookManager(OrderBookManager):
                 with self._lock:
                     orders = self.get_orders_function()
 
+                # remove canceled orders from local orders instance
+                with self._lock:
+                    for order in orders:
+                        if order.order_id in orders_already_cancelled_before:
+                            orders.remove(order)
+
                 balances = self.get_balances_function() if self.get_balances_function is not None else None
 
                 if self.order_history_reporter:
@@ -264,8 +272,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
 
         self.arguments = parser.parse_args(args)
 
-        logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s',
-                            level=(logging.DEBUG if self.arguments.debug else logging.INFO))
+        setup_logging(self.arguments)
 
         self.erisx_api = ErisxApi(fix_trading_endpoint=self.arguments.fix_trading_endpoint,
                                   fix_trading_user=self.arguments.fix_trading_user,
@@ -278,13 +285,21 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                   certs=self.arguments.erisx_certs,
                                   account_id=self.arguments.account_id)
 
+        termination_time = time.time() + 15
+        while self.erisx_api.fix_trading.connection_state != FixConnectionState.LOGGED_IN and self.erisx_api.fix_marketdata.connection_state != FixConnectionState.LOGGED_IN:
+            time.sleep(0.3)
+            if time.time() > termination_time:
+                raise RuntimeError("Timed out while waiting to log in")
+
         self.market_info = self.erisx_api.get_markets()
+
+        self.orders = self.erisx_api.get_orders(self.pair())
 
         super().__init__(self.arguments, self.erisx_api)
 
     def init_order_book_manager(self, arguments, erisx_api):
         self.order_book_manager = ErisXOrderBookManager(refresh_frequency=self.arguments.refresh_frequency)
-        self.order_book_manager.get_orders_with(lambda: self.erisx_api.get_orders(self.pair()))
+        self.order_book_manager.get_orders_with(lambda: self.get_orders())
         self.order_book_manager.get_balances_with(lambda: self.erisx_api.get_balances())
         self.order_book_manager.cancel_orders_with(
             lambda order: self.erisx_api.cancel_order(order.order_id, self.pair(), order.is_sell))
@@ -322,26 +337,44 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         else:
             return Wad(0)
 
+    def get_orders(self) -> List:
+        return self.orders
+
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             # automatically retrive qty precision
             round_lot = str(self.market_info[self.pair()]["RoundLot"])
             price_increment = str(self.market_info[self.pair()]["MinPriceIncrement"])
-            order_qty_precision = abs(Decimal(round_lot).as_tuple().exponent)
             price_precision = abs(Decimal(price_increment).as_tuple().exponent)
+            order_qty_precision = abs(Decimal(round_lot).as_tuple().exponent)
+            rounded_amount = round(Wad.__float__(amount), order_qty_precision)
+            rounded_price = round(Wad.__float__(new_order_to_be_placed.price), price_precision)
 
             order_id = self.erisx_api.place_order(pair=self.pair().upper(),
                                                   is_sell=new_order_to_be_placed.is_sell,
-                                                  price=round(Wad.__float__(new_order_to_be_placed.price), price_precision),
-                                                  amount=round(Wad.__float__(amount), order_qty_precision))
+                                                  price=rounded_price,
+                                                  amount=rounded_amount)
 
-            return Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell,
+            placed_order = Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell,
                          new_order_to_be_placed.price, amount)
 
-        for new_order in new_orders:
-            self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
+            self.orders.append(placed_order)
+            return placed_order
 
+        for new_order in new_orders:
+            # check if new order is greater than exchange minimums
+            amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
+            side = 'Sell' if new_order.is_sell else 'Buy'
+            round_lot = str(self.market_info[self.pair()]["RoundLot"])
+            order_qty_precision = abs(Decimal(round_lot).as_tuple().exponent)
+            min_amount = float(self.market_info[self.pair()]["MinTradeVol"])
+            rounded_amount = round(Wad.__float__(amount), order_qty_precision)
+
+            if min_amount < rounded_amount:
+                self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
+            else:
+                logging.info(f"New {side} Order below size minimum of {min_amount}. Order of amount {amount} ignored.")
 
 if __name__ == '__main__':
     ErisXMarketMakerKeeper(sys.argv[1:]).main()
