@@ -18,7 +18,7 @@ import argparse
 import logging
 import sys
 
-from typing import Optional
+from typing import Optional, Tuple
 from web3 import Web3, HTTPProvider
 from market_maker_keeper.util import setup_logging
 from pymaker.lifecycle import Lifecycle
@@ -29,6 +29,7 @@ from pymaker.keys import register_keys
 from pymaker import Address, Wad, Receipt
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.model import TokenConfig
+from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 
 class UniswapV2MarketMakerKeeper:
@@ -65,11 +66,11 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--token-config", type=str, required=True,
                             help="Token configuration file")
 
-        parser.add_argument("--uniswap-feed", type=str, required=True,
-                            help="Source of liquidity feed")
+        parser.add_argument("--price-feed", type=str, required=True,
+                            help="Source of price feed")
 
-        parser.add_argument("--uniswap-feed-expiry", type=int, default=86400,
-                            help="Maximum age of the liquidity feed (in seconds, default: 86400)")
+        parser.add_argument("--price-feed-expiry", type=int, default=86400,
+                            help="Maximum age of the price feed (in seconds, default: 86400)")
 
         parser.add_argument("--gas-price", type=int, default=9000000000,
                             help="Gas price (in Wei)")
@@ -80,13 +81,18 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--initial-exchange-rate", type=float, default=None,
                             help="Used to determine the initial ratio to be used in a newly created pool")
 
-        parser.add_argument("--percentage-difference", type=float, default=2,
+        parser.add_argument("--accepted-slippage", type=float, default=2,
                             help="Percentage difference between Uniswap exchange rate and aggregated price"
                                  "(default: 2)")
 
-        parser.add_argument("--uniswap-percentage-difference", type=float, default=5,
-                            help="Percentage difference between future Uniswap exchange rate and aggregated price"
-                                 "(default: 5)")
+        parser.add_argument("--factory-address", type=str,
+                            help="Optional address used to test locally deployed contracts")
+
+        parser.add_argument("--router-address", type=str,
+                            help="Optional address used to test locally deployed contracts")
+
+        parser.add_argument("--initial-delay", type=int, default=10,
+                            help="Initial number of seconds to wait before placing liquidity")
 
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
@@ -98,7 +104,8 @@ class UniswapV2MarketMakerKeeper:
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
 
         self.web3.eth.defaultAccount = self.arguments.eth_from
-        register_keys(self.web3, self.arguments.eth_key)
+        if 'web3' not in kwargs:
+            register_keys(self.web3, self.arguments.eth_key)
 
         # Record if eth is in pair, so can check which liquidity method needs to be used
         self.is_eth = 'ETH' in self.pair()
@@ -116,20 +123,19 @@ class UniswapV2MarketMakerKeeper:
         self.token_b = list(filter(lambda token: token.name == token_b_name, token_config))[0]
 
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
-
-        self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b)
-
         self.initial_exchange_rate = self.arguments.initial_exchange_rate
+        self.accepted_slippage = Wad.from_number(self.arguments.accepted_slippage / 100)
+        self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
 
-        if self.arguments.uniswap_feed:
-            web_socket_feed = WebSocketFeed(self.arguments.uniswap_feed, 5)
-            expiring_web_socket_feed = ExpiringFeed(web_socket_feed, self.arguments.uniswap_feed_expiry)
-
-            self.feed = expiring_web_socket_feed
+        # used for local testing
+        if self.arguments.factory_address is None and self.arguments.router_address is None:
+            self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b)
+        else:
+            self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.arguments.router_address), Address(self.arguments.factory_address))
 
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
-            lifecycle.initial_delay(15)
+            lifecycle.initial_delay(self.arguments.initial_delay)
             lifecycle.on_startup(self.startup)
             lifecycle.every(10, self.place_liquidity)
 
@@ -167,12 +173,6 @@ class UniswapV2MarketMakerKeeper:
         if eth_desired < Wad.from_number(0):
             self.logger.info(f"Insufficient Eth balance.")
             return
-
-        # if self.uniswap.is_new_pool:
-        #     token_desired = min(token_a_balance, eth_desired / uniswap_current_exchange_price)
-        # else:
-        #     token_desired = \
-        #         self.uniswap.get_amounts_out(eth_desired, [self.token_b, self.token_a])[1]
 
         # calculate amount of token desired taking into account equivalent eth should leave some gas
         # ensure there is an equivalent amount available for both balances
@@ -233,7 +233,7 @@ class UniswapV2MarketMakerKeeper:
         assert (isinstance(uniswap_current_exchange_price, Wad))
 
         # Variables shared across both eth and token pools
-        accepted_slippage = Wad.from_number(self.arguments.percentage_difference / 100)
+        accepted_slippage = self.accepted_slippage
         token_a_balance = self.uniswap.get_account_token_balance(self.token_a) if not self._is_weth(self.token_a) else self.uniswap.get_account_eth_balance()
         token_b_balance = self.uniswap.get_account_token_balance(self.token_b) if not self._is_weth(self.token_b) else self.uniswap.get_account_eth_balance()
 
@@ -385,6 +385,39 @@ class UniswapV2MarketMakerKeeper:
         else:
             self.logger.info(f"No liquidity to remove")
 
+    def determine_liquidity_action(self, uniswap_current_exchange_price: Wad) -> Optional[Tuple]:
+        assert isinstance(uniswap_current_exchange_price, Wad)
+
+        feed_price = self.price_feed.get_price().buy_price
+
+        self.logger.info(f"Feed price: {feed_price} Uniswap price: {uniswap_current_exchange_price}")
+
+        # calculate the acceptable price movement limit based upon the
+        # difference between external price feeds and the accepted slippage
+        diff = feed_price * self.accepted_slippage
+
+        print("diff", diff, feed_price, uniswap_current_exchange_price,
+              Wad.from_number(feed_price) - uniswap_current_exchange_price)
+        # if the accepted difference is greater than the distance of uniswaps price from external prices
+        # add liquidity to the pool, otherwise remove it
+        add_liquidity = diff > abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
+        remove_liquidity = diff < abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
+        print(add_liquidity, remove_liquidity)
+        self.logger.info(
+            f"Feed price / Uniswap price diff {diff} triggered add liquidity: {add_liquidity}; remove liquidity: {remove_liquidity}")
+
+        # TODO: programmatically determine limit
+        if diff < Wad.from_number(.000000001) and feed_price is not None:
+            self.logger.info(f"Price moves are minimal; maintaining existing liquidity")
+            return None, None
+
+        if feed_price is None:
+            self.logger.warning(f"Price feed is returning null, removing all available liquidity")
+            add_liquidity = False
+            remove_liquidity = True
+
+        return add_liquidity, remove_liquidity
+
     def place_liquidity(self):
         """
         Add or remove liquidity depending upon the difference between Uniswap ratio and our external price feeds.
@@ -392,39 +425,15 @@ class UniswapV2MarketMakerKeeper:
         Pricing is expressed as a function of token_a balance / token_b balance
         """
 
-        # feed_price = self.feed.get()[0]['price']
-        feed_price = .039 # triggers remove
-        # feed_price = .0375 # triggers mkr-dai add
-        # feed_price = 36.5 # triggers dai-eth add
-        # feed_price = 9435 # trigger dai-wbtc add
-        # feed_price = 0.000000883181818181 # trigger dai-wbtc add
-        # feed_price = .0026 # triggers wbtc-eth add
-        # feed_price = 0.0041753653444676405 # trigger usdc-eth add
-        # feed_price = 0.99009 # trigger usdc-dai add
-        # feed_price = 0.99 # trigger usdc-dai add
-        # feed_price = 239  # triggers usdc-eth add
-
         uniswap_current_exchange_price = Wad.from_number(self.initial_exchange_rate) if self.initial_exchange_rate is not None else self.uniswap.get_exchange_rate()
-
-        self.logger.info(f"Feed price: {feed_price} Uniswap price: {uniswap_current_exchange_price}")
-
-        diff = Wad.from_number(feed_price * (self.arguments.percentage_difference / 100))
-
-        add_liquidity = diff > abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
-        remove_liquidity = diff < abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
-
-        self.logger.info(f"Feed price / Uniswap price diff {diff} triggered add liquidity: {add_liquidity}; remove liquidity: {remove_liquidity}")
-
-        # TODO: programmatically determine limit
-        if diff < Wad.from_number(.000000001):
-            self.logger.info(f"Price moves are minimal; maintaining existing liquidity")
-            return
 
         exchange_token_a_balance = Wad.from_number(0) if self.uniswap.is_new_pool else self.uniswap.get_exchange_balance(self.token_a, self.uniswap.pair_address)
         exchange_token_b_balance = Wad.from_number(0) if self.uniswap.is_new_pool else self.uniswap.get_exchange_balance(self.token_b, self.uniswap.pair_address)
 
         self.logger.info(f"Exchange Contract {self.token_a.name} amount: {exchange_token_a_balance}; "
                          f"Exchange Contract {self.token_b.name} amount: {exchange_token_b_balance}")
+
+        add_liquidity, remove_liquidity = self.determine_liquidity_action(uniswap_current_exchange_price)
 
         if add_liquidity:
             receipt = self.add_liquidity(uniswap_current_exchange_price)
