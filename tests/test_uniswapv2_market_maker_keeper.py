@@ -44,6 +44,7 @@ class INITIAL_PRICES(Enum):
     DAI_USDC_ADD_LIQUIDITY = 1.03
     DAI_USDC_REMOVE_LIQUIDITY = 1.00
     DAI_ETH_ADD_LIQUIDITY = 318
+    DAI_ETH_REMOVE_LIQUIDITY = 300
 
 
 class TestUniswapV2MarketMakerKeeper:
@@ -249,17 +250,41 @@ class TestUniswapV2MarketMakerKeeper:
         assert initial_dai_balance > post_add_dai_balance
         assert initial_usdc_balance > post_add_usdc_balance
 
-        keeper.price_feed = Wad.from_number(INITIAL_PRICES.DAI_USDC_REMOVE_LIQUIDITY.value)
+        keeper.testing_feed_price = Wad.from_number(INITIAL_PRICES.DAI_USDC_REMOVE_LIQUIDITY.value)
 
         time.sleep(10)
 
         post_remove_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         post_remove_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
 
-        #  TODO: asert correct remove of calculated amount
         assert post_remove_dai_balance > post_add_dai_balance
         assert post_remove_usdc_balance > post_add_usdc_balance
 
     def test_should_remove_dai_eth_liquidity(self):
-        pass
+        # given
+        self.mint_tokens()
+        keeper = self.instantiate_keeper("DAI-ETH", INITIAL_PRICES.DAI_ETH_ADD_LIQUIDITY.value)
 
+        initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        initial_eth_balance = keeper.uniswap.get_account_eth_balance()
+
+        # when
+        keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
+
+        time.sleep(10)
+
+        post_add_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        post_add_eth_balance = keeper.uniswap.get_account_eth_balance()
+
+        assert initial_dai_balance > post_add_dai_balance
+        assert initial_eth_balance > post_add_eth_balance
+
+        keeper.testing_feed_price = Wad.from_number(INITIAL_PRICES.DAI_ETH_REMOVE_LIQUIDITY.value)
+
+        time.sleep(10)
+
+        post_remove_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        post_remove_eth_balance = keeper.uniswap.get_account_eth_balance()
+
+        assert post_remove_dai_balance > post_add_dai_balance
+        assert post_remove_eth_balance > post_add_eth_balance

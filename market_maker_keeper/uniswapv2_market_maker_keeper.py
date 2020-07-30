@@ -126,6 +126,7 @@ class UniswapV2MarketMakerKeeper:
         self.initial_exchange_rate = self.arguments.initial_exchange_rate
         self.accepted_slippage = Wad.from_number(self.arguments.accepted_slippage / 100)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
+        self.testing_feed_price = None
 
         # used for local testing
         if self.arguments.factory_address is None and self.arguments.router_address is None:
@@ -388,7 +389,7 @@ class UniswapV2MarketMakerKeeper:
     def determine_liquidity_action(self, uniswap_current_exchange_price: Wad) -> Optional[Tuple]:
         assert isinstance(uniswap_current_exchange_price, Wad)
 
-        feed_price = self.price_feed.get_price().buy_price
+        feed_price = self.price_feed.get_price().buy_price if self.testing_feed_price is None else self.testing_feed_price
 
         self.logger.info(f"Feed price: {feed_price} Uniswap price: {uniswap_current_exchange_price}")
 
