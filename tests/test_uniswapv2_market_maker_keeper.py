@@ -131,9 +131,6 @@ class TestUniswapV2MarketMakerKeeper:
     def calculate_eth_liquidity_to_add(keeper: UniswapV2MarketMakerKeeper, token_a_balance: Wad, token_b_balance: Wad) -> dict:
         return keeper._calculate_liquidity_eth(token_a_balance, token_b_balance, Wad.from_number(keeper.initial_exchange_rate), keeper.accepted_slippage)
 
-    def calculate_initial_price(self):
-        pass
-
     def test_calculate_token_liquidity_to_add(self):
         # given
         self.mint_tokens()

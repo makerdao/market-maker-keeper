@@ -18,3 +18,30 @@ services:
       --price-feed $${ETH_DAI_PRICE_FEED?:} \
       --pair ETH-DAI \
       --config /opt/maker/config/$${COINBASE_ETH_DAI_BANDS?:}"
+
+  parity:
+    image: makerdao/testchain-pymaker:unit-testing
+    container_name: parity-pymaker-test
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+    expose:
+      - "8545"
+      - "8546"
+    user: root
+    working_dir: /home/parity
+
+  ganache:
+    image: trufflesuite/ganache-cli:v6.9.1
+    container_name: ganache
+    ports:
+      - "8555:8555"
+    expose:
+      - "8555"
+    command: "--gasLimit 10000000
+    -p 8555
+    --account=\"0x91cf2cc3671a365fcbf38010ff97ee31a5b7e674842663c56769e41600696ead,1000000000000000000000000\"
+    --account=\"0xc0a550404067ce46a51283e0cc99ec3ba832940064587147a8db9a7ba355ef27,1000000000000000000000000\",
+    --account=\"0x6ca1cfaba9715aa485504cb8a3d3fe54191e0991b5f47eb982e8fb40d1b8e8d8,1000000000000000000000000\",
+    --account=\"0x1a9e422172e3d84487f7c833e3895f2f65c35eff7e68783adaa0c5bbe741ca8a,1000000000000000000000000\""
+    

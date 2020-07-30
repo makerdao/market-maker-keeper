@@ -386,7 +386,7 @@ class UniswapV2MarketMakerKeeper:
         else:
             self.logger.info(f"No liquidity to remove")
 
-    def determine_liquidity_action(self, uniswap_current_exchange_price: Wad) -> Optional[Tuple]:
+    def determine_liquidity_action(self, uniswap_current_exchange_price: Wad) -> Tuple:
         assert isinstance(uniswap_current_exchange_price, Wad)
 
         feed_price = self.price_feed.get_price().buy_price if self.testing_feed_price is None else self.testing_feed_price
@@ -397,20 +397,13 @@ class UniswapV2MarketMakerKeeper:
         # difference between external price feeds and the accepted slippage
         diff = feed_price * self.accepted_slippage
 
-        print("diff", diff, feed_price, uniswap_current_exchange_price,
-              Wad.from_number(feed_price) - uniswap_current_exchange_price)
         # if the accepted difference is greater than the distance of uniswaps price from external prices
         # add liquidity to the pool, otherwise remove it
         add_liquidity = diff > abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
         remove_liquidity = diff < abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
-        print(add_liquidity, remove_liquidity)
+
         self.logger.info(
             f"Feed price / Uniswap price diff {diff} triggered add liquidity: {add_liquidity}; remove liquidity: {remove_liquidity}")
-
-        # TODO: programmatically determine limit
-        if diff < Wad.from_number(.000000001) and feed_price is not None:
-            self.logger.info(f"Price moves are minimal; maintaining existing liquidity")
-            return None, None
 
         if feed_price is None:
             self.logger.warning(f"Price feed is returning null, removing all available liquidity")
