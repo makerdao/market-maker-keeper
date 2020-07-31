@@ -118,7 +118,6 @@ class UniswapV2MarketMakerKeeper:
         self._last_config_dict = None
         self._last_config = None
         token_config = self.get_token_config().tokens
-
         self.token_a = list(filter(lambda token: token.name == token_a_name, token_config))[0]
         self.token_b = list(filter(lambda token: token.name == token_b_name, token_config))[0]
 
@@ -126,7 +125,8 @@ class UniswapV2MarketMakerKeeper:
         self.initial_exchange_rate = self.arguments.initial_exchange_rate
         self.accepted_slippage = Wad.from_number(self.arguments.accepted_slippage / 100)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
-        self.testing_feed_price = None
+        self.testing_feed_price = False
+        self.test_price = Wad.from_number(0)
 
         # used for local testing
         if self.arguments.factory_address is None and self.arguments.router_address is None:
@@ -161,6 +161,21 @@ class UniswapV2MarketMakerKeeper:
         assert (isinstance(token, Token))
 
         return True if token.name == 'WETH' else False
+
+    def calculate_equivalent_amounts(self, token_a_balance: Wad, token_b_balance: Wad, uniswap_current_exchange_price: Wad, accepted_slippage: Wad) -> Tuple[Wad]:
+        """
+
+        """
+        assert (isinstance(uniswap_current_exchange_price, Wad))
+
+        # Use Supplied percentage difference args to calculate min off of available balance + liquidity
+
+        token_a_desired = min(token_a_balance, token_b_balance * uniswap_current_exchange_price)
+        token_a_min = token_a_desired - (token_a_desired * accepted_slippage)
+        token_b_desired = min(token_b_balance, token_a_desired / uniswap_current_exchange_price)
+        token_b_min = token_b_desired - (token_b_desired * accepted_slippage)
+
+        return
 
     # returns dictionary containing arguments for addLiquidityETH call
     def _calculate_liquidity_eth(self, token_a_balance: Wad, eth_balance: Wad, uniswap_current_exchange_price: Wad, accepted_slippage: Wad) -> Optional[dict]:
@@ -325,7 +340,6 @@ class UniswapV2MarketMakerKeeper:
 
         liquidity_to_remove = self.uniswap.get_current_liquidity()
         total_liquidity = self.uniswap.get_total_liquidity()
-
         self.logger.info(f"Current liquidity tokens before removing {liquidity_to_remove} from total liquidity of {total_liquidity}")
 
         # Store initial balances in order to log state changes resulting from transaction
@@ -387,28 +401,31 @@ class UniswapV2MarketMakerKeeper:
             self.logger.info(f"No liquidity to remove")
 
     def determine_liquidity_action(self, uniswap_current_exchange_price: Wad) -> Tuple:
+        """
+        calculate the acceptable price movement limit based upon the
+        difference between external price feeds and the accepted slippage
+
+        if the accepted difference is greater than the distance of uniswaps price from external prices
+        add liquidity to the pool, otherwise remove it
+        """
         assert isinstance(uniswap_current_exchange_price, Wad)
 
-        feed_price = self.price_feed.get_price().buy_price if self.testing_feed_price is None else self.testing_feed_price
+        self.feed_price = self.price_feed.get_price().buy_price if self.testing_feed_price is False else self.test_price
 
-        self.logger.info(f"Feed price: {feed_price} Uniswap price: {uniswap_current_exchange_price}")
+        self.logger.info(f"Feed price: {self.feed_price} Uniswap price: {uniswap_current_exchange_price}")
 
-        # calculate the acceptable price movement limit based upon the
-        # difference between external price feeds and the accepted slippage
-        diff = feed_price * self.accepted_slippage
-
-        # if the accepted difference is greater than the distance of uniswaps price from external prices
-        # add liquidity to the pool, otherwise remove it
-        add_liquidity = diff > abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
-        remove_liquidity = diff < abs(Wad.from_number(feed_price) - uniswap_current_exchange_price)
-
-        self.logger.info(
-            f"Feed price / Uniswap price diff {diff} triggered add liquidity: {add_liquidity}; remove liquidity: {remove_liquidity}")
-
-        if feed_price is None:
+        if self.feed_price is None:
             self.logger.warning(f"Price feed is returning null, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
+        else:
+            diff = self.feed_price * self.accepted_slippage
+
+            add_liquidity = diff > abs(self.feed_price - uniswap_current_exchange_price)
+            remove_liquidity = diff < abs(self.feed_price - uniswap_current_exchange_price)
+
+            self.logger.info(
+                f"Feed price / Uniswap price diff {diff} triggered add liquidity: {add_liquidity}; remove liquidity: {remove_liquidity}")
 
         return add_liquidity, remove_liquidity
 
