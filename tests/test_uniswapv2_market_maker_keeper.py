@@ -43,10 +43,10 @@ from pymaker.keys import register_keys, register_private_key
 class INITIAL_PRICES(Enum):
     DAI_USDC_ADD_LIQUIDITY = 1.03
     DAI_USDC_REMOVE_LIQUIDITY = 1.00
-    DAI_ETH_ADD_LIQUIDITY = 318
-    DAI_ETH_REMOVE_LIQUIDITY = 300
-    USDC_WBTC_ADD_LIQUIDITY = 11100
-    USDC_WBTC_REMOVE_LIQUIDITY = 10000
+    ETH_DAI_ADD_LIQUIDITY = 318
+    ETH_DAI_REMOVE_LIQUIDITY = 300
+    WBTC_USDC_ADD_LIQUIDITY = 11100
+    WBTC_USDC_REMOVE_LIQUIDITY = 10000
 
 class TestUniswapV2MarketMakerKeeper:
 
@@ -117,7 +117,7 @@ class TestUniswapV2MarketMakerKeeper:
     def instantiate_keeper(self, pair: str, initial_price: float) -> UniswapV2MarketMakerKeeper:
         if pair == "DAI-USDC":
             feed_price = "fixed:1.025"
-        elif pair == "DAI-ETH":
+        elif pair == "ETH-DAI":
             feed_price = "fixed:320"
         elif pair == "WBTC-USDC":
             feed_price = "fixed:11090"
@@ -133,14 +133,6 @@ class TestUniswapV2MarketMakerKeeper:
                                                       f" --price-feed {feed_price}"),
                                                       web3=self.web3)
 
-    @staticmethod
-    def calculate_token_liquidity_to_add(keeper: UniswapV2MarketMakerKeeper, token_a_balance: Wad, token_b_balance: Wad) -> dict:
-        return keeper._calculate_liquidity_tokens(token_a_balance, token_b_balance, Wad.from_number(keeper.initial_exchange_rate), keeper.accepted_slippage)
-
-    @staticmethod
-    def calculate_eth_liquidity_to_add(keeper: UniswapV2MarketMakerKeeper, token_a_balance: Wad, token_b_balance: Wad) -> dict:
-        return keeper._calculate_liquidity_eth(token_a_balance, token_b_balance, Wad.from_number(keeper.initial_exchange_rate), keeper.accepted_slippage)
-
     def test_calculate_token_liquidity_to_add(self):
         # given
         self.mint_tokens()
@@ -149,7 +141,7 @@ class TestUniswapV2MarketMakerKeeper:
         # when
         dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
-        liquidity_to_add = self.calculate_token_liquidity_to_add(keeper, dai_balance, usdc_balance)
+        liquidity_to_add = keeper.calculate_liquidity_args(dai_balance, usdc_balance)
 
         # then
         assert all(map(lambda x: x > Wad(0), liquidity_to_add.values()))
@@ -159,13 +151,13 @@ class TestUniswapV2MarketMakerKeeper:
     def test_calculate_eth_liquidity_to_add(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("DAI-ETH", INITIAL_PRICES.DAI_ETH_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI", INITIAL_PRICES.ETH_DAI_ADD_LIQUIDITY.value)
 
         # when
         dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         eth_balance = keeper.uniswap.get_account_eth_balance()
-
-        liquidity_to_add = self.calculate_eth_liquidity_to_add(keeper, dai_balance, eth_balance)
+        
+        liquidity_to_add = keeper.calculate_liquidity_args(eth_balance, dai_balance)
 
         # then
         assert all(map(lambda x: x > Wad(0), liquidity_to_add.values()))
@@ -173,37 +165,34 @@ class TestUniswapV2MarketMakerKeeper:
         # assert liquidity_to_add['amount_token_desired'] == dai_balance
         # assert liquidity_to_add['amount_eth_desired'] == eth_balance
 
-        assert liquidity_to_add['amount_token_desired'] > liquidity_to_add['amount_token_min']
-        assert liquidity_to_add['amount_eth_desired'] > liquidity_to_add['amount_eth_min']
+        assert liquidity_to_add['amount_b_desired'] > liquidity_to_add['amount_b_min']
+        assert liquidity_to_add['amount_a_desired'] > liquidity_to_add['amount_a_min']
 
     def test_should_ensure_adequate_eth_for_gas(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("DAI-ETH", INITIAL_PRICES.DAI_ETH_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI", INITIAL_PRICES.ETH_DAI_ADD_LIQUIDITY.value)
 
         # when
         dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
-        liquidity_to_add = keeper._calculate_liquidity_eth(dai_balance, Wad.from_number(0.5), Wad.from_number(keeper.initial_exchange_rate), keeper.accepted_slippage)
+        liquidity_to_add = keeper.calculate_liquidity_args(Wad.from_number(0.5), dai_balance)
 
         # then
         assert liquidity_to_add is None
 
     def test_should_determine_add_liquidity(self):
         keeper = self.instantiate_keeper("DAI-USDC", INITIAL_PRICES.DAI_USDC_ADD_LIQUIDITY.value)
-        add_liquidity, remove_liquidity = keeper.determine_liquidity_action(Wad.from_number(keeper.initial_exchange_rate))
+        add_liquidity, remove_liquidity = keeper.determine_liquidity_action()
 
         assert add_liquidity == True
         assert remove_liquidity == False
 
     def test_should_determine_remove_liquidity(self):
         keeper = self.instantiate_keeper("DAI-USDC", INITIAL_PRICES.DAI_USDC_REMOVE_LIQUIDITY.value)
-        add_liquidity, remove_liquidity = keeper.determine_liquidity_action(Wad.from_number(keeper.initial_exchange_rate))
+        add_liquidity, remove_liquidity = keeper.determine_liquidity_action()
 
         assert add_liquidity == False
         assert remove_liquidity == True
-
-    def test_should_calculate_equivalent_amounts(self):
-        pass
 
     def test_should_add_dai_usdc_liquidity(self):
         self.mint_tokens()
@@ -214,7 +203,7 @@ class TestUniswapV2MarketMakerKeeper:
         # when
         keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
 
-        added_liquidity = self.calculate_token_liquidity_to_add(keeper, initial_dai_balance, initial_usdc_balance)
+        added_liquidity = keeper.calculate_liquidity_args(initial_dai_balance, initial_usdc_balance)
 
         time.sleep(10)
 
@@ -231,14 +220,14 @@ class TestUniswapV2MarketMakerKeeper:
 
     def test_should_add_wbtc_usdc_liquidity(self):
         self.mint_tokens()
-        keeper = self.instantiate_keeper("WBTC-USDC", INITIAL_PRICES.USDC_WBTC_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("WBTC-USDC", INITIAL_PRICES.WBTC_USDC_ADD_LIQUIDITY.value)
         initial_wbtc_balance = keeper.uniswap.get_account_token_balance(self.token_wbtc)
         initial_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
 
         # when
         keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
 
-        added_liquidity = self.calculate_token_liquidity_to_add(keeper, initial_wbtc_balance, initial_usdc_balance)
+        added_liquidity = keeper.calculate_liquidity_args(initial_wbtc_balance, initial_usdc_balance)
 
         time.sleep(10)
 
@@ -256,7 +245,7 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_add_dai_eth_liquidity(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("DAI-ETH", INITIAL_PRICES.DAI_ETH_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI", INITIAL_PRICES.ETH_DAI_ADD_LIQUIDITY.value)
         dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         eth_balance = keeper.uniswap.get_account_eth_balance()
 
@@ -276,6 +265,9 @@ class TestUniswapV2MarketMakerKeeper:
         # assert self.token_dai.normalize_amount(added_liquidity['amount_token_desired']) == exchange_dai_balance
         # assert self.token_weth.normalize_amount(added_liquidity['amount_eth_desired']) == exchange_eth_balance
 
+    def test_should_add_to_existing_market_with_nonstandard_ratio(self):
+        pass
+
     def test_should_remove_dai_usdc_liquidity(self):
         # given
         self.mint_tokens()
@@ -286,7 +278,7 @@ class TestUniswapV2MarketMakerKeeper:
         # when
         keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
 
-        added_liquidity = self.calculate_token_liquidity_to_add(keeper, initial_dai_balance, initial_usdc_balance)
+        added_liquidity = keeper.calculate_liquidity_args(initial_dai_balance, initial_usdc_balance)
 
         time.sleep(10)
 
@@ -317,7 +309,7 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_remove_dai_eth_liquidity(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("DAI-ETH", INITIAL_PRICES.DAI_ETH_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI", INITIAL_PRICES.ETH_DAI_ADD_LIQUIDITY.value)
         initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         initial_eth_balance = keeper.uniswap.get_account_eth_balance()
 
@@ -333,7 +325,7 @@ class TestUniswapV2MarketMakerKeeper:
         assert initial_eth_balance > post_add_eth_balance
 
         keeper.testing_feed_price = True
-        keeper.test_price = Wad.from_number(INITIAL_PRICES.DAI_ETH_REMOVE_LIQUIDITY.value)
+        keeper.test_price = Wad.from_number(INITIAL_PRICES.ETH_DAI_REMOVE_LIQUIDITY.value)
 
         time.sleep(10)
 
@@ -351,7 +343,7 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_remove_liquidity_if_price_feed_is_null(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("DAI-ETH", INITIAL_PRICES.DAI_ETH_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI", INITIAL_PRICES.ETH_DAI_ADD_LIQUIDITY.value)
         initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         initial_eth_balance = keeper.uniswap.get_account_eth_balance()
 
