@@ -107,6 +107,7 @@ class UniswapV2MarketMakerKeeper:
         if 'web3' not in kwargs:
             register_keys(self.web3, self.arguments.eth_key)
 
+        # TODO: Add a more sophisticated regex for different variants of eth on the exchange 
         # Record if eth is in pair, so can check which liquidity method needs to be used
         self.is_eth = 'ETH' in self.pair()
 
@@ -221,7 +222,7 @@ class UniswapV2MarketMakerKeeper:
             self.logger.info(
                     f"Add {self.token_a.name} liquidity of amount: {self.token_a.normalize_amount(add_liquidity_args['amount_a_desired'])}")
             self.logger.info(
-                    f"Add {self.token_b.name} liquidity of: {add_liquidity_args['amount_b_desired']}")
+                    f"Add {self.token_b.name} liquidity of: {self.token_b.normalize_amount(add_liquidity_args['amount_b_desired'])}")
             
             if self.is_eth:
                 transact = self.uniswap.add_liquidity_eth(add_liquidity_args, self.token_b).transact(
