@@ -265,8 +265,6 @@ class TestUniswapV2MarketMakerKeeper:
         # assert self.token_dai.normalize_amount(added_liquidity['amount_token_desired']) == exchange_dai_balance
         # assert self.token_weth.normalize_amount(added_liquidity['amount_eth_desired']) == exchange_eth_balance
 
-    def test_should_add_to_existing_market_with_nonstandard_ratio(self):
-        pass
 
     def test_should_remove_dai_usdc_liquidity(self):
         # given

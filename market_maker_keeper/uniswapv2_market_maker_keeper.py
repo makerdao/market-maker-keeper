@@ -97,6 +97,8 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
+        # TODO: add keyword argument to handle the maximum amount of a given token to hold; if amount exceeded, remove liquidity and stop bot
+
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
@@ -128,24 +130,37 @@ class UniswapV2MarketMakerKeeper:
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.initial_exchange_rate = self.arguments.initial_exchange_rate
         self.uniswap_current_exchange_price = Wad.from_number(self.initial_exchange_rate) if self.initial_exchange_rate is not None else self.uniswap.get_exchange_rate()
+        
+        # testing_feed_price is used by the integration tests in tests/test_uniswapv2.py, to test different pricing scenarios
+        # as the keeper consistently checks the price, some long running state variable is needed to 
         self.testing_feed_price = False
         self.test_price = Wad.from_number(0)
 
-        # used for local testing
         if self.arguments.factory_address is None and self.arguments.router_address is None:
+            # Use the default Uniswap Router and Factory Addresses for Mainnet and Testnets
             self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b)
         else:
+            # Used for local testing
             self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.arguments.router_address), Address(self.arguments.factory_address))
+
+        self._should_shutdown = False
 
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
             lifecycle.initial_delay(self.arguments.initial_delay)
             lifecycle.on_startup(self.startup)
             lifecycle.every(10, self.place_liquidity)
+            lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
         self.uniswap.approve(self.token_a)
         self.uniswap.approve(self.token_b)
+
+    def shutdown(self):
+        """ Setting the override_price = None will result in the price feed being set to None,
+            and trigger the removal of liquidity.
+        """
+        self._should_shutdown = True
 
     def get_token_config(self):
         current_config = self.reloadable_config.get_token_config()
@@ -216,6 +231,9 @@ class UniswapV2MarketMakerKeeper:
 
         current_liquidity_tokens = Wad.from_number(0) if self.uniswap.is_new_pool else self.uniswap.get_current_liquidity()
         self.logger.info(f"Current liquidity tokens before adding: {current_liquidity_tokens}")
+
+        if add_liquidity_args is None:
+            return None
 
         is_liquidity_to_add_positive = all(map(lambda x: x > Wad(0), add_liquidity_args.values()))
         if is_liquidity_to_add_positive and current_liquidity_tokens == Wad(0):
@@ -319,40 +337,42 @@ class UniswapV2MarketMakerKeeper:
         else:
             self.logger.info(f"No liquidity to remove")
 
-    def determine_liquidity_action(self) -> Tuple:
+    def determine_liquidity_action(self) -> Tuple[bool, bool]:
         """
-        Add or remove liquidity depending upon the difference between Uniswap ratio and our external price feeds.
+        Add or remove liquidity depending upon the difference between Uniswap asset pool ratio and our external price feeds.
 
-        Pricing is expressed as a function of token_a balance / token_b balance in the contract
+        Uniswap pricing is expressed as a function of token_a balance / token_b balance in the contract
 
         First calculate the acceptable price movement limit based upon the
         difference between external price feeds and the accepted slippage.
 
-        If the accepted difference is greater than the distance of uniswaps price from external prices
+        If the minimum accepted price difference is greater than the distance of uniswaps price from external prices
         add liquidity to the pool, otherwise remove it.
         """
 
-        self.feed_price = self.price_feed.get_price().buy_price if self.testing_feed_price is False else self.test_price
+        feed_price = self.price_feed.get_price().buy_price if self.testing_feed_price is False else self.test_price
 
-        self.logger.info(f"Feed price: {self.feed_price} Uniswap price: {self.uniswap_current_exchange_price}")
+        self.logger.info(f"Feed price: {feed_price} Uniswap price: {self.uniswap_current_exchange_price}")
 
-        if self.feed_price is None:
+        if feed_price is None:
             self.logger.warning(f"Price feed is returning null, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
+            return add_liquidity, remove_liquidity
+        elif self._should_shutdown is True:
+            self.logger.info(f"Shutdown notification received, removing all available liquidity")
+            add_liquidity = False
+            remove_liquidity = True
+            return add_liquidity, remove_liquidity
         else:
-            diff = self.feed_price * self.accepted_slippage
-
-            add_liquidity = diff > abs(self.feed_price - self.uniswap_current_exchange_price)
-            remove_liquidity = diff < abs(self.feed_price - self.uniswap_current_exchange_price)
-
-            self.logger.info(
-                f"Feed price / Uniswap price diff {diff} triggered add liquidity: {add_liquidity}; remove liquidity: {remove_liquidity}")
-
-        return add_liquidity, remove_liquidity
+            diff = feed_price * self.accepted_slippage
+            add_liquidity = diff > abs(feed_price - self.uniswap_current_exchange_price)
+            remove_liquidity = diff < abs(feed_price - self.uniswap_current_exchange_price)
+            return add_liquidity, remove_liquidity
 
     def place_liquidity(self):
-        """
+        """Main control function of Uniswap Keeper lifecycle. 
+        It will determine whether liquidity should be added, or removed.
 
         """
 
@@ -364,6 +384,8 @@ class UniswapV2MarketMakerKeeper:
 
         add_liquidity, remove_liquidity = self.determine_liquidity_action()
 
+        self.logger.info(f"Add Liquidity: {add_liquidity}; Remove Liquidity: {remove_liquidity}")
+        
         if add_liquidity:
             receipt = self.add_liquidity()
             if receipt is not None:
