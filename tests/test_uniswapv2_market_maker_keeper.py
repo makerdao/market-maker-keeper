@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import shutil
+import signal
 import json
 import py
 import pytest
@@ -23,6 +24,7 @@ import unittest
 import logging
 import time
 import threading
+import os
 
 from unittest.mock import MagicMock
 from enum import Enum
@@ -181,20 +183,29 @@ class TestUniswapV2MarketMakerKeeper:
         assert liquidity_to_add is None
 
     def test_should_determine_add_liquidity(self):
+        # given
         keeper = self.instantiate_keeper("DAI-USDC", INITIAL_PRICES.DAI_USDC_ADD_LIQUIDITY.value)
+
+        # when
         add_liquidity, remove_liquidity = keeper.determine_liquidity_action()
 
+        # then
         assert add_liquidity == True
         assert remove_liquidity == False
 
     def test_should_determine_remove_liquidity(self):
+        # given
         keeper = self.instantiate_keeper("DAI-USDC", INITIAL_PRICES.DAI_USDC_REMOVE_LIQUIDITY.value)
+       
+        # when
         add_liquidity, remove_liquidity = keeper.determine_liquidity_action()
-
+        
+        # then
         assert add_liquidity == False
         assert remove_liquidity == True
 
     def test_should_add_dai_usdc_liquidity(self):
+        # given
         self.mint_tokens()
         keeper = self.instantiate_keeper("DAI-USDC", INITIAL_PRICES.DAI_USDC_ADD_LIQUIDITY.value)
         initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
@@ -219,6 +230,7 @@ class TestUniswapV2MarketMakerKeeper:
         assert self.token_usdc.normalize_amount(added_liquidity['amount_b_desired']) == exchange_usdc_balance
 
     def test_should_add_wbtc_usdc_liquidity(self):
+        # given
         self.mint_tokens()
         keeper = self.instantiate_keeper("WBTC-USDC", INITIAL_PRICES.WBTC_USDC_ADD_LIQUIDITY.value)
         initial_wbtc_balance = keeper.uniswap.get_account_token_balance(self.token_wbtc)
@@ -316,6 +328,7 @@ class TestUniswapV2MarketMakerKeeper:
 
         time.sleep(10)
 
+        # then
         post_add_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         post_add_eth_balance = keeper.uniswap.get_account_eth_balance()
 
@@ -350,6 +363,7 @@ class TestUniswapV2MarketMakerKeeper:
 
         time.sleep(10)
 
+        # then
         post_add_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         post_add_eth_balance = keeper.uniswap.get_account_eth_balance()
         post_add_exchange_dai_balance = keeper.uniswap.get_exchange_balance(self.token_dai, keeper.uniswap.pair_address)
@@ -360,11 +374,12 @@ class TestUniswapV2MarketMakerKeeper:
         assert initial_dai_balance > post_add_dai_balance
         assert initial_eth_balance > post_add_eth_balance
 
+        # when
         keeper.testing_feed_price = True
         keeper.test_price = None
-
         time.sleep(10)
 
+        # then
         post_remove_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         post_remove_eth_balance = keeper.uniswap.get_account_eth_balance()
         post_remove_exchange_dai_balance = keeper.uniswap.get_exchange_balance(self.token_dai, keeper.uniswap.pair_address)
@@ -372,5 +387,43 @@ class TestUniswapV2MarketMakerKeeper:
         
         # assert post_remove_exchange_dai_balance == Wad.from_number(0)
         # assert post_remove_exchange_weth_balance == Wad.from_number(0)
+        assert post_remove_dai_balance > post_add_dai_balance
+        assert post_remove_eth_balance > post_add_eth_balance
+
+    def test_should_remove_liquidity_if_shutdown_signal_received(self):
+        # given
+        self.mint_tokens()
+        keeper = self.instantiate_keeper("ETH-DAI", INITIAL_PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+        initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        initial_eth_balance = keeper.uniswap.get_account_eth_balance()
+
+        # when
+        def _sigint_sigterm_handler(self, sig):
+            keeper._should_shutdown = True
+
+        signal.signal(signal.SIGINT, _sigint_sigterm_handler)
+        keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
+        time.sleep(10)
+
+        # then
+        post_add_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        post_add_eth_balance = keeper.uniswap.get_account_eth_balance()
+        post_add_exchange_dai_balance = keeper.uniswap.get_exchange_balance(self.token_dai, keeper.uniswap.pair_address)
+        post_add_exchange_weth_balance = keeper.uniswap.get_exchange_balance(self.token_weth, keeper.uniswap.pair_address)
+
+        assert post_add_exchange_dai_balance > Wad.from_number(0)
+        assert post_add_exchange_weth_balance > Wad.from_number(0)
+        assert initial_dai_balance > post_add_dai_balance
+        assert initial_eth_balance > post_add_eth_balance
+
+        # when
+        pid = os.getpid()
+        os.kill(pid, signal.SIGINT)
+        time.sleep(10)
+
+        # then
+        post_remove_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        post_remove_eth_balance = keeper.uniswap.get_account_eth_balance()
+ 
         assert post_remove_dai_balance > post_add_dai_balance
         assert post_remove_eth_balance > post_add_eth_balance

@@ -20,17 +20,21 @@ import sys
 
 from typing import Optional, Tuple
 from web3 import Web3, HTTPProvider
-from market_maker_keeper.util import setup_logging
 from pymaker.lifecycle import Lifecycle
-from pymaker.model import Token
 from pyexchange.uniswapv2 import UniswapV2
-from market_maker_keeper.feed import ExpiringFeed, WebSocketFeed
 from pymaker.keys import register_keys
+from pymaker.model import Token
 from pymaker import Address, Wad, Receipt
+from market_maker_keeper.control_feed import create_control_feed
+from market_maker_keeper.feed import ExpiringFeed, WebSocketFeed
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.model import TokenConfig
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
+from market_maker_keeper.spread_feed import create_spread_feed
+from market_maker_keeper.util import setup_logging
+
+
 
 class UniswapV2MarketMakerKeeper:
     """Keeper acting as a market maker on UniswapV2.
@@ -85,6 +89,14 @@ class UniswapV2MarketMakerKeeper:
                             help="Percentage difference between Uniswap exchange rate and aggregated price"
                                  "(default: 2)")
 
+        parser.add_argument("--amount-slippage", type=float, default=2,
+                            help="Target amount of a given token to hold; if amount exceeded, remove liquidity and stop bot"
+                                 "(default: 2)")
+
+        parser.add_argument("--price-slippage", type=float, default=5,
+                            help="Maximum amount of price movement allowed before withdrawing funds to prevent loss."
+                                 "(default: 5)")
+
         parser.add_argument("--factory-address", type=str,
                             help="Optional address used to test locally deployed contracts")
 
@@ -96,8 +108,6 @@ class UniswapV2MarketMakerKeeper:
 
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
-
-        # TODO: add keyword argument to handle the maximum amount of a given token to hold; if amount exceeded, remove liquidity and stop bot
 
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
@@ -127,7 +137,12 @@ class UniswapV2MarketMakerKeeper:
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
 
         self.accepted_slippage = Wad.from_number(self.arguments.accepted_slippage / 100)
+        self.amount_slippage = Wad.from_number(self.arguments.accepted_slippage / 100)
+
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
+        self.control_feed = create_control_feed(self.arguments)
+        self.spread_feed = create_spread_feed(self.arguments)
+
         self.initial_exchange_rate = self.arguments.initial_exchange_rate
         self.uniswap_current_exchange_price = Wad.from_number(self.initial_exchange_rate) if self.initial_exchange_rate is not None else self.uniswap.get_exchange_rate()
         
@@ -144,6 +159,11 @@ class UniswapV2MarketMakerKeeper:
             self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.arguments.router_address), Address(self.arguments.factory_address))
 
         self._should_shutdown = False
+        
+        # record the intial balance when keeper starts operations to ensure that 
+        # balance doesnt fall below some level, as an effective stop loss against impermanent loss
+        self.initial_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address)
+        self.initial_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address)
 
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
@@ -297,8 +317,8 @@ class UniswapV2MarketMakerKeeper:
         token_b_balance = self.uniswap.get_account_token_balance(self.token_b)
         eth_balance = self.uniswap.get_account_eth_balance()
 
-        amount_a_min = self.token_a.unnormalize_amount(liquidity_to_remove * exchange_token_a_balance / total_liquidity)
-        amount_b_min = self.token_b.unnormalize_amount(liquidity_to_remove * exchange_token_b_balance / total_liquidity)
+        amount_a_min = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address)
+        amount_b_min = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address)
 
         remove_liquidity_args = {
             'liquidity': liquidity_to_remove,
@@ -343,6 +363,8 @@ class UniswapV2MarketMakerKeeper:
 
         Uniswap pricing is expressed as a function of token_a balance / token_b balance in the contract
 
+        This function acts as a state machine that dynamically determines the liquidity actions to take
+
         First calculate the acceptable price movement limit based upon the
         difference between external price feeds and the accepted slippage.
 
@@ -350,12 +372,35 @@ class UniswapV2MarketMakerKeeper:
         add liquidity to the pool, otherwise remove it.
         """
 
+        # take the average of the buy price and the sell price
+        # average_feed_price = (self.price_feed.get_price().buy_price + self.price_feed.get_price().sell_price) / 2
         feed_price = self.price_feed.get_price().buy_price if self.testing_feed_price is False else self.test_price
+        
+        control_feed_value = self.control_feed.get()[0]
+
+        current_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address)
+        current_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address)
+
+        # OPTIONAL
+        # check current balance, see if its below the stop loss level
+        token_a_stop_loss = current_token_a_balance < (self.initial_token_a_balance + (self.amount_slippage * self.initial_token_a_balance))
+        token_b_stop_loss = current_token_b_balance < (self.initial_token_b_balance + (self.amount_slippage * self.initial_token_b_balance))
+        
+        # OPTIONAL
+        # check to see if token_a or token_b exceed some levels of desired profit
+        token_a_profit = current_token_a_balance > (self.initial_token_a_balance + (self.amount_slippage * self.initial_token_a_balance))
+        token_b_profit = current_token_b_balance > (self.initial_token_b_balance + (self.amount_slippage * self.initial_token_b_balance))
+        take_profits = token_a_profit is True and token_b_profit is True
+
+        # TODO: use gas prices as a portion of the liquidity to add as check
+        # TODO: add check to ensure that prices are expected to be stable before adding
+        # Goal is to avoid periods of volatility which can result in impermanent loss
+        # Could be useful to create an implied volatility feed?
 
         self.logger.info(f"Feed price: {feed_price} Uniswap price: {self.uniswap_current_exchange_price}")
 
         if feed_price is None:
-            self.logger.warning(f"Price feed is returning null, removing all available liquidity")
+            self.logger.warning(f"Price feed is returning null, removing all available' liquidity")
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
@@ -364,16 +409,33 @@ class UniswapV2MarketMakerKeeper:
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
-        else:
-            diff = feed_price * self.accepted_slippage
-            add_liquidity = diff > abs(feed_price - self.uniswap_current_exchange_price)
-            remove_liquidity = diff < abs(feed_price - self.uniswap_current_exchange_price)
+        elif token_a_stop_loss is True or token_b_stop_loss is True:
+            self.logger.info(f"Stop loss triggered, removing all available liquidity")
+            add_liquidity = False
+            remove_liquidity = True
             return add_liquidity, remove_liquidity
+        elif take_profits is True:
+            self.logger.info(f"Taking profits, removing all available liquidity")
+            add_liquidity = False
+            remove_liquidity = True
+            return add_liquidity, remove_liquidity
+        elif control_feed_value['canBuy'] is True or control_feed_value['canSell'] is True:
+            # Uniswap Price Ratio has diverged from external feeds, so arbitrage by adding liquidity
+            diff = feed_price * self.accepted_slippage
+            add_liquidity = diff > abs(feed_price - self.uniswap_current_exchange_price) if control_feed_value['canBuy'] is True else False
+            remove_liquidity = diff < abs(feed_price - self.uniswap_current_exchange_price) if control_feed_value['canSell'] is True else False
+            
+            assert add_liquidity != remove_liquidity
+            return add_liquidity, remove_liquidity
+        else:
+            self.logger.info(f"No states triggered; Taking no action")
+            return False, False
 
     def place_liquidity(self):
-        """Main control function of Uniswap Keeper lifecycle. 
-        It will determine whether liquidity should be added, or removed.
-
+        """
+        Main control function of Uniswap Keeper lifecycle. 
+        It will determine whether liquidity should be added, or removed
+        and then create and submit transactions to the Uniswap Router Contract to update liquidity levels.
         """
 
         exchange_token_a_balance = Wad.from_number(0) if self.uniswap.is_new_pool else self.uniswap.get_exchange_balance(self.token_a, self.uniswap.pair_address)
