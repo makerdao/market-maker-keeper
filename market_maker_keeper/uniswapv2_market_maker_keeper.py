@@ -106,11 +106,11 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--target-b-max-balance", type=float, required=True,
                             help="Minimum balance of token B to maintain.")
 
-        parser.add_argument("--factory-address", type=str,
-                            help="Optional address used to test locally deployed contracts")
+        parser.add_argument("--factory-address", type=str, default="0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+                            help="Address of the UniswapV2 Factory smart contract used to create new pools")
 
-        parser.add_argument("--router-address", type=str,
-                            help="Optional address used to test locally deployed contracts")
+        parser.add_argument("--router-address", type=str, default="0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+                            help="Address of the UniswapV2 RouterV2 smart contract used to handle liquidity management")
 
         parser.add_argument("--initial-delay", type=int, default=10,
                             help="Initial number of seconds to wait before placing liquidity")
@@ -157,12 +157,7 @@ class UniswapV2MarketMakerKeeper:
         self.testing_feed_price = False
         self.test_price = Wad.from_number(0)
 
-        if self.arguments.factory_address is None and self.arguments.router_address is None:
-            # Use the default Uniswap Router and Factory Addresses for Mainnet and Testnets
-            self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b)
-        else:
-            # Used for local testing
-            self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.arguments.router_address), Address(self.arguments.factory_address))
+        self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.arguments.router_address), Address(self.arguments.factory_address))
 
         self._should_shutdown = False
         self.feed_price_null_counter = 0
@@ -419,7 +414,7 @@ class UniswapV2MarketMakerKeeper:
         if feed_price is None:
             self.feed_price_null_counter += 1
 
-        if self.feed_price_null_counter >= 3:
+        if self.feed_price_null_counter >= 60:
             self.logger.warning(f"Price feed has returned null for 60 seconds, removing all available' liquidity")
             self.feed_price_null_counter = 0
             add_liquidity = False
