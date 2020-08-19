@@ -19,7 +19,7 @@ from market_maker_keeper.feed import Feed, ExpiringFeed, WebSocketFeed, EmptyFee
 
 
 def create_spread_feed(arguments) -> Feed:
-    if arguments.spread_feed:
+    if hasattr(arguments, 'spread_feed'):
         web_socket_feed = WebSocketFeed(arguments.spread_feed, 5)
         expiring_web_socket_feed = ExpiringFeed(web_socket_feed, arguments.spread_feed_expiry)
 

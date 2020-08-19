@@ -85,17 +85,26 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--initial-exchange-rate", type=float, default=None,
                             help="Used to determine the initial product to be used in a newly created pool")
 
-        parser.add_argument("--accepted-slippage", type=float, default=2,
-                            help="Percentage difference between Uniswap exchange rate and aggregated price"
-                                 "(default: 2)")
+        parser.add_argument("--max-add-liquidity-slippage", type=int, default=2,
+                            help="Maximum percentage off the desired amount of liquidity to add in add_liquidity()")
 
-        parser.add_argument("--amount-slippage", type=float, default=2,
-                            help="Target amount of a given token to hold; if amount exceeded, remove liquidity and stop bot"
-                                 "(default: 2)")
+        parser.add_argument("--accepted-price-slippage-up", type=float, required=True,
+                            help="Percentage difference between Uniswap exchange rate and aggregated price above which liquidity would be added")
 
-        parser.add_argument("--price-slippage", type=float, default=5,
-                            help="Maximum amount of price movement allowed before withdrawing funds to prevent loss."
-                                 "(default: 5)")
+        parser.add_argument("--accepted-price-slippage-down", type=float, required=True,
+                            help="Percentage difference between Uniswap exchange rate and aggregated price below which liquidity would be added")
+
+        parser.add_argument("--target-a-min-balance", type=float, required=True,
+                            help="Minimum balance of token A to maintain.")
+
+        parser.add_argument("--target-a-max-balance", type=float, required=True,
+                            help="Minimum balance of token A to maintain.")
+
+        parser.add_argument("--target-b-min-balance", type=float, required=True,
+                            help="Minimum balance of token B to maintain.")
+
+        parser.add_argument("--target-b-max-balance", type=float, required=True,
+                            help="Minimum balance of token B to maintain.")
 
         parser.add_argument("--factory-address", type=str,
                             help="Optional address used to test locally deployed contracts")
@@ -136,9 +145,6 @@ class UniswapV2MarketMakerKeeper:
 
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
 
-        self.accepted_slippage = Wad.from_number(self.arguments.accepted_slippage / 100)
-        self.amount_slippage = Wad.from_number(self.arguments.accepted_slippage / 100)
-
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.control_feed = create_control_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
@@ -159,11 +165,21 @@ class UniswapV2MarketMakerKeeper:
             self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.arguments.router_address), Address(self.arguments.factory_address))
 
         self._should_shutdown = False
-        
+        self.feed_price_null_counter = 0
+
         # record the intial balance when keeper starts operations to ensure that 
         # balance doesnt fall below some level, as an effective stop loss against impermanent loss
         self.initial_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address)
         self.initial_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address)
+
+        self.target_a_min_balance = Wad.from_number(self.arguments.target_a_min_balance)
+        self.target_a_max_balance = Wad.from_number(self.arguments.target_a_max_balance)
+        self.target_b_min_balance = Wad.from_number(self.arguments.target_b_min_balance)
+        self.target_b_max_balance = Wad.from_number(self.arguments.target_b_max_balance)
+
+        self.accepted_price_slippage_up = Wad.from_number(self.arguments.accepted_price_slippage_up / 100)
+        self.accepted_price_slippage_down = Wad.from_number(self.arguments.accepted_price_slippage_down / 100)
+        self.max_add_liquidity_slippage = Wad.from_number(self.arguments.max_add_liquidity_slippage / 100)
 
     def main(self):
         with Lifecycle(self.web3) as lifecycle:
@@ -177,9 +193,6 @@ class UniswapV2MarketMakerKeeper:
         self.uniswap.approve(self.token_b)
 
     def shutdown(self):
-        """ Setting the override_price = None will result in the price feed being set to None,
-            and trigger the removal of liquidity.
-        """
         self._should_shutdown = True
 
     def get_token_config(self):
@@ -211,9 +224,9 @@ class UniswapV2MarketMakerKeeper:
                 return
 
         token_a_desired = min(token_a_balance, token_b_balance / self.uniswap_current_exchange_price)
-        token_a_min = token_a_desired - (token_a_desired * self.accepted_slippage)
+        token_a_min = token_a_desired - (token_a_desired * self.max_add_liquidity_slippage)
         token_b_desired = min(token_b_balance, token_a_desired * self.uniswap_current_exchange_price)
-        token_b_min = token_b_desired - (token_b_desired * self.accepted_slippage)
+        token_b_min = token_b_desired - (token_b_desired * self.max_add_liquidity_slippage)
 
         add_liquidity_args = {
             'amount_a_desired': self.token_a.unnormalize_amount(token_a_desired),
@@ -357,6 +370,27 @@ class UniswapV2MarketMakerKeeper:
         else:
             self.logger.info(f"No liquidity to remove")
 
+
+    def check_target_balance(self) -> Tuple[bool, bool]:
+        current_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address)
+        current_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address)
+
+        # check current balance, see if its above or below target amounts
+        a_exceeds_target_balance = current_token_a_balance > self.target_a_max_balance
+        b_exceeds_target_balance = current_token_b_balance > self.target_b_max_balance
+
+        a_below_target_balance = False
+        b_below_target_balance = False
+        if not self.uniswap.is_new_pool:
+            if not self.uniswap.get_current_liquidity() == Wad.from_number(0):
+                a_below_target_balance = current_token_a_balance < self.target_a_min_balance
+                b_below_target_balance = current_token_b_balance < self.target_b_min_balance
+
+        token_a_should_remove = a_below_target_balance or a_exceeds_target_balance
+        token_b_should_remove = b_below_target_balance or b_exceeds_target_balance
+
+        return token_a_should_remove, token_b_should_remove
+
     def determine_liquidity_action(self) -> Tuple[bool, bool]:
         """
         Add or remove liquidity depending upon the difference between Uniswap asset pool ratio and our external price feeds.
@@ -378,29 +412,16 @@ class UniswapV2MarketMakerKeeper:
         
         control_feed_value = self.control_feed.get()[0]
 
-        current_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address)
-        current_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address)
-
-        # OPTIONAL
-        # check current balance, see if its below the stop loss level
-        token_a_stop_loss = current_token_a_balance < (self.initial_token_a_balance + (self.amount_slippage * self.initial_token_a_balance))
-        token_b_stop_loss = current_token_b_balance < (self.initial_token_b_balance + (self.amount_slippage * self.initial_token_b_balance))
-        
-        # OPTIONAL
-        # check to see if token_a or token_b exceed some levels of desired profit
-        token_a_profit = current_token_a_balance > (self.initial_token_a_balance + (self.amount_slippage * self.initial_token_a_balance))
-        token_b_profit = current_token_b_balance > (self.initial_token_b_balance + (self.amount_slippage * self.initial_token_b_balance))
-        take_profits = token_a_profit is True and token_b_profit is True
-
-        # TODO: use gas prices as a portion of the liquidity to add as check
-        # TODO: add check to ensure that prices are expected to be stable before adding
-        # Goal is to avoid periods of volatility which can result in impermanent loss
-        # Could be useful to create an implied volatility feed?
+        token_a_should_remove, token_b_should_remove = self.check_target_balance()
 
         self.logger.info(f"Feed price: {feed_price} Uniswap price: {self.uniswap_current_exchange_price}")
 
         if feed_price is None:
-            self.logger.warning(f"Price feed is returning null, removing all available' liquidity")
+            self.feed_price_null_counter += 1
+
+        if self.feed_price_null_counter >= 3:
+            self.logger.warning(f"Price feed has returned null for 60 seconds, removing all available' liquidity")
+            self.feed_price_null_counter = 0
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
@@ -409,23 +430,26 @@ class UniswapV2MarketMakerKeeper:
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
-        elif token_a_stop_loss is True or token_b_stop_loss is True:
-            self.logger.info(f"Stop loss triggered, removing all available liquidity")
-            add_liquidity = False
-            remove_liquidity = True
-            return add_liquidity, remove_liquidity
-        elif take_profits is True:
-            self.logger.info(f"Taking profits, removing all available liquidity")
+        elif token_a_should_remove is True or token_b_should_remove is True:
+            self.logger.info(f"Target amounts breached, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
         elif control_feed_value['canBuy'] is True or control_feed_value['canSell'] is True:
             # Uniswap Price Ratio has diverged from external feeds, so arbitrage by adding liquidity
-            diff = feed_price * self.accepted_slippage
-            add_liquidity = diff > abs(feed_price - self.uniswap_current_exchange_price) if control_feed_value['canBuy'] is True else False
-            remove_liquidity = diff < abs(feed_price - self.uniswap_current_exchange_price) if control_feed_value['canSell'] is True else False
+            diff_up = feed_price * self.accepted_price_slippage_up
+            diff_down = feed_price * self.accepted_price_slippage_down
             
-            assert add_liquidity != remove_liquidity
+            add_liquidity = False
+            remove_liquidity = False
+
+            uniswap_price_divergence = abs(feed_price - self.uniswap_current_exchange_price)
+            if control_feed_value['canBuy'] is True:
+                is_divergent_up = diff_up > uniswap_price_divergence
+                is_divergent_down = diff_down > uniswap_price_divergence
+
+                add_liquidity = is_divergent_up or is_divergent_down
+
             return add_liquidity, remove_liquidity
         else:
             self.logger.info(f"No states triggered; Taking no action")

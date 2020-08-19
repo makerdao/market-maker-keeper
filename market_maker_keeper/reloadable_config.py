@@ -43,7 +43,7 @@ class ReloadableConfig:
         assert(isinstance(filename, str))
 
         self.filename = filename
-        self._checksum = None
+        self._token_config_checksum = None
         self._checksum_file = None
         self._checksum_config = None
         self._config = None
@@ -143,12 +143,12 @@ class ReloadableConfig:
 
             # Report if file has been newly loaded or reloaded
             checksum = zlib.crc32(content_file.encode('utf-8'))
-            if self._checksum is None:
+            if self._token_config_checksum is None:
                 self.logger.info(f"Loaded configuration from '{self.filename}'")
                 self.logger.debug(f"Config file is: " + json.dumps(result, indent=4))
-            elif self._checksum != checksum:
+            elif self._token_config_checksum != checksum:
                 self.logger.info(f"Reloaded configuration from '{self.filename}'")
                 self.logger.debug(f"Reloaded config file is: " + json.dumps(result, indent=4))
-            self._checksum = checksum
+            self._token_config_checksum = checksum
 
             return result

@@ -19,18 +19,6 @@ services:
       --pair ETH-DAI \
       --config /opt/maker/config/$${COINBASE_ETH_DAI_BANDS?:}"
 
-  parity:
-    image: makerdao/testchain-pymaker:unit-testing
-    container_name: parity-pymaker-test
-    ports:
-      - "8545:8545"
-      - "8546:8546"
-    expose:
-      - "8545"
-      - "8546"
-    user: root
-    working_dir: /home/parity
-
   ganache:
     image: trufflesuite/ganache-cli:v6.9.1
     container_name: ganache
