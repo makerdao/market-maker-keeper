@@ -73,6 +73,9 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--price-feed", type=str, required=True,
                             help="Source of price feed")
 
+        parser.add_argument("--price-feed-accepted-delay", type=int, default=60,
+                            help="Number of seconds the keeper will tolerate the price feed being null before removing liquidity")
+
         parser.add_argument("--price-feed-expiry", type=int, default=86400,
                             help="Maximum age of the price feed (in seconds, default: 86400)")
 
@@ -146,6 +149,7 @@ class UniswapV2MarketMakerKeeper:
         self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
 
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
+        self.price_feed_accepted_delay = self.arguments.price_feed_accepted_delay
         self.control_feed = create_control_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
 
@@ -167,10 +171,10 @@ class UniswapV2MarketMakerKeeper:
         self.initial_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address)
         self.initial_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address)
 
-        self.target_a_min_balance = Wad.from_number(self.arguments.target_a_min_balance)
-        self.target_a_max_balance = Wad.from_number(self.arguments.target_a_max_balance)
-        self.target_b_min_balance = Wad.from_number(self.arguments.target_b_min_balance)
-        self.target_b_max_balance = Wad.from_number(self.arguments.target_b_max_balance)
+        self.target_a_min_balance = self.token_a.unnormalize_amount(Wad.from_number(self.arguments.target_a_min_balance))
+        self.target_a_max_balance = self.token_a.unnormalize_amount(Wad.from_number(self.arguments.target_a_max_balance))
+        self.target_b_min_balance = self.token_b.unnormalize_amount(Wad.from_number(self.arguments.target_b_min_balance))
+        self.target_b_max_balance = self.token_b.unnormalize_amount(Wad.from_number(self.arguments.target_b_max_balance))
 
         self.accepted_price_slippage_up = Wad.from_number(self.arguments.accepted_price_slippage_up / 100)
         self.accepted_price_slippage_down = Wad.from_number(self.arguments.accepted_price_slippage_down / 100)
@@ -413,13 +417,17 @@ class UniswapV2MarketMakerKeeper:
 
         if feed_price is None:
             self.feed_price_null_counter += 1
-
-        if self.feed_price_null_counter >= 60:
-            self.logger.warning(f"Price feed has returned null for 60 seconds, removing all available' liquidity")
+        else:
             self.feed_price_null_counter = 0
-            add_liquidity = False
-            remove_liquidity = True
-            return add_liquidity, remove_liquidity
+
+        if feed_price is None:
+            if self.feed_price_null_counter >= self.price_feed_accepted_delay:
+                self.logger.warning(f"Price feed has returned null for 60 seconds, removing all available' liquidity")
+                self.feed_price_null_counter = 0
+                add_liquidity = False
+                remove_liquidity = True
+                return add_liquidity, remove_liquidity
+            return False, False
         elif self._should_shutdown is True:
             self.logger.info(f"Shutdown notification received, removing all available liquidity")
             add_liquidity = False
@@ -438,14 +446,27 @@ class UniswapV2MarketMakerKeeper:
             add_liquidity = False
             remove_liquidity = False
 
-            uniswap_price_divergence = abs(feed_price - self.uniswap_current_exchange_price)
             if control_feed_value['canBuy'] is True:
-                is_divergent_up = diff_up > uniswap_price_divergence
-                is_divergent_down = diff_down > uniswap_price_divergence
+                # check if external price feed is showing lower prices
+                if self.uniswap_current_exchange_price > feed_price:
+                    add_liquidity = diff_up > (self.uniswap_current_exchange_price - feed_price)
+                # check if external price feed is showing higher prices
+                elif self.uniswap_current_exchange_price < feed_price:
+                    add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price) if add_liquidity == False else True
 
-                add_liquidity = is_divergent_up or is_divergent_down
+            # TODO: move remove logic into a seperate elif case
+            # Check to see if the prices have diverged drastically and we should remove liquidity
+            if self.uniswap_current_exchange_price > feed_price:
+                remove_liquidity = diff_up < (self.uniswap_current_exchange_price - feed_price)
+            elif self.uniswap_current_exchange_price < feed_price:
+                remove_liquidity = diff_down < (feed_price - self.uniswap_current_exchange_price) if remove_liquidity == False else True
 
-            return add_liquidity, remove_liquidity
+            # TODO: Need to decide if its worth removing liquidity in the event we can't decide what to do
+            try:
+                assert not all([add_liquidity, remove_liquidity])
+                return add_liquidity, remove_liquidity
+            except:
+                return False, False
         else:
             self.logger.info(f"No states triggered; Taking no action")
             return False, False
