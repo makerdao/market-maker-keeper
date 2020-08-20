@@ -41,20 +41,16 @@ from pymaker.token import DSToken
 from tests.helper import args
 from pymaker.keys import register_keys, register_private_key
 
-# TODO: programatically multiply by accepted slippage amounts
-# TODO: test different scenarios with keep and lev only
+
 class PRICES(Enum):
     DAI_USDC_ADD_LIQUIDITY = 1.03
     DAI_USDC_REMOVE_LIQUIDITY = 2.00
     ETH_DAI_ADD_LIQUIDITY = 400
     ETH_DAI_REMOVE_LIQUIDITY = 199
-    WBTC_USDC_ADD_LIQUIDITY = 11100
-    WBTC_USDC_REMOVE_LIQUIDITY = 10000
-    KEEP_ETH_ADD_LIQUIDITY = 0.00291025
+    WBTC_USDC_ADD_LIQUIDITY = 12100
+    WBTC_USDC_REMOVE_LIQUIDITY = 8000
+    KEEP_ETH_ADD_LIQUIDITY = 0.00293025
     KEEP_ETH_REMOVE_LIQUIDITY = 0.00091025
-    # KEEP_ETH_ADD_LIQUIDITY_SLIPPAGE_DOWN = 
-    # LEV_ETH_ADD_LIQUIDITY = 
-    # LEV_ETH_REMOVE_LIQUIDITY = 
 
 TARGET_AMOUNTS = {
     # adding 500 dai - 505 usdc
@@ -70,10 +66,10 @@ TARGET_AMOUNTS = {
     "ETH_DAI_MAX_DAI": 840,
 
     # adding .042083 wbtc - 505 usdc
-    # WBTC_USDC_MIN_WBTC: .0210415, # /2
-    # WBTC_USDC_MAX_WBTC: .1122, # *2.6
-    # WBTC_USDC_MIN_USDC: ,
-    # WBTC_USDC_MAX_USDC: 1010,
+    "WBTC_USDC_MIN_WBTC": .0210415, # /2
+    "WBTC_USDC_MAX_WBTC": .1122, # *2.6
+    "WBTC_USDC_MIN_USDC": 200,
+    "WBTC_USDC_MAX_USDC": 1010,
 
     # adding 4000 keep - 6 eth
     "KEEP_ETH_MIN_KEEP": 1000,
@@ -87,6 +83,7 @@ TARGET_AMOUNTS = {
     "LEV_ETH_MIN_ETH": 122.425,
     "LEV_ETH_MAX_ETH": 816.167
 }
+
 
 class TestUniswapV2MarketMakerKeeper:
 
@@ -268,20 +265,6 @@ class TestUniswapV2MarketMakerKeeper:
         assert add_liquidity == True
         assert remove_liquidity == False
 
-    # def test_should_check_target_balance(self):
-    #     # given
-    #     keeper = self.instantiate_keeper("KEEP-ETH", PRICES.KEEP_ETH_REMOVE_LIQUIDITY.value)
-       
-    #     keeper.testing_feed_price = True
-    #     keeper.test_price = Wad.from_number(PRICES.DAI_USDC_ADD_LIQUIDITY.value)
-
-    #     # when
-    #     add_liquidity, remove_liquidity = keeper.determine_liquidity_action()
-        
-    #     # then
-    #     assert add_liquidity == False
-    #     assert remove_liquidity == True
-
     def test_should_add_dai_usdc_liquidity(self):
         # given
         self.mint_tokens()
@@ -310,30 +293,30 @@ class TestUniswapV2MarketMakerKeeper:
         assert added_liquidity['amount_a_desired'] == exchange_dai_balance
         assert self.token_usdc.normalize_amount(added_liquidity['amount_b_desired']) == exchange_usdc_balance
 
-    # def test_should_add_wbtc_usdc_liquidity(self):
-    #     # given
-    #     self.mint_tokens()
-    #     keeper = self.instantiate_keeper("WBTC-USDC", PRICES.WBTC_USDC_ADD_LIQUIDITY.value)
-    #     initial_wbtc_balance = keeper.uniswap.get_account_token_balance(self.token_wbtc)
-    #     initial_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
+    def test_should_add_wbtc_usdc_liquidity(self):
+        # given
+        self.mint_tokens()
+        keeper = self.instantiate_keeper("WBTC-USDC", PRICES.WBTC_USDC_ADD_LIQUIDITY.value)
+        initial_wbtc_balance = keeper.uniswap.get_account_token_balance(self.token_wbtc)
+        initial_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
 
-    #     # when
-    #     keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
+        # when
+        keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
 
-    #     added_liquidity = keeper.calculate_liquidity_args(initial_wbtc_balance, initial_usdc_balance)
+        added_liquidity = keeper.calculate_liquidity_args(initial_wbtc_balance, initial_usdc_balance)
 
-    #     time.sleep(10)
+        time.sleep(10)
 
-    #     # then
-    #     exchange_wbtc_balance = keeper.uniswap.get_exchange_balance(self.token_wbtc, keeper.uniswap.pair_address)
-    #     exchange_usdc_balance = keeper.uniswap.get_exchange_balance(self.token_usdc, keeper.uniswap.pair_address)
-    #     final_wbtc_balance = keeper.uniswap.get_account_token_balance(self.token_wbtc)
-    #     final_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
+        # then
+        exchange_wbtc_balance = keeper.uniswap.get_exchange_balance(self.token_wbtc, keeper.uniswap.pair_address)
+        exchange_usdc_balance = keeper.uniswap.get_exchange_balance(self.token_usdc, keeper.uniswap.pair_address)
+        final_wbtc_balance = keeper.uniswap.get_account_token_balance(self.token_wbtc)
+        final_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
 
-    #     assert initial_wbtc_balance > final_wbtc_balance
-    #     assert initial_usdc_balance > final_usdc_balance
-    #     assert self.token_wbtc.normalize_amount(added_liquidity['amount_a_desired']) == exchange_wbtc_balance
-    #     assert self.token_usdc.normalize_amount(added_liquidity['amount_b_desired']) == exchange_usdc_balance
+        assert initial_wbtc_balance > final_wbtc_balance
+        assert initial_usdc_balance > final_usdc_balance
+        assert self.token_wbtc.normalize_amount(added_liquidity['amount_a_desired']) == exchange_wbtc_balance
+        assert self.token_usdc.normalize_amount(added_liquidity['amount_b_desired']) == exchange_usdc_balance
 
     def test_should_add_dai_eth_liquidity(self):
         # given
@@ -497,6 +480,7 @@ class TestUniswapV2MarketMakerKeeper:
         assert initial_eth_balance > post_add_eth_balance
 
         # when
+        # send system interrupt signal to the process and wait for shutdown
         pid = os.getpid()
         os.kill(pid, signal.SIGINT)
         time.sleep(10)
@@ -522,6 +506,25 @@ class TestUniswapV2MarketMakerKeeper:
         # then
         post_add_keep_balance = keeper.uniswap.get_account_token_balance(self.token_keep)
         post_add_eth_balance = keeper.uniswap.get_account_eth_balance()
+        post_add_exchange_keep_balance = keeper.uniswap.get_our_exchange_balance(self.token_keep, keeper.uniswap.pair_address)
+        post_add_exchange_weth_balance = keeper.uniswap.get_our_exchange_balance(self.token_weth, keeper.uniswap.pair_address)
+
+        assert initial_keep_balance > post_add_keep_balance
+        assert initial_eth_balance > post_add_eth_balance
 
         # when
-        # TODO: execute a swap that will break the balances
+        # execute a swap that will break the balances target amount and wait for removal
+        eth_to_swap = Wad.from_number(15)
+        min_amount_out = keeper.uniswap.get_amounts_out(eth_to_swap, [self.token_weth, self.token_keep])
+
+        keeper.uniswap.swap_exact_eth_for_tokens(eth_to_swap, min_amount_out[1], [self.token_weth.address.address, self.token_keep.address.address]).transact()
+        time.sleep(25)
+
+        # then    
+        post_remove_keep_balance = keeper.uniswap.get_account_token_balance(self.token_keep)
+        post_remove_eth_balance = keeper.uniswap.get_account_eth_balance()
+ 
+        assert post_remove_keep_balance > post_add_keep_balance
+        assert post_remove_eth_balance > post_add_eth_balance
+        assert initial_keep_balance > post_remove_keep_balance
+        assert initial_eth_balance > post_remove_eth_balance
