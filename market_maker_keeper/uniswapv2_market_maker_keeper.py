@@ -157,15 +157,15 @@ class UniswapV2MarketMakerKeeper:
         self.control_feed = create_control_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
 
-        self.initial_exchange_rate = self.arguments.initial_exchange_rate
-        self.uniswap_current_exchange_price = Wad.from_number(self.initial_exchange_rate) if self.initial_exchange_rate is not None else self.uniswap.get_exchange_rate()
-        
         # testing_feed_price is used by the integration tests in tests/test_uniswapv2.py, to test different pricing scenarios
         # as the keeper consistently checks the price, some long running state variable is needed to 
         self.testing_feed_price = False
         self.test_price = Wad.from_number(0)
 
         self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.arguments.router_address), Address(self.arguments.factory_address))
+
+        self.initial_exchange_rate = self.arguments.initial_exchange_rate
+        self.uniswap_current_exchange_price = Wad.from_number(self.initial_exchange_rate) if self.initial_exchange_rate is not None else self.uniswap.get_exchange_rate()
 
         self._should_shutdown = False
         self.feed_price_null_counter = 0
@@ -405,6 +405,18 @@ class UniswapV2MarketMakerKeeper:
 
         return token_a_should_remove, token_b_should_remove
 
+    def check_price_feed_diverged(self, feed_price: Wad) -> bool:
+        diff_up = feed_price * self.accepted_price_slippage_up
+        diff_down = feed_price * self.accepted_price_slippage_down
+        remove_liquidity = False
+
+        if self.uniswap_current_exchange_price > feed_price:
+            remove_liquidity = diff_up < (self.uniswap_current_exchange_price - feed_price)
+        elif self.uniswap_current_exchange_price < feed_price:
+            remove_liquidity = diff_down < (feed_price - self.uniswap_current_exchange_price) if remove_liquidity == False else True
+
+        return remove_liquidity
+
     def determine_liquidity_action(self) -> Tuple[bool, bool]:
         """
         Add or remove liquidity depending upon the difference between Uniswap asset pool ratio and our external price feeds.
@@ -433,6 +445,7 @@ class UniswapV2MarketMakerKeeper:
             self.feed_price_null_counter += 1
         else:
             self.feed_price_null_counter = 0
+            prices_diverged = self.check_price_feed_diverged(feed_price)
 
         if feed_price is None:
             if self.feed_price_null_counter >= self.price_feed_accepted_delay:
@@ -452,7 +465,12 @@ class UniswapV2MarketMakerKeeper:
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
-        elif control_feed_value['canBuy'] is True or control_feed_value['canSell'] is True:
+        elif prices_diverged is True:
+            self.logger.info(f"Price feeds have diverged beyond accepted slippage, removing all available liquidity")
+            add_liquidity = False
+            remove_liquidity = True
+            return add_liquidity, remove_liquidity
+        elif control_feed_value['canBuy'] is True:
             # Uniswap Price Ratio has diverged from external feeds, so arbitrage by adding liquidity
             diff_up = feed_price * self.accepted_price_slippage_up
             diff_down = feed_price * self.accepted_price_slippage_down
@@ -468,19 +486,7 @@ class UniswapV2MarketMakerKeeper:
                 elif self.uniswap_current_exchange_price < feed_price:
                     add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price) if add_liquidity == False else True
 
-            # TODO: move remove logic into a seperate elif case
-            # Check to see if the prices have diverged drastically and we should remove liquidity
-            if self.uniswap_current_exchange_price > feed_price:
-                remove_liquidity = diff_up < (self.uniswap_current_exchange_price - feed_price)
-            elif self.uniswap_current_exchange_price < feed_price:
-                remove_liquidity = diff_down < (feed_price - self.uniswap_current_exchange_price) if remove_liquidity == False else True
-
-            # TODO: Need to decide if its worth removing liquidity in the event we can't decide what to do
-            try:
-                assert not all([add_liquidity, remove_liquidity])
-                return add_liquidity, remove_liquidity
-            except:
-                return False, False
+            return add_liquidity, remove_liquidity
         else:
             self.logger.info(f"No states triggered; Taking no action")
             return False, False
