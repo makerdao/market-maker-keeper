@@ -431,23 +431,14 @@ class UniswapV2MarketMakerKeeper:
         If the minimum accepted price difference is greater than the distance of uniswaps price from external prices
         add liquidity to the pool, otherwise remove it.
         """
-
-        # TODO: take the average of the buy price and the sell price
-        feed_price = self.price_feed.get_price().buy_price if self.testing_feed_price is False else self.test_price
         
-        control_feed_value = self.control_feed.get()[0]
-
-        token_a_should_remove, token_b_should_remove = self.check_target_balance()
-
-        self.logger.info(f"Feed price: {feed_price} Uniswap price: {self.uniswap_current_exchange_price}")
+        if self.testing_feed_price is False:
+            feed_price = (self.price_feed.get_price().buy_price + self.price_feed.get_price().sell_price) / Wad.from_number(2)
+        else:
+            feed_price = self.test_price
 
         if feed_price is None:
             self.feed_price_null_counter += 1
-        else:
-            self.feed_price_null_counter = 0
-            prices_diverged = self.check_price_feed_diverged(feed_price)
-
-        if feed_price is None:
             if self.feed_price_null_counter >= self.price_feed_accepted_delay:
                 self.logger.warning(f"Price feed has returned null for {self.price_feed_accepted_delay} seconds, removing all available' liquidity")
                 self.feed_price_null_counter = 0
@@ -455,21 +446,34 @@ class UniswapV2MarketMakerKeeper:
                 remove_liquidity = True
                 return add_liquidity, remove_liquidity
             return False, False
-        elif self._should_shutdown is True:
+        else:
+            self.feed_price_null_counter = 0
+
+        self.logger.info(f"Feed price: {feed_price} Uniswap price: {self.uniswap_current_exchange_price}")
+
+        control_feed_value = self.control_feed.get()[0]
+
+        token_a_should_remove, token_b_should_remove = self.check_target_balance()
+        prices_diverged = self.check_price_feed_diverged(feed_price)
+
+        if self._should_shutdown is True:
             self.logger.info(f"Shutdown notification received, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
+
         elif token_a_should_remove is True or token_b_should_remove is True:
             self.logger.info(f"Target amounts breached, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
+
         elif prices_diverged is True:
             self.logger.info(f"Price feeds have diverged beyond accepted slippage, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
+
         elif control_feed_value['canBuy'] is True:
             # Uniswap Price Ratio has diverged from external feeds, so arbitrage by adding liquidity
             diff_up = feed_price * self.accepted_price_slippage_up
@@ -478,15 +482,15 @@ class UniswapV2MarketMakerKeeper:
             add_liquidity = False
             remove_liquidity = False
 
-            if control_feed_value['canBuy'] is True:
-                # check if external price feed is showing lower prices
-                if self.uniswap_current_exchange_price > feed_price:
-                    add_liquidity = diff_up > (self.uniswap_current_exchange_price - feed_price)
-                # check if external price feed is showing higher prices
-                elif self.uniswap_current_exchange_price < feed_price:
-                    add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price) if add_liquidity == False else True
+            # check if external price feed is showing lower prices
+            if self.uniswap_current_exchange_price > feed_price:
+                add_liquidity = diff_up > (self.uniswap_current_exchange_price - feed_price)
+            # check if external price feed is showing higher prices
+            elif self.uniswap_current_exchange_price < feed_price:
+                add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price) if add_liquidity == False else True
 
             return add_liquidity, remove_liquidity
+
         else:
             self.logger.info(f"No states triggered; Taking no action")
             return False, False
