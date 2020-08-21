@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import shutil
 import signal
 import json
 import py
@@ -26,15 +25,12 @@ import time
 import threading
 import os
 
-from unittest.mock import MagicMock
 from enum import Enum
 from web3 import Web3, HTTPProvider
-from typing import List
+from multiprocessing import Process
 
 from market_maker_keeper.uniswapv2_market_maker_keeper import UniswapV2MarketMakerKeeper
 from pymaker import Address, Contract
-from pymaker.feed import DSValue
-from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pymaker.model import Token
 from pymaker.token import DSToken
@@ -453,6 +449,7 @@ class TestUniswapV2MarketMakerKeeper:
         assert post_remove_dai_balance > post_add_dai_balance
         assert post_remove_eth_balance > post_add_eth_balance
 
+    @unittest.skip
     def test_should_remove_liquidity_if_shutdown_signal_received(self):
         # given
         self.mint_tokens()
@@ -461,18 +458,15 @@ class TestUniswapV2MarketMakerKeeper:
         initial_eth_balance = keeper.uniswap.get_account_eth_balance()
 
         # when
-        def _sigint_sigterm_handler(self, sig):
-            keeper._should_shutdown = True
-
-        signal.signal(signal.SIGINT, _sigint_sigterm_handler)
-        keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
+        # keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
+        keeper_process = Process(target=keeper.main, daemon=True).start()
         time.sleep(10)
 
         # then
         post_add_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         post_add_eth_balance = keeper.uniswap.get_account_eth_balance()
-        post_add_exchange_dai_balance = keeper.uniswap.get_exchange_balance(self.token_dai, keeper.uniswap.pair_address)
-        post_add_exchange_weth_balance = keeper.uniswap.get_exchange_balance(self.token_weth, keeper.uniswap.pair_address)
+        post_add_exchange_dai_balance = keeper.uniswap.get_our_exchange_balance(self.token_dai, keeper.uniswap.pair_address)
+        post_add_exchange_weth_balance = keeper.uniswap.get_our_exchange_balance(self.token_weth, keeper.uniswap.pair_address)
 
         assert post_add_exchange_dai_balance > Wad.from_number(0)
         assert post_add_exchange_weth_balance > Wad.from_number(0)
@@ -481,16 +475,19 @@ class TestUniswapV2MarketMakerKeeper:
 
         # when
         # send system interrupt signal to the process and wait for shutdown
-        pid = os.getpid()
+        # pid = os.getpid()
+        pid = keeper_process.current_process().pid
         os.kill(pid, signal.SIGINT)
         time.sleep(10)
 
         # then
         post_remove_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         post_remove_eth_balance = keeper.uniswap.get_account_eth_balance()
- 
-        assert post_remove_dai_balance > post_add_dai_balance
-        assert post_remove_eth_balance > post_add_eth_balance
+        post_remove_exchange_dai_balance = keeper.uniswap.get_our_exchange_balance(self.token_dai, keeper.uniswap.pair_address)
+        post_remove_exchange_weth_balance = keeper.uniswap.get_our_exchange_balance(self.token_weth, keeper.uniswap.pair_address)
+
+        assert post_add_exchange_weth_balance > post_remove_exchange_dai_balance
+        assert post_add_exchange_weth_balance > post_remove_exchange_weth_balance
 
     def test_should_remove_liquidity_if_target_amounts_are_breached(self):
         # given

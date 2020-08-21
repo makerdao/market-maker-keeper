@@ -26,7 +26,6 @@ from pymaker.keys import register_keys
 from pymaker.model import Token
 from pymaker import Address, Wad, Receipt
 from market_maker_keeper.control_feed import create_control_feed
-from market_maker_keeper.feed import ExpiringFeed, WebSocketFeed
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.model import TokenConfig
 from market_maker_keeper.price_feed import PriceFeedFactory
@@ -167,7 +166,6 @@ class UniswapV2MarketMakerKeeper:
         self.initial_exchange_rate = self.arguments.initial_exchange_rate
         self.uniswap_current_exchange_price = Wad.from_number(self.initial_exchange_rate) if self.initial_exchange_rate is not None else self.uniswap.get_exchange_rate()
 
-        self._should_shutdown = False
         self.feed_price_null_counter = 0
 
         # set target min and max amounts for each side of the pair
@@ -193,7 +191,8 @@ class UniswapV2MarketMakerKeeper:
         self.uniswap.approve(self.token_b)
 
     def shutdown(self):
-        self._should_shutdown = True
+        self.logger.info(f"Shutdown notification received, removing all available liquidity")
+        self.remove_liquidity()
 
     def get_token_config(self):
         current_config = self.reloadable_config.get_token_config()
@@ -320,19 +319,14 @@ class UniswapV2MarketMakerKeeper:
         else:
             self.logger.info(f"Not enough tokens to add liquidity or liquidity already added")
 
-    def remove_liquidity(self, exchange_token_a_balance: Wad, exchange_token_b_balance: Wad) -> Optional[Receipt]:
+    def remove_liquidity(self) -> Optional[Receipt]:
         """ Send an removeLiquidity or removeLiquidityETH transaction to the UniswapV2 Router Contract.
 
         It is assumed that all liquidity should be removed.
 
-        Args:
-            exchange_token_a_balance:
-            exchange_token_b_balance:
         Returns:
             A Pymaker Receipt object or a None
         """
-        assert (isinstance(exchange_token_a_balance, Wad))
-        assert (isinstance(exchange_token_b_balance, Wad))
 
         liquidity_to_remove = self.uniswap.get_current_liquidity()
         total_liquidity = self.uniswap.get_total_liquidity()
@@ -428,7 +422,7 @@ class UniswapV2MarketMakerKeeper:
         First calculate the acceptable price movement limit based upon the
         difference between external price feeds and the accepted slippage.
 
-        If the minimum accepted price difference is greater than the distance of uniswaps price from external prices
+        If the minimum accepted price difference is less than the distance of uniswaps price from external prices
         add liquidity to the pool, otherwise remove it.
         """
         
@@ -453,16 +447,10 @@ class UniswapV2MarketMakerKeeper:
 
         control_feed_value = self.control_feed.get()[0]
 
-        token_a_should_remove, token_b_should_remove = self.check_target_balance()
+        token_a_target_amount_breach, token_b_target_amount_breach = self.check_target_balance()
         prices_diverged = self.check_price_feed_diverged(feed_price)
 
-        if self._should_shutdown is True:
-            self.logger.info(f"Shutdown notification received, removing all available liquidity")
-            add_liquidity = False
-            remove_liquidity = True
-            return add_liquidity, remove_liquidity
-
-        elif token_a_should_remove is True or token_b_should_remove is True:
+        if token_a_target_amount_breach is True or token_b_target_amount_breach is True:
             self.logger.info(f"Target amounts breached, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
@@ -518,7 +506,7 @@ class UniswapV2MarketMakerKeeper:
                 self.logger.info(f"Current liquidity tokens after adding {self.uniswap.get_current_liquidity()}")
 
         if remove_liquidity:
-            receipt = self.remove_liquidity(exchange_token_a_balance, exchange_token_b_balance)
+            receipt = self.remove_liquidity()
             if receipt is not None:
                 self.logger.info(f"Current liquidity tokens after removing {self.uniswap.get_current_liquidity()}")
 
