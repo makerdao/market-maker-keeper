@@ -78,6 +78,8 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--price-feed-expiry", type=int, default=86400,
                             help="Maximum age of the price feed (in seconds, default: 86400)")
 
+        parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
+
         parser.add_argument("--gas-price", type=int, default=9000000000,
                             help="Gas price (in Wei)")
 
