@@ -337,8 +337,8 @@ class UniswapV2MarketMakerKeeper:
 
         remove_liquidity_args = {
             'liquidity': liquidity_to_remove,
-            'amountAMin': amount_a_min,
-            'amountBMin': amount_b_min
+            'amountAMin': self.token_a.unnormalize_amount(amount_a_min),
+            'amountBMin': self.token_b.unnormalize_amount(amount_b_min)
         }
 
         if liquidity_to_remove > Wad(0):

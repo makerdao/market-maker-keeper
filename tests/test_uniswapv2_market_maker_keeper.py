@@ -266,7 +266,6 @@ class TestUniswapV2MarketMakerKeeper:
         # given
         self.mint_tokens()
         keeper = self.instantiate_keeper("DAI-USDC")
-        # keeper.uniswap_current_exchange_price = Wad.from_number(PRICES.ETH_DAI_ADD_LIQUIDITY.value)
 
         initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         initial_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
@@ -371,7 +370,8 @@ class TestUniswapV2MarketMakerKeeper:
         post_remove_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         post_remove_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
 
-        # assert post_remove_dai_balance == post_add_dai_balance + added_liquidity['amount_a_desired']
+        assert post_add_exchange_dai_balance > post_remove_exchange_dai_balance
+        assert post_add_exchange_usdc_balance > post_remove_exchange_usdc_balance
         assert post_remove_dai_balance > post_add_dai_balance
         assert post_remove_usdc_balance > post_add_usdc_balance
 
