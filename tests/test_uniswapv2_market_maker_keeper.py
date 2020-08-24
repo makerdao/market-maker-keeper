@@ -174,7 +174,7 @@ class TestUniswapV2MarketMakerKeeper:
             "max_b": TARGET_AMOUNTS[f"{formatted_pair}_MAX_{token_b}"]
         }
 
-    def instantiate_keeper(self, pair: str, initial_price: float) -> UniswapV2MarketMakerKeeper:
+    def instantiate_keeper(self, pair: str) -> UniswapV2MarketMakerKeeper:
         if pair == "DAI-USDC":
             feed_price = "fixed:1.01"
         elif pair == "ETH-DAI":
@@ -192,7 +192,6 @@ class TestUniswapV2MarketMakerKeeper:
                                                       f" --rpc-port 8545"
                                                       f" --eth-key {self.private_key}"
                                                       f" --pair {pair}"
-                                                      f" --initial-exchange-rate {initial_price}"
                                                       f" --accepted-price-slippage-up 50"
                                                       f" --accepted-price-slippage-down 30"
                                                       f" --target-a-min-balance {target_balances['min_a']}"
@@ -209,7 +208,8 @@ class TestUniswapV2MarketMakerKeeper:
     def test_calculate_token_liquidity_to_add(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("DAI-USDC", PRICES.DAI_USDC_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("DAI-USDC")
+        keeper.uniswap_current_exchange_price = Wad.from_number(PRICES.DAI_USDC_ADD_LIQUIDITY.value)
 
         # when
         dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
@@ -224,7 +224,8 @@ class TestUniswapV2MarketMakerKeeper:
     def test_calculate_eth_liquidity_to_add(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("ETH-DAI", PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI")
+        keeper.uniswap_current_exchange_price = Wad.from_number(PRICES.ETH_DAI_ADD_LIQUIDITY.value)
 
         # when
         dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
@@ -241,7 +242,7 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_ensure_adequate_eth_for_gas(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("ETH-DAI", PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI")
 
         # when
         dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
@@ -252,7 +253,7 @@ class TestUniswapV2MarketMakerKeeper:
 
     def test_should_determine_add_liquidity(self):
         # given
-        keeper = self.instantiate_keeper("DAI-USDC", PRICES.DAI_USDC_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("DAI-USDC")
 
         # when
         add_liquidity, remove_liquidity = keeper.determine_liquidity_action()
@@ -264,17 +265,19 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_add_dai_usdc_liquidity(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("DAI-USDC", PRICES.DAI_USDC_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("DAI-USDC")
+        # keeper.uniswap_current_exchange_price = Wad.from_number(PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+
         initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         initial_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
 
         # when
         keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
 
+        time.sleep(10)
+
         added_liquidity = keeper.calculate_liquidity_args(initial_dai_balance, initial_usdc_balance)
 
-        print("ADDED USDC LIQ", added_liquidity)
-        time.sleep(10)
 
         # then
         exchange_dai_balance = keeper.uniswap.get_exchange_balance(self.token_dai, keeper.uniswap.pair_address)
@@ -292,16 +295,16 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_add_wbtc_usdc_liquidity(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("WBTC-USDC", PRICES.WBTC_USDC_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("WBTC-USDC")
         initial_wbtc_balance = keeper.uniswap.get_account_token_balance(self.token_wbtc)
         initial_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
 
         # when
         keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
 
-        added_liquidity = keeper.calculate_liquidity_args(initial_wbtc_balance, initial_usdc_balance)
-
         time.sleep(10)
+
+        added_liquidity = keeper.calculate_liquidity_args(initial_wbtc_balance, initial_usdc_balance)
 
         # then
         exchange_wbtc_balance = keeper.uniswap.get_exchange_balance(self.token_wbtc, keeper.uniswap.pair_address)
@@ -317,7 +320,7 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_add_dai_eth_liquidity(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("ETH-DAI", PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI")
         dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         eth_balance = keeper.uniswap.get_account_eth_balance()
 
@@ -337,16 +340,16 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_remove_dai_usdc_liquidity(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("DAI-USDC", PRICES.DAI_USDC_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("DAI-USDC")
         initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         initial_usdc_balance = keeper.uniswap.get_account_token_balance(self.token_usdc)
 
         # when
         keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
 
-        added_liquidity = keeper.calculate_liquidity_args(initial_dai_balance, initial_usdc_balance)
-
         time.sleep(10)
+
+        added_liquidity = keeper.calculate_liquidity_args(initial_dai_balance, initial_usdc_balance)
 
         post_add_exchange_dai_balance = keeper.uniswap.get_exchange_balance(self.token_dai, keeper.uniswap.pair_address)
         post_add_exchange_usdc_balance = keeper.uniswap.get_exchange_balance(self.token_usdc, keeper.uniswap.pair_address)
@@ -375,7 +378,7 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_remove_dai_eth_liquidity(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("ETH-DAI", PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI")
         initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         initial_eth_balance = keeper.uniswap.get_account_eth_balance()
 
@@ -411,7 +414,7 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_remove_liquidity_if_price_feed_is_null(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("ETH-DAI", PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI")
         initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         initial_eth_balance = keeper.uniswap.get_account_eth_balance()
 
@@ -453,7 +456,7 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_remove_liquidity_if_shutdown_signal_received(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("ETH-DAI", PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("ETH-DAI")
         initial_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         initial_eth_balance = keeper.uniswap.get_account_eth_balance()
 
@@ -492,7 +495,7 @@ class TestUniswapV2MarketMakerKeeper:
     def test_should_remove_liquidity_if_target_amounts_are_breached(self):
         # given
         self.mint_tokens()
-        keeper = self.instantiate_keeper("KEEP-ETH", PRICES.KEEP_ETH_ADD_LIQUIDITY.value)
+        keeper = self.instantiate_keeper("KEEP-ETH")
         initial_keep_balance = keeper.uniswap.get_account_token_balance(self.token_keep)
         initial_eth_balance = keeper.uniswap.get_account_eth_balance()
 

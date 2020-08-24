@@ -86,9 +86,6 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
 
-        parser.add_argument("--initial-exchange-rate", type=float, default=None,
-                            help="Used to determine the initial product to be used in a newly created pool")
-
         parser.add_argument("--max-add-liquidity-slippage", type=int, default=2,
                             help="Maximum percentage off the desired amount of liquidity to add in add_liquidity()")
 
@@ -165,8 +162,7 @@ class UniswapV2MarketMakerKeeper:
 
         self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.arguments.router_address), Address(self.arguments.factory_address))
 
-        self.initial_exchange_rate = self.arguments.initial_exchange_rate
-        self.uniswap_current_exchange_price = Wad.from_number(self.initial_exchange_rate) if self.initial_exchange_rate is not None else self.uniswap.get_exchange_rate()
+        self.uniswap_current_exchange_price = self.uniswap.get_exchange_rate()
 
         self.feed_price_null_counter = 0
 
@@ -260,8 +256,6 @@ class UniswapV2MarketMakerKeeper:
         Given available token balances and an exchange rate, calculations of amounts to add,
         and limits for price movement need to be calculated.
 
-        Args:
-            uniswap_current_exchange_price: The current Product of the pool
         Returns:
             A Pymaker Receipt object or a None
         """
@@ -313,7 +307,6 @@ class UniswapV2MarketMakerKeeper:
 
                 if self.uniswap.is_new_pool:
                     self.uniswap.set_and_approve_pair_token(self.uniswap.get_pair_address(self.token_a.address, self.token_b.address))
-                    self.initial_exchange_rate = None
 
                 return transact
             else:
@@ -445,6 +438,8 @@ class UniswapV2MarketMakerKeeper:
         else:
             self.feed_price_null_counter = 0
 
+        self.uniswap_current_exchange_price = self.uniswap.get_exchange_rate() if self.uniswap.get_exchange_rate() != Wad.from_number(0) else feed_price
+
         self.logger.info(f"Feed price: {feed_price} Uniswap price: {self.uniswap_current_exchange_price}")
 
         control_feed_value = self.control_feed.get()[0]
@@ -465,10 +460,9 @@ class UniswapV2MarketMakerKeeper:
             return add_liquidity, remove_liquidity
 
         elif control_feed_value['canBuy'] is True:
-            # Uniswap Price Ratio has diverged from external feeds, so arbitrage by adding liquidity
             diff_up = feed_price * self.accepted_price_slippage_up
             diff_down = feed_price * self.accepted_price_slippage_down
-            
+
             add_liquidity = False
             remove_liquidity = False
 
@@ -478,6 +472,8 @@ class UniswapV2MarketMakerKeeper:
             # check if external price feed is showing higher prices
             elif self.uniswap_current_exchange_price < feed_price:
                 add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price) if add_liquidity == False else True
+            else:
+                add_liquidity = True
 
             return add_liquidity, remove_liquidity
 
