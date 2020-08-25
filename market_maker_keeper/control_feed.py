@@ -19,11 +19,14 @@ from market_maker_keeper.feed import Feed, ExpiringFeed, WebSocketFeed, EmptyFee
 
 
 def create_control_feed(arguments) -> Feed:
-    if arguments.control_feed:
-        web_socket_feed = WebSocketFeed(arguments.control_feed, 5)
-        expiring_web_socket_feed = ExpiringFeed(web_socket_feed, arguments.control_feed_expiry)
+    try:
+        if arguments.control_feed:
+            web_socket_feed = WebSocketFeed(arguments.control_feed, 5)
+            expiring_web_socket_feed = ExpiringFeed(web_socket_feed, arguments.control_feed_expiry)
 
-        return expiring_web_socket_feed
+            return expiring_web_socket_feed
 
-    else:
+        else:
+            return FixedFeed({'canBuy': True, 'canSell': True})
+    except AttributeError:
         return FixedFeed({'canBuy': True, 'canSell': True})

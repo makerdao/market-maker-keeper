@@ -1,6 +1,6 @@
 # This file is part of Maker Keeper Framework.
 #
-# Copyright (C) 2017-2018 reverendus
+# Copyright (C) 2020 MikeHathaway
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -15,17 +15,18 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from market_maker_keeper.feed import Feed, ExpiringFeed, WebSocketFeed, EmptyFeed
+from pprint import pformat
+from pymaker import Address
+from pymaker.model import Token
 
+class TokenConfig:
+    def __init__(self, data: dict):
+        assert (isinstance(data, dict))
 
-def create_spread_feed(arguments) -> Feed:
-    try:
-        if arguments.spread_feed:
-            web_socket_feed = WebSocketFeed(arguments.spread_feed, 5)
-            expiring_web_socket_feed = ExpiringFeed(web_socket_feed, arguments.spread_feed_expiry)
+        self.tokens = [Token(name=key,
+                             address=Address(value['tokenAddress']) if 'tokenAddress' in value else None,
+                             decimals=value['tokenDecimals'] if 'tokenDecimals' in value else 18) for key, value in
+                       data['tokens'].items()]
 
-            return expiring_web_socket_feed
-        else:
-            return EmptyFeed()
-    except AttributeError:
-        return EmptyFeed()
+    def __repr__(self):
+        return pformat(vars(self))
