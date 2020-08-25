@@ -4,6 +4,9 @@ source _virtualenv/bin/activate
 # Remove existing container if tests not gracefully stopped
 docker-compose down
 
+# Create environment file
+touch .env
+
 # Start ganache
 docker-compose up -d ganache
 
