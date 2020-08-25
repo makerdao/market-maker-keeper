@@ -459,7 +459,13 @@ class UniswapV2MarketMakerKeeper:
             remove_liquidity = True
             return add_liquidity, remove_liquidity
 
-        elif control_feed_value['canBuy'] is True:
+        elif control_feed_value['canBuy'] is False or control_feed_value['canSell'] is False:
+            self.logger.info(f"Control feed instructing to sell, removing all available liquidity")
+            add_liquidity = False
+            remove_liquidity = True
+            return add_liquidity, remove_liquidity
+
+        elif control_feed_value['canBuy'] is True and control_feed_value['canSell'] is True:
             diff_up = feed_price * self.accepted_price_slippage_up
             diff_down = feed_price * self.accepted_price_slippage_down
 
