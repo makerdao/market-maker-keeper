@@ -19,7 +19,6 @@ import argparse
 import logging
 import sys
 from typing import List
-from math import log10
 
 from market_maker_keeper.band import Bands, NewOrder
 from market_maker_keeper.control_feed import create_control_feed
@@ -122,9 +121,9 @@ class BinanceUsMarketMakerKeeper:
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
-        # Get maximum number of decimals for prices and amounts.
-        quote_increment = self.binance_api.get_product(self.arguments.pair)["quote_increment"]
-        self.precision = -(int(log10(float(quote_increment)))+1)
+        quote_asset_precision, quote_precision = self.binance_api.get_precision(self.pair()) 
+        self.quote_asset_precision = quote_asset_precision
+        self.quote_precision = quote_precision
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
@@ -180,9 +179,9 @@ class BinanceUsMarketMakerKeeper:
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
-            price = round(new_order_to_be_placed.price, self.precision)
+            price = round(new_order_to_be_placed.price, self.quote_precision)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            amount = round(amount, self.precision)
+            amount = round(amount, self.quote_asset_precision)
 
             order_id = self.binance_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
 
