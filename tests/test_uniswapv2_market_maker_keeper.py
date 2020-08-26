@@ -57,13 +57,13 @@ TARGET_AMOUNTS = {
 
     # adding 420 dai - 1 eth
     "ETH_DAI_MIN_ETH": 0.5,
-    "ETH_DAI_MAX_ETH": 4,
+    "ETH_DAI_MAX_ETH": 10000000,
     "ETH_DAI_MIN_DAI": 105,
     "ETH_DAI_MAX_DAI": 840,
 
     # adding .042083 wbtc - 505 usdc
-    "WBTC_USDC_MIN_WBTC": .0210415, # /2
-    "WBTC_USDC_MAX_WBTC": .1122, # *2.6
+    "WBTC_USDC_MIN_WBTC": .0210415,
+    "WBTC_USDC_MAX_WBTC": 20,
     "WBTC_USDC_MIN_USDC": 200,
     "WBTC_USDC_MAX_USDC": 1010,
 
@@ -71,7 +71,7 @@ TARGET_AMOUNTS = {
     "KEEP_ETH_MIN_KEEP": 1000,
     "KEEP_ETH_MAX_KEEP": 8000,
     "KEEP_ETH_MIN_ETH": 3,
-    "KEEP_ETH_MAX_ETH": 16,
+    "KEEP_ETH_MAX_ETH": 10000000,
 
     # adding 1000000 lev - 244.85 eth
     "LEV_ETH_MIN_LEV": 300000,
@@ -253,6 +253,7 @@ class TestUniswapV2MarketMakerKeeper:
 
     def test_should_determine_add_liquidity(self):
         # given
+        self.mint_tokens()
         keeper = self.instantiate_keeper("DAI-USDC")
 
         # when
