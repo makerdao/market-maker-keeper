@@ -154,7 +154,7 @@ class UniswapV2MarketMakerKeeper:
         self.price_feed_accepted_delay = self.arguments.price_feed_accepted_delay
         self.control_feed = create_control_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
-        
+
         # testing_feed_price is used by the integration tests in tests/test_uniswapv2.py, to test different pricing scenarios
         # as the keeper consistently checks the price, some long running state variable is needed to 
         self.testing_feed_price = False
@@ -375,19 +375,17 @@ class UniswapV2MarketMakerKeeper:
 
 
     def check_target_balance(self) -> Tuple[bool, bool]:
+        # check current balance, see if its above or below target amounts
+        # True results in liquidity removal; False liquidity adding
+
+        # TODO: check to ensure that target amounts aren't breached when creating a new pool
         current_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address) + self.get_balance(self.token_a)
         current_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address) + self.get_balance(self.token_b)
 
-        # check current balance, see if its above or below target amounts
-        a_exceeds_target_balance = current_token_a_balance > self.target_a_max_balance
-        b_exceeds_target_balance = current_token_b_balance > self.target_b_max_balance
-
-        a_below_target_balance = False
-        b_below_target_balance = False
-        if not self.uniswap.is_new_pool:
-            if not self.uniswap.get_current_liquidity() == Wad.from_number(0):
-                a_below_target_balance = current_token_a_balance < self.target_a_min_balance
-                b_below_target_balance = current_token_b_balance < self.target_b_min_balance
+        a_exceeds_target_balance = current_token_a_balance >= self.target_a_max_balance
+        b_exceeds_target_balance = current_token_b_balance >= self.target_b_max_balance
+        a_below_target_balance = current_token_a_balance <= self.target_a_min_balance
+        b_below_target_balance = current_token_b_balance <= self.target_b_min_balance
 
         token_a_should_remove = a_below_target_balance or a_exceeds_target_balance
         token_b_should_remove = b_below_target_balance or b_exceeds_target_balance
