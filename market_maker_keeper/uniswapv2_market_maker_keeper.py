@@ -122,7 +122,12 @@ class UniswapV2MarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+        if self.arguments.rpc_host.startswith("http"):
+            endpoint_uri = f"{self.arguments.rpc_host}:{self.arguments.rpc_port}"
+        else:
+            endpoint_uri = f"https://{self.arguments.rpc_host}:{self.arguments.rpc_port}"
+
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=endpoint_uri,
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
 
         self.web3.eth.defaultAccount = self.arguments.eth_from
@@ -160,7 +165,7 @@ class UniswapV2MarketMakerKeeper:
         self.testing_feed_price = False
         self.test_price = Wad.from_number(0)
 
-        self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.arguments.router_address), Address(self.arguments.factory_address))
+        self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.web3.eth.defaultAccount), Address(self.arguments.router_address), Address(self.arguments.factory_address))
 
         self.uniswap_current_exchange_price = self.uniswap.get_exchange_rate()
 
@@ -308,6 +313,7 @@ class UniswapV2MarketMakerKeeper:
                 if self.uniswap.is_new_pool:
                     self.uniswap.set_and_approve_pair_token(self.uniswap.get_pair_address(self.token_a.address, self.token_b.address))
 
+                # TODO: add calculation of our percentage of the pool
                 return transact
             else:
                 self.logger.warning(f"Failed to add liquidity with: {add_liquidity_args}")
