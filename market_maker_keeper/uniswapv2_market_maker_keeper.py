@@ -168,10 +168,10 @@ class UniswapV2MarketMakerKeeper:
 
         # set target min and max amounts for each side of the pair
         # balance doesnt exceed some level, as an effective stop loss against impermanent loss
-        self.target_a_min_balance = self.token_a.unnormalize_amount(Wad.from_number(self.arguments.target_a_min_balance))
-        self.target_a_max_balance = self.token_a.unnormalize_amount(Wad.from_number(self.arguments.target_a_max_balance))
-        self.target_b_min_balance = self.token_b.unnormalize_amount(Wad.from_number(self.arguments.target_b_min_balance))
-        self.target_b_max_balance = self.token_b.unnormalize_amount(Wad.from_number(self.arguments.target_b_max_balance))
+        self.target_a_min_balance = Wad.from_number(self.arguments.target_a_min_balance)
+        self.target_a_max_balance = Wad.from_number(self.arguments.target_a_max_balance)
+        self.target_b_min_balance = Wad.from_number(self.arguments.target_b_min_balance)
+        self.target_b_max_balance = Wad.from_number(self.arguments.target_b_max_balance)
 
         self.accepted_price_slippage_up = Wad.from_number(self.arguments.accepted_price_slippage_up / 100)
         self.accepted_price_slippage_down = Wad.from_number(self.arguments.accepted_price_slippage_down / 100)
@@ -374,7 +374,7 @@ class UniswapV2MarketMakerKeeper:
             self.logger.info(f"No liquidity to remove")
 
 
-    def check_target_balance(self) -> Tuple[bool, bool]:
+    def check_target_balance(self) -> bool:
         # check current balance, see if its above or below target amounts
         # True results in liquidity removal; False liquidity adding
 
@@ -382,15 +382,20 @@ class UniswapV2MarketMakerKeeper:
         current_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address) + self.get_balance(self.token_a)
         current_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address) + self.get_balance(self.token_b)
 
-        a_exceeds_target_balance = current_token_a_balance >= self.target_a_max_balance
-        b_exceeds_target_balance = current_token_b_balance >= self.target_b_max_balance
-        a_below_target_balance = current_token_a_balance <= self.target_a_min_balance
-        b_below_target_balance = current_token_b_balance <= self.target_b_min_balance
-
-        token_a_should_remove = a_below_target_balance or a_exceeds_target_balance
-        token_b_should_remove = b_below_target_balance or b_exceeds_target_balance
-
-        return token_a_should_remove, token_b_should_remove
+        if current_token_a_balance >= self.target_a_max_balance:
+            self.logger.info(f"Keeper token A balance of {current_token_a_balance} exceeds max target balance of {self.target_a_max_balance}")
+            return True
+        elif current_token_b_balance >= self.target_b_max_balance: 
+            self.logger.info(f"Keeper token B balance of {current_token_b_balance} exceeds max target balance of {self.target_b_max_balance}")
+            return True
+        elif current_token_a_balance <= self.target_a_min_balance:
+            self.logger.info(f"Keeper token A balance of {current_token_a_balance} is less than min target balance of {self.target_a_min_balance}")
+            return True
+        elif current_token_b_balance <= self.target_b_min_balance:
+            self.logger.info(f"Keeper token B balance of {current_token_b_balance} is less than min target balance of {self.target_b_min_balance}")
+            return True
+        else:
+            return False
 
     def check_price_feed_diverged(self, feed_price: Wad) -> bool:
         diff_up = feed_price * self.accepted_price_slippage_up
@@ -442,23 +447,23 @@ class UniswapV2MarketMakerKeeper:
 
         control_feed_value = self.control_feed.get()[0]
 
-        token_a_target_amount_breach, token_b_target_amount_breach = self.check_target_balance()
+        target_amounts_breached = self.check_target_balance()
         prices_diverged = self.check_price_feed_diverged(feed_price)
 
-        if token_a_target_amount_breach is True or token_b_target_amount_breach is True:
+        if target_amounts_breached:
             self.logger.info(f"Target amounts breached, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
 
-        elif prices_diverged is True:
+        elif prices_diverged:
             self.logger.info(f"Price feeds have diverged beyond accepted slippage, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
 
         elif control_feed_value['canBuy'] is False or control_feed_value['canSell'] is False:
-            self.logger.info(f"Control feed instructing to sell, removing all available liquidity")
+            self.logger.info(f"Control feed instructing to stop trading, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
@@ -475,7 +480,7 @@ class UniswapV2MarketMakerKeeper:
                 add_liquidity = diff_up > (self.uniswap_current_exchange_price - feed_price)
             # check if external price feed is showing higher prices
             elif self.uniswap_current_exchange_price < feed_price:
-                add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price) if add_liquidity == False else True
+                add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price)
             else:
                 add_liquidity = True
 
