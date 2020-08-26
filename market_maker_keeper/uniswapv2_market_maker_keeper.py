@@ -122,7 +122,7 @@ class UniswapV2MarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"https://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                                                               request_kwargs={"timeout": self.arguments.rpc_timeout}))
 
         self.web3.eth.defaultAccount = self.arguments.eth_from
@@ -154,7 +154,7 @@ class UniswapV2MarketMakerKeeper:
         self.price_feed_accepted_delay = self.arguments.price_feed_accepted_delay
         self.control_feed = create_control_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
-
+        
         # testing_feed_price is used by the integration tests in tests/test_uniswapv2.py, to test different pricing scenarios
         # as the keeper consistently checks the price, some long running state variable is needed to 
         self.testing_feed_price = False
@@ -267,7 +267,7 @@ class UniswapV2MarketMakerKeeper:
                          f"Wallet {self.token_b.name} balance: {token_b_balance}")
 
         add_liquidity_args = self.calculate_liquidity_args(token_a_balance, token_b_balance)
-        self.logger.info(f"Pair liquidity to add: {add_liquidity_args}")
+        self.logger.debug(f"Pair liquidity to add: {add_liquidity_args}")
 
         current_liquidity_tokens = Wad.from_number(0) if self.uniswap.is_new_pool else self.uniswap.get_current_liquidity()
         self.logger.info(f"Current liquidity tokens before adding: {current_liquidity_tokens}")
@@ -342,7 +342,7 @@ class UniswapV2MarketMakerKeeper:
         }
 
         if liquidity_to_remove > Wad(0):
-            self.logger.info(f"Removing {remove_liquidity_args} from Uniswap pool {self.uniswap.pair_address}")
+            self.logger.debug(f"Removing {remove_liquidity_args} from Uniswap pool {self.uniswap.pair_address}")
 
             if self.is_eth:
                 token = self.token_b if self.eth_position == 0 else self.token_a
@@ -375,8 +375,8 @@ class UniswapV2MarketMakerKeeper:
 
 
     def check_target_balance(self) -> Tuple[bool, bool]:
-        current_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address)
-        current_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address)
+        current_token_a_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address) + self.get_balance(self.token_a)
+        current_token_b_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address) + self.get_balance(self.token_b)
 
         # check current balance, see if its above or below target amounts
         a_exceeds_target_balance = current_token_a_balance > self.target_a_max_balance
