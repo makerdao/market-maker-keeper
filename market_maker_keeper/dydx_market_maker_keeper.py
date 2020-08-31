@@ -120,11 +120,9 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
 
         return list(filter(lambda x: x['currency'] == token.upper(), our_balances))[0]['wad']
 
-    def _should_place_order(self, new_order: dict) -> bool:
+    def _should_place_order(self, new_order: dict, minimum_order_size: Wad) -> bool:
         amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
-        minimumOrderSize = float(self.market_info[self.pair().upper()]['minimumOrderSize'])
-        converted_minimum = minimumOrderSize / 10 ** 17
-        return True if Wad.__float__(amount) > converted_minimum else False
+        return amount > minimum_order_size
 
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
@@ -140,11 +138,11 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         for new_order in new_orders:
             amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
             side = 'Sell' if new_order.is_sell else 'Buy'
-            minimumOrderSize = float(self.market_info[self.pair().upper()]['minimumOrderSize'])
-            if self._should_place_order(new_order):
+            minimum_order_size = Wad.from_number(float(self.market_info[self.pair().upper()]['smallOrderThreshold']) / 10 ** 18)
+            if self._should_place_order(new_order, minimum_order_size):
                 self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
             else:
-                logging.info(f"New {side} Order below size minimum of {minimumOrderSize}. Order of amount {amount} ignored.")
+                logging.info(f"New {side} Order below size minimum of {minimum_order_size}. Order of amount {amount} ignored.")
 
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
