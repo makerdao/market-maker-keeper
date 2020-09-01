@@ -119,7 +119,7 @@ class LeverjMarketMakerKeeper:
             self.web3 = Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}",
                                       request_kwargs={"timeout": self.arguments.rpc_timeout}))
         else:
-            self.web3 = Web3(HTTPProvider(endpoint_uri=f"https://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+            self.web3 = Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                       request_kwargs={"timeout": self.arguments.rpc_timeout}))
 
         self.web3.eth.defaultAccount = self.arguments.eth_from
