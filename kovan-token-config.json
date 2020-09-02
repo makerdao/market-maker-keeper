@@ -1,0 +1,27 @@
+{
+  "tokens": {
+    "ETH": {
+      "tokenAddress": "0x0000000000000000000000000000000000000000"
+    },
+    "WETH": {
+      "tokenAddress": "0xd0a1e359811322d97991e03f863a0c30c2cf029c"
+    },
+    "DAI": {
+      "tokenAddress": "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa"
+    },
+    "MKR": {
+      "tokenAddress": "0xaaf64bfcc32d0f15873a02163e7e500671a4ffcd"
+    },
+    "BAT": {
+      "tokenAddress": "0x9f8cfb61d3b2af62864408dd703f9c3beb55dff7"
+    },
+    "WBTC": {
+      "tokenAddress": "0xe0c9275e44ea80ef17579d33c55136b7da269aeb",
+      "tokenDecimals": 8
+    },
+    "USDC": {
+      "tokenAddress": "0x198419c5c340e8de47ce4c0e4711a03664d42cb2",
+      "tokenDecimals": 6
+    }
+  }
+}
