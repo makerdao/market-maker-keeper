@@ -138,7 +138,7 @@ class DyDxMarketMakerKeeper(CEXKeeperAPI):
         for new_order in new_orders:
             amount = new_order.pay_amount if new_order.is_sell else new_order.buy_amount
             side = 'Sell' if new_order.is_sell else 'Buy'
-            minimum_order_size = Wad.from_number(float(self.market_info[self.pair().upper()]['smallOrderThreshold']) / 10 ** 18)
+            minimum_order_size = Wad(int(self.market_info[self.pair().upper()]['smallOrderThreshold']))
             if self._should_place_order(new_order, minimum_order_size):
                 self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
             else:
