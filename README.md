@@ -504,7 +504,7 @@ docker-compose up coinbase-ethdai-keeper
 ```
 
 ## 12. Token Configuration
-Example token configuration files are provided in `kovan-token-config.json` and `mainnet-token-config.json`. These files are used to instantiate `pymaker.model.Token` objects which simplifies decimal normalization within pairs, as well as more robust type checking.
+Example token configuration files are provided in `kovan-token-config.json` and `mainnet-token-config.json`. These files are used to instantiate `pymaker.model.Token` objects which simplify decimal normalization within pairs, while also enhancing type checking.
 
 **MAKE SURE TO CHECK ALL TOKEN ADDRESSES AND DECIMALS IN CONFIGURATION PRIOR TO RUNNING KEEPERS WITH REAL FUNDS**
 
