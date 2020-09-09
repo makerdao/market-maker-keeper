@@ -302,6 +302,7 @@ class OrderBookManager:
             orders = self.get_order_book().orders
 
             if len(orders) == 0:
+                self.logger.info(f"No open orders on order book.")
                 break
 
             self.logger.info(f"Cancelling {len(orders)} open orders...")

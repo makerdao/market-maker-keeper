@@ -18,6 +18,7 @@
 import argparse
 import logging
 import sys
+from datetime import datetime
 from typing import List
 
 from market_maker_keeper.band import Bands, NewOrder
@@ -116,16 +117,19 @@ class BittrexMarketMakerKeeper:
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
+            lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
+    def startup(self):
+        self.precision = self.bittrex_api.get_precision(self.pair())
+
     def shutdown(self):
-        self.order_book_manager.cancel_all_orders()
+        self.logger.info(f'Keeper shutting down...')
+        self.order_book_manager.cancel_all_orders(final_wait_time=60)
 
     def pair(self):
-        # Bittrex is inconsistent here. They call the pair `ETH-DAI`, but in reality all prices are
-        # calculated like it was an `DAI-ETH` pair. Same for `ETH-MKR`
-        return self.arguments.pair.upper().split('-')[1] + "-" + self.arguments.pair.upper().split('-')[0]
+        return self.arguments.pair.upper()
 
     def token_sell(self) -> str:
         return self.arguments.pair.split('-')[0].upper()
@@ -134,9 +138,9 @@ class BittrexMarketMakerKeeper:
         return self.arguments.pair.split('-')[1].upper()
 
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        token_balances = list(filter(lambda coin: coin['Currency'].upper() == token, our_balances))
+        token_balances = list(filter(lambda coin: coin['currencySymbol'].upper() == token, our_balances))
         if token_balances:
-            return Wad.from_number(token_balances[0]['Available'])
+            return Wad.from_number(token_balances[0]['available'])
         else:
             return Wad(0)
 
@@ -175,7 +179,7 @@ class BittrexMarketMakerKeeper:
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
-            price = new_order_to_be_placed.price
+            price = round(new_order_to_be_placed.price, self.precision)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
 
             order_id = self.bittrex_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
@@ -184,8 +188,8 @@ class BittrexMarketMakerKeeper:
                          pair=self.pair(),
                          is_sell=new_order_to_be_placed.is_sell,
                          price=price,
-                         amount=amount,
-                         remaining_amount=amount)
+                         timestamp=int(datetime.now().timestamp()),
+                         amount=amount)
 
         for new_order in new_orders:
             self.order_book_manager.place_order(lambda new_order=new_order: place_order_function(new_order))
