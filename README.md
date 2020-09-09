@@ -23,8 +23,9 @@ to automate certain operations around the Ethereum blockchain.
     - Example (OasisDEX) 
 10. Known limitations
 11. Install and run using Docker and Docker Compose
-12. Support Information
-13. License
+12. Token Configuration
+13. Support Information
+14. License
 
 ## 1. Introduction
 A big part of the DAI Stablecoin System (DSS) is the incentivization of external agents, called **Keepers** (which can be human but are typically automated bots). Market Maker Keepers work by creating a series of orders in so-called **bands** (defined later), which are configured with a JSON file containing parameters like spreads, maximum engagement, etc. In short, the `market-maker-keeper` repository is a set of Keepers that facilitate market making on exchanges. For example, trading Dai motivated by the expected long-term convergence toward the indicated `Target Price`. This guide is dedicated to showing you how to create your very own Market Maker Keeper Bot as well as educate the community and help both users and developers understand the value of this incredible software. We are proud to say that all of the code needed to get a Market Maker Keeper bot up and running is open-sourced.
@@ -53,6 +54,7 @@ A big part of the DAI Stablecoin System (DSS) is the incentivization of external
 - Paradex (`paradex-market-maker-keeper`)
 - RadarRelay and ERCdEX (`0x-market-maker-keeper`)
 - TheOcean (`theocean-market-maker-keeper`)
+- UniswapV2 (`uniswapv2-market-maker-keeper`)
 
 
 ## 2. Prerequisite
@@ -501,12 +503,17 @@ where:
 docker-compose up coinbase-ethdai-keeper
 ```
 
-## 12. Support
+## 12. Token Configuration
+Example token configuration files are provided in `kovan-token-config.json` and `mainnet-token-config.json`. These files are used to instantiate `pymaker.model.Token` objects which simplifies decimal normalization within pairs, as well as more robust type checking.
+
+**MAKE SURE TO CHECK ALL TOKEN ADDRESSES AND DECIMALS IN CONFIGURATION PRIOR TO RUNNING KEEPERS WITH REAL FUNDS**
+
+## 13. Support
 
 **We are here to help!**
 We welcome any questions about the market making in the [#keeper](https://chat.makerdao.com/channel/keeper) channel in the Maker Chat. 
 
-## 13. License
+## 14. License
 
 See [COPYING](https://github.com/makerdao/market-maker-keeper/blob/master/COPYING) file.
 
