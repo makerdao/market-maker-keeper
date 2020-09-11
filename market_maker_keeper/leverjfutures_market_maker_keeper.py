@@ -132,6 +132,7 @@ class LeverjMarketMakerKeeper:
         self.spread_feed = create_spread_feed(self.arguments)
         self.control_feed = create_control_feed(self.arguments)
         self.order_history_reporter = create_order_history_reporter(self.arguments)
+        self.target_price_lean = Wad(0)
 
         self.history = History()
 
@@ -159,15 +160,14 @@ class LeverjMarketMakerKeeper:
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
-        #quote_increment = 1/(self.leverj_api.get_product(self.arguments.pair)["ticksperpoint"])
-        quote_increment = self.leverj_api.get_product(self.pair())["tickSize"]
+        quote_increment = self.leverj_api.get_tickSize(self.pair())
         self.precision = -(int(log10(float(quote_increment)))+1)
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
 
     def pair(self):
-        name_to_id_map = {'BTCMCD': '1', 'ETHMCD': '2'}
+        name_to_id_map = {'BTCDAI': '1', 'ETHDAI': '2'}
         return name_to_id_map[self.arguments.pair.upper()]
 
     def token_sell(self) -> str:
@@ -176,55 +176,83 @@ class LeverjMarketMakerKeeper:
     def token_buy(self) -> str:
         return self.arguments.pair.upper()[3:]
 
-
-    def allocated_balance(self, our_balances: dict, token: str) -> Wad:
+    def allocated_balance(self, token: str) -> Wad:
         quote_asset_address = self.leverj_api.get_product(self.pair())["quote"]["address"]
-        total_available = our_balances[quote_asset_address]['available']
-        self.logger.info(f'total_available: {total_available}')
+        # for perpetual contracts, the quote balance is allocated across instruments and sides to enter into trades
+        total_available = self.leverj_api.get_quote_balance(quote_asset_address)
+        self.logger.debug(f'total_available: {total_available}')
         return self._allocate_to_pair(total_available).get(token)
 
     def _allocate_to_pair(self, total_available):
         # total number of instruments across which the total_available balance is distributed
         # total_available is denominated in quote units
-        total_number_of_instruments = 2
-        buffer_adjustment_factor = 1.1
+        total_number_of_instruments = 1
+        
+        # there are 2 partitions for allocation per instrument
+        # the dai amount is divided in 2, one for the buy side and another for the sell side
+        number_of_partitions_for_allocation = Wad.from_number(total_number_of_instruments*2)
+        
+        
+        # buffer_adjustment_factor is a small intentional buffer to avoid allocating the maximum possible. 
+        # the allocated amount is a little smaller than the maximum possible allocation 
+        # and that is determined by the buffer_adjustment_factor
+        buffer_adjustment_factor = Wad.from_number(1.2)
+        
         base = self.arguments.pair.upper()[:3]
         quote = self.arguments.pair.upper()[3:]
         target_price = self.price_feed.get_price()
         product = self.leverj_api.get_product(self.pair())
-        if (base == product['baseSymbol']):
+        minimum_order_quantity = self.leverj_api.get_minimum_order_quantity(self.pair())
+        minimum_quantity_wad = Wad.from_number(minimum_order_quantity)
+
+        if ((base == product['baseSymbol']) and (quote == product['quoteSymbol'])):
             if ((target_price is None) or (target_price.buy_price is None) or (target_price.sell_price is None)):
-                net_base_allocation = Wad(0)
-            else:
-                average_price = (int(target_price.buy_price) + int(target_price.sell_price))/2
-                self.logger.info(f'target_price, average_price: {average_price}')
-                conversion_divisor = int(average_price*total_number_of_instruments*2*buffer_adjustment_factor)
-                exponent = self._exponent_for_lowest_denomination(base)
-                base_allocation = (float(total_available)/(conversion_divisor*10**(18 - exponent)))
-                base_allocation_wad = Wad(int(base_allocation))
-                open_position_for_base = self.current_open_position(base)
-                calculated_net_allocation = base_allocation_wad.value + open_position_for_base.value
-                net_base_allocation = Wad(calculated_net_allocation) if calculated_net_allocation > 0 else Wad(0)
-            self.logger.info(f'net_base_allocation: {net_base_allocation}')
-        if (quote == product['quoteSymbol']):
-            if ((target_price is None) or (target_price.buy_price is None) or (target_price.sell_price is None)):
+                base_allocation = Wad(0)
                 quote_allocation = Wad(0)
+                self.logger.debug(f'target_price not available to calculate allocations')
             else:
-                quote_allocation = Wad(int(float(total_available)/(total_number_of_instruments*2)))
-            self.logger.info(f'quote_allocation: {quote_allocation}')
-        allocation = {base: net_base_allocation, quote: quote_allocation}
-        return allocation
-
-    def _exponent_for_lowest_denomination(self, coin: str) -> int:
-        if (coin == 'BTC'):
-            exponent_for_lowest_denomination = 18
+                average_price = (target_price.buy_price + target_price.sell_price)/Wad.from_number(2)
+                # at 1x average_price * minimum_quantity_wad is the minimum_required_balance
+                # multiplying this minimum_required_balance by 2 to avoid sending very small orders to the exchange
+                minimum_required_balance = average_price*minimum_quantity_wad*Wad.from_number(2)
+                # conversion_divisor is the divisor that determines how many chunks should Dai be distributed into. 
+                # It considers the price of the base to convert into base denomination.
+                conversion_divisor = average_price*number_of_partitions_for_allocation*buffer_adjustment_factor
+                open_position_for_base = self.leverj_api.get_position_in_wad(base)
+                total_available_wad = Wad.from_number(Decimal(total_available)/Decimal(Decimal(10)**Decimal(18)))
+                base_allocation = total_available_wad/conversion_divisor
+                quote_allocation = total_available_wad/number_of_partitions_for_allocation
+                self.logger.debug(f'open_position_for_base: {open_position_for_base}')
+                # bids are made basis quote_allocation and asks basis base_allocation
+                # if open position is net long then quote_allocation is adjusted.
+                # if open position is net too long then target_price is adjusted to reduce price of the asks/offers
+                # if open position is net short then base_allocation ia adjusted
+                # if open position is net too short then target_price is adjusted to increase price of the bids
+                if (open_position_for_base.value > 0):
+                    open_position_for_base_in_quote = open_position_for_base*average_price
+                    net_adjusted_quote_value = quote_allocation.value - abs(open_position_for_base_in_quote.value)
+                    self.logger.debug(f'net_adjusted_quote_value: {net_adjusted_quote_value}')
+                    quote_allocation = Wad(net_adjusted_quote_value) if net_adjusted_quote_value > minimum_required_balance.value else Wad(0)
+                    # if open position is within 1 Wad range or more than quote allocations then target price is leaned down by 0.1 percent
+                    if Wad(net_adjusted_quote_value) < Wad(1):
+                        self.target_price_lean = Wad.from_number(0.999)
+                    else:
+                        self.target_price_lean = Wad(0)
+                elif (open_position_for_base.value < 0):
+                    net_adjusted_base_value = base_allocation.value - abs(open_position_for_base.value)
+                    self.logger.debug(f'net_adjusted_base_value: {net_adjusted_base_value}')
+                    base_allocation = Wad(net_adjusted_base_value) if net_adjusted_base_value > minimum_required_balance.value else Wad(0)
+                    # if open position is within 1 Wad range or more than base allocations then target price is leaned up by 0.1 percent
+                    if Wad(net_adjusted_base_value) < Wad(1):
+                        self.target_price_lean = Wad.from_number(1.001)
+                    else:
+                        self.target_price_lean = Wad(0)
         else:
-            exponent_for_lowest_denomination = 18
-        return exponent_for_lowest_denomination
-
-    def current_open_position(self, token: str) -> Wad:
-        open_position_for_token = self.leverj_api.get_position_in_wad(token)
-        return open_position_for_token
+            base_allocation = Wad(0)
+            quote_allocation = Wad(0)
+        allocation = {base: base_allocation, quote: quote_allocation}
+        self.logger.debug(f'allocation: {allocation}')
+        return allocation
 
     def our_sell_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: order.is_sell, our_orders))
@@ -232,11 +260,26 @@ class LeverjMarketMakerKeeper:
     def our_buy_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
+    def adjust_target_price(self, target_price):
+        target_price_lean = self.target_price_lean
+        if ((target_price is None) or (target_price.buy_price is None) or (target_price.sell_price is None)):
+            return target_price
+        if target_price_lean.value == 0:
+            return target_price
+        else:
+            self.logger.debug(f'target_price_lean: {target_price_lean}')
+            adjusted_target_price = target_price
+            adjusted_target_price.buy_price = (target_price.buy_price)*target_price_lean
+            adjusted_target_price.sell_price = (target_price.sell_price)*target_price_lean
+            return adjusted_target_price
+
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
 
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
+        target_price = self.adjust_target_price(target_price)
+        self.logger.debug(f'target_price buy_price: {target_price.buy_price}, target_price sell_price: {target_price.sell_price}')
         # Cancel orders
         cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                                       our_sell_orders=self.our_sell_orders(order_book.orders),
@@ -247,15 +290,14 @@ class LeverjMarketMakerKeeper:
 
         # Do not place new orders if order book state is not confirmed
         if order_book.orders_being_placed or order_book.orders_being_cancelled:
-            self.logger.debug("Order book is in progress, not placing new orders")
+            self.logger.info("Order book is in progress, not placing new orders")
             return
 
-        self.logger.info(f'token_buy: {self.token_buy()}, token_sell: {self.token_sell()}')
         # Place new orders
         new_orders = bands.new_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                       our_sell_orders=self.our_sell_orders(order_book.orders),
-                                      our_buy_balance=self.allocated_balance(order_book.balances, self.token_buy()),
-                                      our_sell_balance=self.allocated_balance(order_book.balances, self.token_sell()),
+                                      our_buy_balance=self.allocated_balance(self.token_buy()),
+                                      our_sell_balance=self.allocated_balance(self.token_sell()),
                                       target_price=target_price)[0]
         self.place_orders(new_orders)
 
@@ -263,6 +305,7 @@ class LeverjMarketMakerKeeper:
         def place_order_function(new_order_to_be_placed):
             price = round(new_order_to_be_placed.price, self.precision + 2)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
+            self.logger.debug(f'amount: {amount}')
             order_id = str(self.leverj_api.place_order(self.pair(), price, 'LMT', new_order_to_be_placed.is_sell, price, amount))
             return Order(order_id=order_id,
                          pair=self.pair(),
