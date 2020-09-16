@@ -115,11 +115,7 @@ class LeverjMarketMakerKeeper:
 
         self.arguments = parser.parse_args(args)
     
-        if "infura" in self.arguments.rpc_host:
-            self.web3 = Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}",
-                                      request_kwargs={"timeout": self.arguments.rpc_timeout}))
-        else:
-            self.web3 = Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+        self.web3 = Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
                                       request_kwargs={"timeout": self.arguments.rpc_timeout}))
 
         self.web3.eth.defaultAccount = self.arguments.eth_from
@@ -226,8 +222,6 @@ class LeverjMarketMakerKeeper:
                 # bids are made basis quote_allocation and asks basis base_allocation
                 # if open position is net long then quote_allocation is adjusted.
                 # if open position is net too long then target_price is adjusted to reduce price of the asks/offers
-                # if open position is net short then base_allocation ia adjusted
-                # if open position is net too short then target_price is adjusted to increase price of the bids
                 if (open_position_for_base.value > 0):
                     open_position_for_base_in_quote = open_position_for_base*average_price
                     net_adjusted_quote_value = quote_allocation.value - abs(open_position_for_base_in_quote.value)
@@ -239,9 +233,12 @@ class LeverjMarketMakerKeeper:
                     else:
                         self.target_price_lean = Wad(0)
                 elif (open_position_for_base.value < 0):
+                    # if open position is net short then base_allocation is adjusted
+                    # if open position is net too short then target_price is adjusted to increase price of the bids
                     net_adjusted_base_value = base_allocation.value - abs(open_position_for_base.value)
+                    minimum_required_balance_in_base = minimum_required_balance/average_price
                     self.logger.debug(f'net_adjusted_base_value: {net_adjusted_base_value}')
-                    base_allocation = Wad(net_adjusted_base_value) if net_adjusted_base_value > minimum_required_balance.value else Wad(0)
+                    base_allocation = Wad(net_adjusted_base_value) if net_adjusted_base_value > minimum_required_balance_in_base.value else Wad(0)
                     # if open position is within 1 Wad range or more than base allocations then target price is leaned up by 0.1 percent
                     if Wad(net_adjusted_base_value) < Wad(1):
                         self.target_price_lean = Wad.from_number(1.001)
@@ -250,6 +247,7 @@ class LeverjMarketMakerKeeper:
         else:
             base_allocation = Wad(0)
             quote_allocation = Wad(0)
+
         allocation = {base: base_allocation, quote: quote_allocation}
         self.logger.debug(f'allocation: {allocation}')
         return allocation
