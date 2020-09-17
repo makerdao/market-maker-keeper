@@ -119,3 +119,24 @@ class ReloadableConfig(BaseReloadableConfig):
             self._spread_feed = spread_feed
 
             return result
+
+    def get_token_config(self):
+        """Reads the JSON config file from disk and returns it as a Python object.
+        Returns:
+            Current configuration as a `dict` or `list` object.
+        """
+        with open(self.filename) as data_file:
+            content_file = data_file.read()
+            result = json.loads(content_file)
+
+            # Report if file has been newly loaded or reloaded
+            checksum = zlib.crc32(content_file.encode('utf-8'))
+            if self._token_config_checksum is None:
+                self.logger.info(f"Loaded configuration from '{self.filename}'")
+                self.logger.debug(f"Config file is: " + json.dumps(result, indent=4))
+            elif self._token_config_checksum != checksum:
+                self.logger.info(f"Reloaded configuration from '{self.filename}'")
+                self.logger.debug(f"Reloaded config file is: " + json.dumps(result, indent=4))
+            self._token_config_checksum = checksum
+
+            return result
