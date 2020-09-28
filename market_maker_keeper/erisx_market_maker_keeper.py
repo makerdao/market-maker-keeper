@@ -384,14 +384,13 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         Check to see if ErisX has cancelled any of our orders.
         If an order has been cancelled, remove it from the order book
         """
-        with self._lock:
-            cancelled_orders = self.erisx_api.check_cancellations()
+        cancelled_orders = self.erisx_api.check_cancellations()
 
-            for order in cancelled_orders:
-                for index, existing_order in enumerate(self.orders):
-                    if order.order_id == existing_order.order_id:
-                        del self.orders[index]
-                        self.logger.info(f"Removed cancelled order: {order.order_id}")
+        for order in cancelled_orders:
+            for index, existing_order in enumerate(self.orders):
+                if order.order_id == existing_order.order_id:
+                    del self.orders[index]
+                    self.logger.info(f"Removed cancelled order: {order.order_id}")
 
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
