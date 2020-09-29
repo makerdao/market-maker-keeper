@@ -133,12 +133,17 @@ class ErisXOrderBookManager(OrderBookManager):
             order_id = order.order_id
             try:
                 with self._lock:
-                    cancel_result = self.cancel_order_function(order)
+                    cancel_result, order_unknown = self.cancel_order_function(order)
 
                     if cancel_result:
                         self._order_ids_cancelled.add(order_id)
                         self._order_ids_cancelling.remove(order_id)
                         self.logger.info(f"Succesfully canceled order: {order_id}")
+                    else:
+                        if order_unknown:
+                            self._order_ids_cancelled.add(order_id)
+                            self._order_ids_cancelling.remove(order_id)
+                            self.logger.warning(f"Order unknown, removing from local orderbook: {order_id}")
             except BaseException as exception:
                 self.logger.exception(f"Failed to cancel {order_id}")
             finally:
