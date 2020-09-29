@@ -301,8 +301,6 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
 
         self.orders = self.erisx_api.get_orders(self.pair())
         
-        self._lock = threading.Lock()
-
         super().__init__(self.arguments, self.erisx_api)
 
     def init_order_book_manager(self, arguments, erisx_api):
