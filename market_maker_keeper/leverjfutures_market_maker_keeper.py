@@ -192,7 +192,7 @@ class LeverjMarketMakerKeeper:
         # buffer_adjustment_factor is a small intentional buffer to avoid allocating the maximum possible. 
         # the allocated amount is a little smaller than the maximum possible allocation 
         # and that is determined by the buffer_adjustment_factor
-        buffer_adjustment_factor = Wad.from_number(1.2)
+        buffer_adjustment_factor = Wad.from_number(1.05)
         
         base = self.arguments.pair.upper()[:3]
         quote = self.arguments.pair.upper()[3:]
