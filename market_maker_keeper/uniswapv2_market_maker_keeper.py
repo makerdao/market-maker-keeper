@@ -439,7 +439,7 @@ class UniswapV2MarketMakerKeeper:
         First calculate the acceptable price movement limit based upon the
         difference between external price feeds and the accepted slippage.
 
-        If the minimum accepted price difference is less than the distance of uniswaps price from external prices
+        If Uniswap's price difference from external prices is less than the maximum accepted price difference (diff_up | diff_down)
         add liquidity to the pool, otherwise remove it.
         """
         
@@ -488,16 +488,17 @@ class UniswapV2MarketMakerKeeper:
             return add_liquidity, remove_liquidity
 
         elif control_feed_value['canBuy'] is True and control_feed_value['canSell'] is True:
+            # determine maximum accepted price difference up and down
             diff_up = feed_price * self.accepted_price_slippage_up
             diff_down = feed_price * self.accepted_price_slippage_down
 
             add_liquidity = False
             remove_liquidity = False
 
-            # check if external price feed is showing lower prices
+            # Check if external price feed has diverged above or below the Uniswap Price.
+            # If the price has diverged, only add liquidity if the divergence is less than the maxmimum accepted
             if self.uniswap_current_exchange_price > feed_price:
                 add_liquidity = diff_up > (self.uniswap_current_exchange_price - feed_price)
-            # check if external price feed is showing higher prices
             elif self.uniswap_current_exchange_price < feed_price:
                 add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price)
             else:
