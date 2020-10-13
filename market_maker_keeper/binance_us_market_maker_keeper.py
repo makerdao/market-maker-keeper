@@ -18,6 +18,7 @@
 import argparse
 import logging
 import sys
+from datetime import datetime
 from typing import List
 
 from market_maker_keeper.band import Bands, NewOrder
@@ -138,9 +139,10 @@ class BinanceUsMarketMakerKeeper:
         return self.arguments.pair.split('-')[1].upper()
 
     def our_available_balance(self, our_balances: dict, token: str) -> Wad:
-        token_balances = list(filter(lambda coin: coin['currency'].upper() == token, our_balances))
-        if token_balances:
-            return Wad.from_number(token_balances[0]['available'])
+        token_balance = our_balances.get(token, None)
+        
+        if token_balance:
+            return Wad.from_number(token_balance['free'])
         else:
             return Wad(0)
 
@@ -188,7 +190,8 @@ class BinanceUsMarketMakerKeeper:
             return Order(order_id=order_id,
                          pair=self.pair(),
                          is_sell=new_order_to_be_placed.is_sell,
-                         price=price,
+                         price=price,                         
+                         timestamp=int(datetime.now().timestamp()),
                          amount=amount)
 
         for new_order in new_orders:
