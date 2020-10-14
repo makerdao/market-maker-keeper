@@ -7,6 +7,10 @@
 [submodule "lib/gdax-client"]
 	path = lib/gdax-client
 	url = https://github.com/makerdao/gdax-client.git
+[submodule "lib/ethgasstation-client"]
+	path = lib/ethgasstation-client
+	url = https://github.com/makerdao/ethgasstation-client.git
 [submodule "lib/pygasprice-client"]
 	path = lib/pygasprice-client
 	url = https://github.com/makerdao/pygasprice-client.git
+	
