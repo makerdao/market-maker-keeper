@@ -18,7 +18,7 @@
 from argparse import Namespace, ArgumentParser
 from typing import Optional
 
-from pymaker.gas import GasPrice, GeometricGasPrice, FixedGasPrice, DefaultGasPrice, NodeAwareGasPrice
+from pymaker.gas import GasPrice, GeometricGasPrice, IncreasingGasPrice, FixedGasPrice, DefaultGasPrice, NodeAwareGasPrice
 from pygasprice_client import EtherchainOrg, EthGasStation, POANetwork
 from web3 import Web3
 
@@ -40,7 +40,33 @@ def add_gas_arguments(parser: ArgumentParser):
     parser.add_argument("--gas-maximum", type=float, default=8000,
                         help="Places an upper bound (in Gwei) on the amount of gas to use for a single TX")
 
+
 class SmartGasPrice(GasPrice):
+    """Simple and smart gas price scenario.
+    Uses an EthGasStation feed. Starts with fast+10GWei, adding another 10GWei each 60 seconds
+    up to fast+50GWei maximum. Falls back to a default scenario (incremental as well) if
+    the EthGasStation feed unavailable for more than 10 minutes.
+    """
+
+    def __init__(self, api_key: None):
+        self.gas_station = EthGasStation(refresh_interval=60, expiry=600, api_key=api_key)
+
+    def get_gas_price(self, time_elapsed: int) -> Optional[int]:
+        fast_price = self.gas_station.fast_price()
+        if fast_price is not None:
+            # start from fast_price + 10 GWei
+            # increase by 10 GWei every 60 seconds
+            # max is fast_price + 50 GWei
+            return min(int(fast_price*1.1) + int(time_elapsed/60)*(10*self.GWEI), int(fast_price*1.1)+(50*self.GWEI))
+        else:
+            # default gas pricing when EthGasStation feed is down
+            return IncreasingGasPrice(initial_price=20*self.GWEI,
+                                      increase_by=10*self.GWEI,
+                                      every_secs=60,
+                                      max_price=100*self.GWEI).get_gas_price(time_elapsed)
+
+
+class GeometricGasPrice(GasPrice):
     """Simple and smart gas price scenario.
 
     Uses pygasprice_client to support multiple gas information sources.
@@ -91,6 +117,8 @@ class GasPriceFactory:
     def create_gas_price(web3: Web3, arguments: Namespace) -> GasPrice:
         if arguments.smart_gas_price:
             return SmartGasPrice(web3, arguments)
+        elif arguments.geometric_gas_price:
+            return GeometricGasPrice(web3, arguments)
         elif arguments.gas_price:
             return FixedGasPrice(arguments.gas_price)
         else:

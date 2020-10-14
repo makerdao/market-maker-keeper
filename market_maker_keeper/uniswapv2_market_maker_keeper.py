@@ -27,7 +27,6 @@ from pymaker.model import Token, TokenConfig
 from pymaker import Address, Wad, Receipt
 from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.gas import add_gas_arguments, GasPriceFactory
-from market_maker_keeper.model import TokenConfig
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
@@ -83,6 +82,9 @@ class UniswapV2MarketMakerKeeper:
 
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
                             help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
+
+        parser.add_argument("--geometric-gas-price", dest='geometric_gas_price', action='store_true',
+                            help="Use geometric gas pricing strategy, based on pygasprice-client sources")
 
         parser.add_argument("--max-add-liquidity-slippage", type=int, default=2,
                             help="Maximum percentage off the desired amount of liquidity to add in add_liquidity()")
