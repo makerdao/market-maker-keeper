@@ -26,7 +26,7 @@ from pymaker.keys import register_keys
 from pymaker.model import Token
 from pymaker import Address, Wad, Receipt
 from market_maker_keeper.control_feed import create_control_feed
-from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.gas import add_gas_arguments, GasPriceFactory
 from market_maker_keeper.model import TokenConfig
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
@@ -78,8 +78,6 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--price-feed-expiry", type=int, default=86400,
                             help="Maximum age of the price feed (in seconds, default: 86400)")
 
-        parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
-
         parser.add_argument("--gas-price", type=int, default=9000000000,
                             help="Gas price (in Wei)")
 
@@ -121,6 +119,7 @@ class UniswapV2MarketMakerKeeper:
 
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
+        add_gas_arguments(parser)
 
         if self.arguments.rpc_host.startswith("http"):
             endpoint_uri = f"{self.arguments.rpc_host}:{self.arguments.rpc_port}"
@@ -153,7 +152,7 @@ class UniswapV2MarketMakerKeeper:
         self.token_a = list(filter(lambda token: token.name == token_a_name, token_config))[0]
         self.token_b = list(filter(lambda token: token.name == token_b_name, token_config))[0]
 
-        self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
+        self.gas_price = GasPriceFactory().create_gas_price(self.web3, self.arguments)
 
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.price_feed_accepted_delay = self.arguments.price_feed_accepted_delay
