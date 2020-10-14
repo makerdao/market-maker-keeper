@@ -23,7 +23,7 @@ from web3 import Web3, HTTPProvider
 from pymaker.lifecycle import Lifecycle
 from pyexchange.uniswapv2 import UniswapV2
 from pymaker.keys import register_keys
-from pymaker.model import Token
+from pymaker.model import Token, TokenConfig
 from pymaker import Address, Wad, Receipt
 from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.gas import add_gas_arguments, GasPriceFactory
@@ -142,15 +142,12 @@ class UniswapV2MarketMakerKeeper:
         if self.is_eth:
             self.eth_position = 0 if self.pair().split('-')[0] == 'ETH' else 1
 
-        token_a_name = 'WETH' if self.is_eth and self.eth_position == 0 else self.pair().split('-')[0]
-        token_b_name = 'WETH' if self.is_eth and self.eth_position == 1 else self.pair().split('-')[1]
-
         self.reloadable_config = ReloadableConfig(self.arguments.token_config)
         self._last_config_dict = None
         self._last_config = None
-        token_config = self.get_token_config().tokens
-        self.token_a = list(filter(lambda token: token.name == token_a_name, token_config))[0]
-        self.token_b = list(filter(lambda token: token.name == token_b_name, token_config))[0]
+        self.token_config = self.get_token_config().token_config
+
+        self.token_a, self.token_b = self.instantiate_tokens(self.pair())
 
         self.gas_price = GasPriceFactory().create_gas_price(self.web3, self.arguments)
 
@@ -205,6 +202,23 @@ class UniswapV2MarketMakerKeeper:
             self.logger.info(f"Successfully parsed configuration")
 
         return self._last_config
+
+    def instantiate_tokens(self, pair: str) -> Tuple[Token, Token]:
+        assert (isinstance(pair, str))
+
+        def get_address(value) -> Address:
+            return Address(value['tokenAddress']) if 'tokenAddress' in value else None
+
+        def get_decimals(value) -> int:
+            return value['tokenDecimals'] if 'tokenDecimals' in value else 18
+
+        token_a_name = 'WETH' if self.is_eth and self.eth_position == 0 else self.pair().split('-')[0]
+        token_b_name = 'WETH' if self.is_eth and self.eth_position == 1 else self.pair().split('-')[1]
+
+        token_a = Token(token_a_name, get_address(self.token_config[token_a_name]), get_decimals(self.token_config[token_a_name]))
+        token_b = Token(token_b_name, get_address(self.token_config[token_b_name]), get_decimals(self.token_config[token_b_name]))
+
+        return token_a, token_b
 
     def pair(self) -> str:
         return self.arguments.pair
@@ -425,7 +439,7 @@ class UniswapV2MarketMakerKeeper:
         First calculate the acceptable price movement limit based upon the
         difference between external price feeds and the accepted slippage.
 
-        If the minimum accepted price difference is less than the distance of uniswaps price from external prices
+        If Uniswap's price difference from external prices is less than the maximum accepted price difference (diff_up | diff_down)
         add liquidity to the pool, otherwise remove it.
         """
         
@@ -474,16 +488,17 @@ class UniswapV2MarketMakerKeeper:
             return add_liquidity, remove_liquidity
 
         elif control_feed_value['canBuy'] is True and control_feed_value['canSell'] is True:
+            # determine maximum accepted price difference up and down
             diff_up = feed_price * self.accepted_price_slippage_up
             diff_down = feed_price * self.accepted_price_slippage_down
 
             add_liquidity = False
             remove_liquidity = False
 
-            # check if external price feed is showing lower prices
+            # Check if external price feed has diverged above or below the Uniswap Price.
+            # If the price has diverged, only add liquidity if the divergence is less than the maxmimum accepted
             if self.uniswap_current_exchange_price > feed_price:
                 add_liquidity = diff_up > (self.uniswap_current_exchange_price - feed_price)
-            # check if external price feed is showing higher prices
             elif self.uniswap_current_exchange_price < feed_price:
                 add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price)
             else:
