@@ -150,7 +150,6 @@ class ErisXOrderBookManager(OrderBookManager):
                 try:
                     self._order_ids_cancelling.remove(order_id)
                 except KeyError:
-                    self.logger.info(f"Failed to remove {order_id}")
                     pass
                 self._report_order_book_updated()
 
@@ -318,7 +317,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
     def main(self):
         with ErisXLifecycle() as lifecycle:
             lifecycle.initial_delay(10)
-            lifecycle.every(1, self.synchronize_orders)
+            lifecycle.every(2, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
     def pair(self):
@@ -362,11 +361,14 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                                   price=rounded_price,
                                                   amount=rounded_amount)
 
-            placed_order = Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell,
-                         new_order_to_be_placed.price, amount)
+            if len(order_id) > 0:
+                placed_order = Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell,
+                            new_order_to_be_placed.price, amount)
 
-            self.orders.append(placed_order)
-            return placed_order
+                self.orders.append(placed_order)
+                return placed_order
+            else:
+                return None
 
         for new_order in new_orders:
             # check if new order is greater than exchange minimums
@@ -382,26 +384,25 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
             else:
                 logging.info(f"New {side} Order below size minimum of {min_amount}. Order of amount {amount} ignored.")
 
-    def check_cancellations(self):
+    def sync_order_book(self) -> List[Order]:
         """
-        Check to see if ErisX has cancelled any of our orders.
-        If an order has been cancelled, remove it from the order book
-        """
-        cancelled_orders = self.erisx_api.check_cancellations()
+           Check the list of orders for cancellations or fills.
+           If an order has been partially filled, the order amount will be updated.
 
-        for order in cancelled_orders:
-            for index, existing_order in enumerate(self.orders):
-                if order.order_id == existing_order.order_id:
-                    del self.orders[index]
-                    self.logger.info(f"Removed cancelled order: {order.order_id}")
+           If an application message has been received from ErisX,
+           update the Keeper orderbook accordingly.
+        """
+        existing_orders = self.orders
+        self.orders = self.erisx_api.sync_orders(existing_orders)
 
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
+
+        # check for any cancelled or filled orders
+        self.sync_order_book()
+
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
-
-        # Remove any orders cancelled by ErisX
-        self.check_cancellations()
 
         # Cancel orders
         cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
