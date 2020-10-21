@@ -317,7 +317,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
     def main(self):
         with ErisXLifecycle() as lifecycle:
             lifecycle.initial_delay(10)
-            lifecycle.every(2, self.synchronize_orders)
+            lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
 
     def pair(self):
@@ -361,6 +361,7 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
                                                   price=rounded_price,
                                                   amount=rounded_amount)
 
+            # check that order was placed properly
             if len(order_id) > 0:
                 placed_order = Order(str(order_id), int(time.time()), self.pair(), new_order_to_be_placed.is_sell,
                             new_order_to_be_placed.price, amount)
