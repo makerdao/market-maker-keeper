@@ -21,8 +21,12 @@ import sys
 from datetime import datetime
 from typing import List
 
-from market_maker_keeper.band import Bands, NewOrder
+import time
+from math import log10
+
+from market_maker_keeper.band import Band, Bands, NewOrder
 from market_maker_keeper.control_feed import create_control_feed
+from market_maker_keeper.feed import Feed
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.order_history_reporter import create_order_history_reporter
@@ -32,8 +36,134 @@ from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
-from pyexchange.binance_us import BinanceUsApi, BinanceUsOrder as Order
+from pyexchange.binance_us import BinanceUsApi, BinanceUsOrder as Order, BinanceUsRules
 
+
+class BinanceBands(Bands):
+    @staticmethod
+    def read(reloadable_config: ReloadableConfig, spread_feed: Feed, control_feed: Feed, history: History, rules: BinanceUsRules):
+        assert(isinstance(rules, BinanceUsRules))
+        bands = Bands.read(reloadable_config, spread_feed, control_feed, history)
+
+        return BinanceBands(bands, rules)
+    
+    def __init__(self, bands: Bands, rules: BinanceUsRules):
+        assert(isinstance(rules, BinanceUsRules))
+        assert(isinstance(bands, Bands))
+
+        self.buy_bands = bands.buy_bands
+        self.buy_limits = bands.buy_limits
+        self.sell_bands = bands.sell_bands
+        self.sell_limits = bands.sell_limits
+
+        self.rules = rules
+
+
+    def _new_sell_orders(self, our_sell_orders: list, our_sell_balance: Wad, target_price: Wad):
+        """Return sell orders which need to be placed to bring total amounts within all sell bands above minimums."""
+        assert(isinstance(our_sell_orders, list))
+        assert(isinstance(our_sell_balance, Wad))
+        assert(isinstance(target_price, Wad))
+
+        new_orders = []
+        limit_amount = self.sell_limits.available_limit(time.time())
+        missing_amount = Wad(0)
+
+        for band in self.sell_bands:
+            orders = [order for order in our_sell_orders if band.includes(order, target_price)]
+            total_amount = self.total_amount(orders)
+            if total_amount < band.min_amount:
+                price = self._calculate_price(band, target_price)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_sell_balance, limit_amount)
+                buy_amount = self._calculate_buy_amount_for_sell_orders(price, pay_amount)
+                missing_amount += Wad.max((band.avg_amount - total_amount) - our_sell_balance, Wad(0))
+                if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.logger.info(f"Sell band (spread <{band.min_margin}, {band.max_margin}>,"
+                                     f" amount <{band.min_amount}, {band.max_amount}>) has amount {total_amount},"
+                                     f" creating new sell order with price {price}")
+
+                    our_sell_balance = our_sell_balance - pay_amount
+                    limit_amount = limit_amount - pay_amount
+
+                    new_orders.append(NewOrder(is_sell=True,
+                                               price=price,
+                                               amount=pay_amount,
+                                               pay_amount=pay_amount,
+                                               buy_amount=buy_amount,
+                                               band=band,
+                                               confirm_function=lambda: self.sell_limits.use_limit(time.time(), pay_amount)))
+
+        return new_orders, missing_amount
+
+    def _new_buy_orders(self, our_buy_orders: list, our_buy_balance: Wad, target_price: Wad):
+        """Return buy orders which need to be placed to bring total amounts within all buy bands above minimums."""
+        assert(isinstance(our_buy_orders, list))
+        assert(isinstance(our_buy_balance, Wad))
+        assert(isinstance(target_price, Wad))
+
+        new_orders = []
+        limit_amount = self.buy_limits.available_limit(time.time())
+        missing_amount = Wad(0)
+
+        for band in self.buy_bands:
+            orders = [order for order in our_buy_orders if band.includes(order, target_price)]
+            total_amount = self.total_amount(orders)
+            if total_amount < band.min_amount:
+                price = self._calculate_price(band, target_price)
+                pay_amount = Wad.min(band.avg_amount - total_amount, our_buy_balance, limit_amount)
+                buy_amount = self._calculate_buy_amount_for_buy_orders(price, pay_amount)
+                missing_amount += Wad.max((band.avg_amount - total_amount) - our_buy_balance, Wad(0))
+                if (price > Wad(0)) and (pay_amount >= band.dust_cutoff) and (pay_amount > Wad(0)) and (buy_amount > Wad(0)):
+                    self.logger.info(f"Buy band (spread <{band.min_margin}, {band.max_margin}>,"
+                                     f" amount <{band.min_amount}, {band.max_amount}>) has amount {total_amount},"
+                                     f" creating new buy order with price {price}")
+
+                    our_buy_balance = our_buy_balance - pay_amount
+                    limit_amount = limit_amount - pay_amount
+
+                    new_orders.append(NewOrder(is_sell=False,
+                                               price=price,
+                                               amount=buy_amount,
+                                               pay_amount=pay_amount,
+                                               buy_amount=buy_amount,
+                                               band=band,
+                                               confirm_function=lambda: self.buy_limits.use_limit(time.time(), pay_amount)))
+
+        return new_orders, missing_amount
+
+    def _calculate_price(self, band: Band, target_price: Wad) -> Wad:
+        price = band.avg_price(target_price)
+
+        if self._is_incorrect_price(price):
+            precision = -int((log10(float(self.rules.tick_size) + 1)))
+            price = Wad.from_number(round(price, precision))
+
+        return price
+
+    def _calculate_buy_amount_for_sell_orders(self, price: Wad, pay_amount: Wad) -> Wad:
+        buy_amount = pay_amount * price
+
+        if self._is_incorrect_amount(buy_amount):
+            precision = -int((log10(float(self.rules.step_size) + 1)))
+            buy_amount = Wad.from_number(round(buy_amount, precision))
+
+        return buy_amount
+    
+    def _calculate_buy_amount_for_buy_orders(self, price: Wad, pay_amount: Wad) -> Wad:
+        buy_amount = pay_amount / price
+
+        if self._is_incorrect_amount(buy_amount):
+            precision = -int((log10(float(self.rules.step_size) + 1)))
+            buy_amount = Wad.from_number(round(buy_amount, precision))
+
+        return buy_amount
+    
+    def _is_incorrect_price(self, price: Wad) -> bool:
+        return not ((price - self.rules.min_price) % self.rules.tick_size == Wad(0))
+
+    def _is_incorrect_amount(self, amount: Wad) -> bool:
+        return not ((amount - self.rules.min_quantity) % self.rules.step_size == Wad(0))
+                
 
 class BinanceUsMarketMakerKeeper:
     """Keeper acting as a market maker on Binance US."""
@@ -153,10 +283,12 @@ class BinanceUsMarketMakerKeeper:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
     def synchronize_orders(self):
-        bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
+        rules = self.binance_api.get_rules(self.pair())
+        bands = BinanceBands.read(self.bands_config, self.spread_feed, self.control_feed, self.history, rules)
 
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
+
         # Cancel orders
         cancellable_orders = bands.cancellable_orders(our_buy_orders=self.our_buy_orders(order_book.orders),
                                                       our_sell_orders=self.our_sell_orders(order_book.orders),
