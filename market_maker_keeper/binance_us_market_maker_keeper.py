@@ -135,7 +135,8 @@ class BinanceBands(Bands):
         price = band.avg_price(target_price)
 
         if self._is_incorrect_price(price):
-            precision = -int((log10(float(self.rules.tick_size) + 1)))
+            precision = -int((log10(float(self.rules.tick_size))))
+
             price = Wad.from_number(round(price, precision))
 
         return price
@@ -144,7 +145,7 @@ class BinanceBands(Bands):
         buy_amount = pay_amount * price
 
         if self._is_incorrect_amount(buy_amount):
-            precision = -int((log10(float(self.rules.step_size) + 1)))
+            precision = self._get_decimal_places(self.rules.tick_size)
             buy_amount = Wad.from_number(round(buy_amount, precision))
 
         return buy_amount
@@ -153,17 +154,22 @@ class BinanceBands(Bands):
         buy_amount = pay_amount / price
 
         if self._is_incorrect_amount(buy_amount):
-            precision = -int((log10(float(self.rules.step_size) + 1)))
+            precision = self._get_decimal_places(self.rules.step_size)
             buy_amount = Wad.from_number(round(buy_amount, precision))
 
         return buy_amount
-    
+
     def _is_incorrect_price(self, price: Wad) -> bool:
         return not ((price - self.rules.min_price) % self.rules.tick_size == Wad(0))
 
     def _is_incorrect_amount(self, amount: Wad) -> bool:
         return not ((amount - self.rules.min_quantity) % self.rules.step_size == Wad(0))
-                
+              
+    @staticmethod
+    def _get_decimal_places(number: Wad) -> int:
+        assert(isinstance(number, Wad))
+        return -int((log10(float(number))))   
+
 
 class BinanceUsMarketMakerKeeper:
     """Keeper acting as a market maker on Binance US."""
