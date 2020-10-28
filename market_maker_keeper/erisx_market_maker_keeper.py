@@ -61,7 +61,7 @@ class ErisXLifecycle(Lifecycle):
 
                     if not callback.trigger(on_start, on_finish):
                         self.count += 1
-                        if self.count >= 20:
+                        if self.count >= 60:
                             self.logger.debug(f"killing lifecycle as parent is no longer running")
                             self.terminated_externally = True
                             self._socket_closed = True
