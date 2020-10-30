@@ -342,7 +342,16 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         else:
             return Wad(0)
 
-    def get_orders(self) -> List:
+    def get_orders(self) -> List[Order]:
+        """
+           Check the list of orders for cancellations or fills.
+           If an order has been partially filled, the order amount will be updated.
+
+           If an application message has been received from ErisX,
+           update the Keeper orderbook accordingly.
+        """
+        existing_orders = self.orders
+        self.orders = self.erisx_api.sync_orders(existing_orders)
         return self.orders
 
     def place_orders(self, new_orders):
@@ -385,23 +394,8 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
             else:
                 logging.info(f"New {side} Order below size minimum of {min_amount}. Order of amount {amount} ignored.")
 
-    def sync_order_book(self) -> List[Order]:
-        """
-           Check the list of orders for cancellations or fills.
-           If an order has been partially filled, the order amount will be updated.
-
-           If an application message has been received from ErisX,
-           update the Keeper orderbook accordingly.
-        """
-        existing_orders = self.orders
-        self.orders = self.erisx_api.sync_orders(existing_orders)
-
     def synchronize_orders(self):
         bands = Bands.read(self.bands_config, self.spread_feed, self.control_feed, self.history)
-
-        # check for any cancelled or filled orders
-        self.sync_order_book()
-
         order_book = self.order_book_manager.get_order_book()
         target_price = self.price_feed.get_price()
 
