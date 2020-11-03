@@ -68,6 +68,7 @@ class TestBands:
         assert(len(new_orders) == 1)
         assert(new_orders[0].is_sell is False)
         assert(new_orders[0].price == Wad.from_number(96))
+        assert(new_orders[0].amount == Wad.from_number(0.78125))
 
     def test_should_create_only_sell_orders_if_only_sell_price_is_available(self, tmpdir):
         # given
@@ -82,6 +83,7 @@ class TestBands:
         assert(len(new_orders) == 1)
         assert(new_orders[0].is_sell is True)
         assert(new_orders[0].price == Wad.from_number(208))
+        assert(new_orders[0].amount == Wad.from_number(7.5))
 
     def test_should_create_both_buy_and_sell_orders_if_both_prices_are_available(self, tmpdir):
         # given
@@ -96,8 +98,10 @@ class TestBands:
         assert(len(new_orders) == 2)
         assert(new_orders[0].is_sell is False)
         assert(new_orders[0].price == Wad.from_number(96))
+        assert(new_orders[0].amount == Wad.from_number(0.78125))
         assert(new_orders[1].is_sell is True)
         assert(new_orders[1].price == Wad.from_number(208))
+        assert(new_orders[1].amount == Wad.from_number(7.5))
 
     def test_should_not_cancel_anything_if_no_orders_to_cancel_regardless_of_price_availability(self, tmpdir):
         # given
