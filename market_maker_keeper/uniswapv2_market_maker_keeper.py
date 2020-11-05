@@ -119,6 +119,25 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
+        gas_group = parser.add_mutually_exclusive_group()
+        gas_group.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
+        gas_group.add_argument('--etherchain-gas-price', dest='etherchain_gas', action='store_true',
+                               help="Use etherchain.org gas price")
+        gas_group.add_argument('--poanetwork-gas-price', dest='poanetwork_gas', action='store_true',
+                               help="Use POANetwork gas price")
+        gas_group.add_argument('--fixed-gas-price', type=float, default=None,
+                               help="Uses a fixed value (in Gwei) instead of an external API to determine initial gas")
+        parser.add_argument("--poanetwork-url", type=str, default=None, help="Alternative POANetwork URL")
+        parser.add_argument("--gas-initial-multiplier", type=float, default=1.0,
+                            help="Adjusts the initial API-provided 'fast' gas price, default 1.0")
+        parser.add_argument("--gas-reactive-multiplier", type=float, default=1.125,
+                            help="Increases gas price when transactions haven't been mined after some time")
+        parser.add_argument("--gas-maximum", type=float, default=2000,
+                            help="Places an upper bound (in Gwei) on the amount of gas to use for a single TX")
+
+        parser.add_argument("--debug", dest='debug', action='store_true',
+                            help="Enable debug output")
+
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
         add_gas_arguments(parser)
