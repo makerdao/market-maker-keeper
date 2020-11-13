@@ -39,38 +39,3 @@ class StakingRewardsFactory:
         else:
             # TODO: determine default return
             return None
-
-    # TODO: standardize
-    # def stake_liquidity(self) -> Optional[Receipt]:
-    #         staking_receipt = self.staking_rewards.withdraw_all_liquidity().transact(gas_price=self.gas_price)
-
-    #         if staking_receipt is not None and staking_receipt.successful:
-    #             gas_used = staking_receipt.gas_used
-    #             gas_price = Wad(self.web3.eth.getTransaction(staking_receipt.transaction_hash.hex())['gasPrice'])
-    #             tx_fee = Wad.from_number(gas_used) * gas_price
-
-    #             self.logger.info(f"Withdrew all staked liquidity tokens "
-    #                                 f"tx fee used {tx_fee} "
-    #                                 f"with tx hash {staking_receipt.transaction_hash.hex()}")
-                
-    #             return staking_receipt
-    #         else:
-    #             self.logger.error(f"Unable to unstake liquidity tokens")
-    #             return None
-
-    # def unstake_liquidity(self) -> Optional[Receipt]:
-    #         staking_receipt = self.staking_rewards.withdraw_all_liquidity().transact(gas_price=self.gas_price)
-
-    #         if staking_receipt is not None and staking_receipt.successful:
-    #             gas_used = staking_receipt.gas_used
-    #             gas_price = Wad(self.web3.eth.getTransaction(staking_receipt.transaction_hash.hex())['gasPrice'])
-    #             tx_fee = Wad.from_number(gas_used) * gas_price
-
-    #             self.logger.info(f"Withdrew all staked liquidity tokens "
-    #                                 f"tx fee used {tx_fee} "
-    #                                 f"with tx hash {staking_receipt.transaction_hash.hex()}")
-                
-    #             return staking_receipt
-    #         else:
-    #             self.logger.error(f"Unable to unstake liquidity tokens")
-    #             return None
