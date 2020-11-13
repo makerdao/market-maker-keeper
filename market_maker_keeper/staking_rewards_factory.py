@@ -37,5 +37,4 @@ class StakingRewardsFactory:
                 Address(arguments.staking_rewards_contract_address), 
                 arguments.staking_rewards_name)
         else:
-            # TODO: determine default return
             return None

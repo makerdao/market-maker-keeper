@@ -353,7 +353,7 @@ class UniswapV2MarketMakerKeeper:
         else:
             self.logger.info(f"Not enough tokens to add liquidity or liquidity already added")
 
-    def remove_liquidity(self, should_unstake: bool) -> Optional[Receipt]:
+    def remove_liquidity(self, should_unstake: bool) -> Optional[Wad]:
         """ Send an removeLiquidity or removeLiquidityETH transaction to the UniswapV2 Router Contract.
 
         It is assumed that all liquidity should be removed.
@@ -466,9 +466,11 @@ class UniswapV2MarketMakerKeeper:
             if staked_tokens > Wad(0):
                 total_liquidity = self.uniswap.get_total_liquidity()
 
+                # Use staked_tokens to determine our portion of each side of the pool's reserves
                 exchange_balance_a = staked_tokens * self.uniswap.get_exchange_balance(self.token_a, self.uniswap.pair_address) / total_liquidity
                 exchange_balance_b = staked_tokens * self.uniswap.get_exchange_balance(self.token_b, self.uniswap.pair_address) / total_liquidity
 
+                # Add account balance to pool balance
                 current_token_a_balance = exchange_balance_a + self.get_balance(self.token_a)
                 current_token_b_balance = exchange_balance_b + self.get_balance(self.token_b)
             else:
@@ -590,6 +592,7 @@ class UniswapV2MarketMakerKeeper:
     def determine_staking_action(self, should_remove_liquidity: bool) -> Tuple[bool, bool]:
         """
             Determine whether to stake, withdraw, or maintain liquidity token staking operations.
+            Returns [should_stake: bool, should_unstake: bool]
         """
         if self.staking_rewards:
 
@@ -640,15 +643,19 @@ class UniswapV2MarketMakerKeeper:
                 self.logger.info(f"Current liquidity tokens after removing {self.uniswap.get_current_liquidity()}")
                 return liquidity_tokens
 
-        if should_unstake:
-            unstake_receipt = self.unstake_liquidity()
-            if unstake_receipt is not None:
-                return self.uniswap.get_current_liquidity()
-
         if should_stake:
             stake_receipt = self.stake_liquidity(self.uniswap.get_current_liquidity())
             if stake_receipt is not None:
-                return self.staking_rewards.balance_of()
+                staked_balance = self.staking_rewards.balance_of()
+                self.logger.info(f"Staked {staked_balance} liquidity tokens")
+                return staked_balance
+
+        if should_unstake:
+            unstake_receipt = self.unstake_liquidity()
+            if unstake_receipt is not None:
+                current_liquidity = self.uniswap.get_current_liquidity()
+                self.logger.info(f"Unstaked {current_liquidity} liquidity tokens")
+                return current_liquidity
 
 if __name__ == '__main__':
     UniswapV2MarketMakerKeeper(sys.argv[1:]).main()
