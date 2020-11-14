@@ -63,8 +63,12 @@ class CEXKeeperAPI:
     def main(self):
         with Lifecycle() as lifecycle:
             lifecycle.initial_delay(10)
+            lifecycle.on_startup(self.startup)
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
+
+    def startup(self):
+        pass
 
     def shutdown(self):
         self.order_book_manager.cancel_all_orders()
