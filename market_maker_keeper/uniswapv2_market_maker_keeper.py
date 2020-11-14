@@ -47,7 +47,7 @@ class UniswapV2MarketMakerKeeper:
         parser = argparse.ArgumentParser(prog='uniswap-market-maker-keeper')
 
         parser.add_argument("--endpoint-uri", type=str, default="http://localhost:8545",
-                            help="JSON-RPC uri (default: `http://localhost:8545')")"`)")
+                            help="JSON-RPC uri (default: `http://localhost:8545`)")
 
         parser.add_argument("--rpc-timeout", type=int, default=10,
                             help="JSON-RPC timeout (in seconds, default: 10)")
