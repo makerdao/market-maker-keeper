@@ -17,11 +17,6 @@
 import argparse
 import logging
 import sys
-
-
-
-
-
 from typing import Optional, Tuple
 from web3 import Web3, HTTPProvider
 from pymaker.lifecycle import Lifecycle
