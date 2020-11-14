@@ -18,13 +18,17 @@ import argparse
 import logging
 import sys
 
+
+
+
+
 from typing import Optional, Tuple
 from web3 import Web3, HTTPProvider
 from pymaker.lifecycle import Lifecycle
 from pyexchange.uniswapv2 import UniswapV2
 from pymaker.keys import register_keys
 from pymaker.model import Token, TokenConfig
-from pymaker import Address, Wad, Receipt
+from pymaker import Address, Wad, Receipt, web3_via_http
 from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.gas import GasPriceFactory
 from market_maker_keeper.price_feed import PriceFeedFactory
@@ -47,11 +51,8 @@ class UniswapV2MarketMakerKeeper:
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='uniswap-market-maker-keeper')
 
-        parser.add_argument("--rpc-host", type=str, default="localhost",
-                            help="JSON-RPC host (default: `localhost')")
-
-        parser.add_argument("--rpc-port", type=int, default=8545,
-                            help="JSON-RPC port (default: `8545')")
+        parser.add_argument("--endpoint-uri", type=str, default="http://localhost:8545",
+                            help="JSON-RPC uri (default: `http://localhost:8545')")"`)")
 
         parser.add_argument("--rpc-timeout", type=int, default=10,
                             help="JSON-RPC timeout (in seconds, default: 10)")
@@ -121,13 +122,7 @@ class UniswapV2MarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
 
-        if self.arguments.rpc_host.startswith("https"):
-            endpoint_uri = f"https://{self.arguments.rpc_host}:{self.arguments.rpc_port}"
-        else:
-            endpoint_uri = f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}"
-
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=endpoint_uri,
-                                                                              request_kwargs={"timeout": self.arguments.rpc_timeout}))
+        self.web3 = web3_via_http(self.arguments.endpoint_uri, self.arguments.rpc_timeout)
 
         self.web3.eth.defaultAccount = self.arguments.eth_from
         if 'web3' not in kwargs:
