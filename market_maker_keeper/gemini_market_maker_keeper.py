@@ -129,7 +129,6 @@ class GeminiMarketMakerKeeper(CEXKeeperAPI):
                 self.logger.error(f"Not placing order: Amount {amount} lower that required minimum order size {self.minimum_order_size}")
                 return
 
-
             self.logger.info(f'Placing order of amount {amount} {self.token_buy()} @ price {price} {self.token_sell()}') 
             order_id = self.gemini_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
 
