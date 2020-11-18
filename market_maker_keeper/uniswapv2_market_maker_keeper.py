@@ -75,7 +75,7 @@ class UniswapV2MarketMakerKeeper:
 
         parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
 
-        parser.add_argument("--gas-price", type=int, default=9000000000,
+        parser.add_argument("--gas-price", type=int, default=50000000000,
                             help="Gas price (in Wei)")
 
         parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
@@ -364,7 +364,7 @@ class UniswapV2MarketMakerKeeper:
 
         a_exchange_balance = self.uniswap.get_our_exchange_balance(self.token_a, self.uniswap.pair_address)
         b_exchange_balance = self.uniswap.get_our_exchange_balance(self.token_b, self.uniswap.pair_address)
-        self.logger.info(f"exchange balance before removing! {self.token_a.name}: {a_exchange_balance} {self.token_b.name}: {b_exchange_balance}")
+        self.logger.info(f"exchange balance before removing {self.token_a.name}: {a_exchange_balance} {self.token_b.name}: {b_exchange_balance}")
 
         liquidity_to_remove = self.uniswap.get_current_liquidity()
         total_liquidity = self.uniswap.get_total_liquidity()
@@ -589,12 +589,14 @@ class UniswapV2MarketMakerKeeper:
             current_staked_tokens = self.staking_rewards.balance_of()
             current_staking_rewards = self.staking_rewards.earned()
 
-            if current_staked_tokens == Wad(0):
+            if current_staked_tokens == Wad(0) and not should_remove_liquidity:
                 return True, False
             elif current_staked_tokens > Wad(0) and should_remove_liquidity:
                 return False, True
-            elif current_staking_rewards > Wad(self.staking_rewards_target_reward_amount):
-                return False, True
+            elif self.staking_rewards_target_reward_amount is not None:
+                if current_staking_rewards > Wad.from_number(self.staking_rewards_target_reward_amount):
+                    return False, True
+                return False, False
             else:
                 return False, False
         else:

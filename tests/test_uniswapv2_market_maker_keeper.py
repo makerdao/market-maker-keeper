@@ -94,11 +94,10 @@ class TestUniswapV2MarketMakerKeeper:
     weth_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/WETH.abi')
     weth_bin = Contract._load_bin(__name__, '../lib/pyexchange/pyexchange/abi/WETH.bin')
 
-    uni_staking_rewards_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/StakingRewards.abi')['abi']
-    uni_staking_rewards_bin = Contract._load_bin(__name__, '../lib/pyexchange/pyexchange/abi/StakingRewards.bin')
+    uni_staking_rewards_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/UniStakingRewards.abi')['abi']
+    uni_staking_rewards_bin = Contract._load_bin(__name__, '../lib/pyexchange/pyexchange/abi/UniStakingRewards.bin')
 
     logger = logging.getLogger()
-    count = 0
 
     def setup_method(self):
 
@@ -206,8 +205,7 @@ class TestUniswapV2MarketMakerKeeper:
 
         target_balances = self.get_target_balances(pair)
 
-        return UniswapV2MarketMakerKeeper(args=args(f"--eth-from {self.our_address} --rpc-host http://localhost"
-                                                      f" --rpc-port 8545"
+        return UniswapV2MarketMakerKeeper(args=args(f"--eth-from {self.our_address} --endpoint-uri http://localhost:8555"
                                                       f" --eth-key {self.private_key}"
                                                       f" --pair {pair}"
                                                       f" --accepted-price-slippage-up 50"
