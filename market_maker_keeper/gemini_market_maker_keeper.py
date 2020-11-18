@@ -95,8 +95,9 @@ class GeminiMarketMakerKeeper(CEXKeeperAPI):
     def startup(self):
         minimum_order_size, tick_size, quote_currency_price_increment = self.gemini_api.get_rules(self.pair())
 
-        self.tick_size = tick_size 
-        self.quote_increment = quote_currency_price_increment 
+        self.minimum_order_size = minimum_order_size
+        self.price_precision = tick_size 
+        self.amount_precision = quote_currency_price_increment 
 
     def shutdown(self):
         self.logger.info(f'Keeper shutting down...')
@@ -120,10 +121,16 @@ class GeminiMarketMakerKeeper(CEXKeeperAPI):
 
     def place_orders(self, new_orders: List[NewOrder]):
         def place_order_function(new_order_to_be_placed):
-            price = round(new_order_to_be_placed.price, int(self.quote_increment))
+            price = round(new_order_to_be_placed.price, int(self.price_precision))
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
-            amount = round(amount, int(self.tick_size))
+            amount = round(amount, int(self.amount_precision))
 
+            if Wad.from_number(amount) < self.minimum_order_size:
+                self.logger.error(f"Not placing order: Amount {amount} lower that required minimum order size {self.minimum_order_size}")
+                return
+
+
+            self.logger.info(f'Placing order of amount {amount} {self.token_buy()} @ price {price} {self.token_sell()}') 
             order_id = self.gemini_api.place_order(self.pair(), new_order_to_be_placed.is_sell, price, amount)
 
             return Order(order_id=order_id,
