@@ -17,14 +17,13 @@
 import argparse
 import logging
 import sys
-
 from typing import Optional, Tuple
 from web3 import Web3, HTTPProvider
 from pymaker.lifecycle import Lifecycle
 from pyexchange.uniswapv2 import UniswapV2
 from pymaker.keys import register_keys
 from pymaker.model import Token, TokenConfig
-from pymaker import Address, Wad, Receipt
+from pymaker import Address, Wad, Receipt, web3_via_http
 from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.gas import add_gas_arguments, GasPriceFactory
 from market_maker_keeper.price_feed import PriceFeedFactory
@@ -47,11 +46,8 @@ class UniswapV2MarketMakerKeeper:
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='uniswap-market-maker-keeper')
 
-        parser.add_argument("--rpc-host", type=str, default="localhost",
-                            help="JSON-RPC host (default: `localhost')")
-
-        parser.add_argument("--rpc-port", type=int, default=8545,
-                            help="JSON-RPC port (default: `8545')")
+        parser.add_argument("--endpoint-uri", type=str, default="http://localhost:8545",
+                            help="JSON-RPC uri (default: `http://localhost:8545`)")
 
         parser.add_argument("--rpc-timeout", type=int, default=10,
                             help="JSON-RPC timeout (in seconds, default: 10)")
@@ -142,19 +138,13 @@ class UniswapV2MarketMakerKeeper:
         setup_logging(self.arguments)
         add_gas_arguments(parser)
 
-        if self.arguments.rpc_host.startswith("http"):
-            endpoint_uri = f"{self.arguments.rpc_host}:{self.arguments.rpc_port}"
-        else:
-            endpoint_uri = f"https://{self.arguments.rpc_host}:{self.arguments.rpc_port}"
-
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=endpoint_uri,
-                                                                              request_kwargs={"timeout": self.arguments.rpc_timeout}))
+        self.web3 = web3_via_http(self.arguments.endpoint_uri, self.arguments.rpc_timeout)
 
         self.web3.eth.defaultAccount = self.arguments.eth_from
         if 'web3' not in kwargs:
             register_keys(self.web3, self.arguments.eth_key)
 
-        # TODO: Add a more sophisticated regex for different variants of eth on the exchange 
+        # TODO: Add a more sophisticated regex for different variants of eth on the exchange
         # Record if eth is in pair, so can check which liquidity method needs to be used
         self.is_eth = 'ETH' in self.pair()
 
@@ -178,7 +168,7 @@ class UniswapV2MarketMakerKeeper:
         self.spread_feed = create_spread_feed(self.arguments)
 
         # testing_feed_price is used by the integration tests in tests/test_uniswapv2.py, to test different pricing scenarios
-        # as the keeper consistently checks the price, some long running state variable is needed to 
+        # as the keeper consistently checks the price, some long running state variable is needed to
         self.testing_feed_price = False
         self.test_price = Wad.from_number(0)
 
@@ -249,7 +239,7 @@ class UniswapV2MarketMakerKeeper:
             return self.uniswap.get_account_eth_balance()
         else:
             return self.uniswap.get_account_token_balance(token)
-        
+
     def calculate_liquidity_args(self, token_a_balance: Wad, token_b_balance: Wad) -> Optional[dict]:
         """ Returns dictionary containing arguments for addLiquidity transactions
 
@@ -320,7 +310,7 @@ class UniswapV2MarketMakerKeeper:
                     f"Add {self.token_a.name} liquidity of amount: {self.token_a.normalize_amount(add_liquidity_args['amount_a_desired'])}")
             self.logger.info(
                     f"Add {self.token_b.name} liquidity of: {self.token_b.normalize_amount(add_liquidity_args['amount_b_desired'])}")
-            
+
             if self.is_eth:
                 token = self.token_b if self.eth_position == 0 else self.token_a
                 transact = self.uniswap.add_liquidity_eth(add_liquidity_args, token, self.eth_position).transact(
@@ -425,7 +415,7 @@ class UniswapV2MarketMakerKeeper:
         if current_token_a_balance >= self.target_a_max_balance:
             self.logger.info(f"Keeper token A balance of {current_token_a_balance} exceeds max target balance of {self.target_a_max_balance}")
             return True
-        elif current_token_b_balance >= self.target_b_max_balance: 
+        elif current_token_b_balance >= self.target_b_max_balance:
             self.logger.info(f"Keeper token B balance of {current_token_b_balance} exceeds max target balance of {self.target_b_max_balance}")
             return True
         elif current_token_a_balance <= self.target_a_min_balance:
@@ -463,7 +453,7 @@ class UniswapV2MarketMakerKeeper:
         If Uniswap's price difference from external prices is less than the maximum accepted price difference (diff_up | diff_down)
         add liquidity to the pool, otherwise remove it.
         """
-        
+
         if self.testing_feed_price is False:
             feed_price = (self.price_feed.get_price().buy_price + self.price_feed.get_price().sell_price) / Wad.from_number(2)
         else:
@@ -533,7 +523,7 @@ class UniswapV2MarketMakerKeeper:
 
     def place_liquidity(self):
         """
-        Main control function of Uniswap Keeper lifecycle. 
+        Main control function of Uniswap Keeper lifecycle.
         It will determine whether liquidity should be added, or removed
         and then create and submit transactions to the Uniswap Router Contract to update liquidity levels.
         """
@@ -547,7 +537,7 @@ class UniswapV2MarketMakerKeeper:
         add_liquidity, remove_liquidity = self.determine_liquidity_action()
 
         self.logger.info(f"Add Liquidity: {add_liquidity}; Remove Liquidity: {remove_liquidity}")
-        
+
         if add_liquidity:
             receipt = self.add_liquidity()
             if receipt is not None:
