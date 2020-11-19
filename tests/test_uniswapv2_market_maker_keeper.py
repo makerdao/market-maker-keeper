@@ -31,7 +31,7 @@ from web3 import Web3, HTTPProvider
 from multiprocessing import Process
 
 from market_maker_keeper.uniswapv2_market_maker_keeper import UniswapV2MarketMakerKeeper
-from market_maker_keeper.staking_rewards_factory import StakingRewardsFactory
+from market_maker_keeper.staking_rewards_factory import StakingRewardsFactory, StakingRewardsName
 from pyexchange.uniswap_staking_rewards import UniswapStakingRewards
 from pymaker import Address, Contract
 from pymaker.numeric import Wad
@@ -243,7 +243,7 @@ class TestUniswapV2MarketMakerKeeper:
         # when
         self.deploy_staking_rewards(keeper.uniswap.pair_address)
         staking_rewards_contract_address = self.uni_staking_rewards_address
-        staking_rewards_args = Namespace(eth_from=self.our_address, staking_rewards_name="UniswapStakingRewards", staking_rewards_contract_address=self.uni_staking_rewards_address)
+        staking_rewards_args = Namespace(eth_from=self.our_address, staking_rewards_name=StakingRewardsName.UNISWAP_STAKING_REWARDS, staking_rewards_contract_address=self.uni_staking_rewards_address)
         keeper.staking_rewards = StakingRewardsFactory().create_staking_rewards(staking_rewards_args, self.web3)
 
         keeper.staking_rewards.approve(keeper.uniswap.pair_address)
@@ -286,7 +286,7 @@ class TestUniswapV2MarketMakerKeeper:
         # when
         self.deploy_staking_rewards(keeper.uniswap.pair_address)
         staking_rewards_contract_address = self.uni_staking_rewards_address
-        staking_rewards_args = Namespace(eth_from=self.our_address, staking_rewards_name="UniswapStakingRewards", staking_rewards_contract_address=self.uni_staking_rewards_address)
+        staking_rewards_args = Namespace(eth_from=self.our_address, staking_rewards_name=StakingRewardsName.UNISWAP_STAKING_REWARDS, staking_rewards_contract_address=self.uni_staking_rewards_address)
         keeper.staking_rewards = StakingRewardsFactory().create_staking_rewards(staking_rewards_args, self.web3)
 
         keeper.staking_rewards.approve(keeper.uniswap.pair_address)

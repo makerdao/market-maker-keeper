@@ -19,6 +19,7 @@ import logging
 import sys
 
 from argparse import Namespace
+from enum import Enum
 from typing import Optional, Tuple
 from web3 import Web3, HTTPProvider
 
@@ -27,14 +28,18 @@ from pyexchange.staking_rewards import StakingRewards
 from pyexchange.uniswap_staking_rewards import UniswapStakingRewards
 
 
+class StakingRewardsName(Enum):
+    UNISWAP_STAKING_REWARDS = "UniswapStakingRewards"
+
+
 class StakingRewardsFactory:
     @staticmethod
     def create_staking_rewards(arguments: Namespace, web3: Web3) -> StakingRewards:
-        if arguments.staking_rewards_name == "UniswapStakingRewards":
+        if arguments.staking_rewards_name == StakingRewardsName.UNISWAP_STAKING_REWARDS:
             return UniswapStakingRewards(
                 web3,
                 Address(arguments.eth_from), 
                 Address(arguments.staking_rewards_contract_address), 
-                arguments.staking_rewards_name)
+                arguments.staking_rewards_name.value)
         else:
             return None

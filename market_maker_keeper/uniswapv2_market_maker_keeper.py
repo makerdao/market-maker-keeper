@@ -19,6 +19,7 @@ import logging
 import sys
 from typing import Optional, Tuple
 from web3 import Web3, HTTPProvider
+
 from pymaker.lifecycle import Lifecycle
 from pyexchange.uniswapv2 import UniswapV2
 from pymaker.keys import register_keys
@@ -30,7 +31,7 @@ from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
-from market_maker_keeper.staking_rewards_factory import StakingRewardsFactory
+from market_maker_keeper.staking_rewards_factory import StakingRewardsFactory, StakingRewardsName
 
 
 class UniswapV2MarketMakerKeeper:
@@ -111,7 +112,7 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--initial-delay", type=int, default=10,
                             help="Initial number of seconds to wait before placing liquidity")
 
-        parser.add_argument("--staking-rewards-name", type=str,
+        parser.add_argument('--staking-rewards-name', type=StakingRewardsName, choices=StakingRewardsName,
                             help="Name of contract to stake liquidity tokens with")
 
         parser.add_argument("--staking-rewards-contract-address", type=str,
@@ -444,12 +445,11 @@ class UniswapV2MarketMakerKeeper:
 
     def check_target_balance(self) -> bool:
         """
-        Check current balance, see if its above or below target amounts. True results in liquidity removal; False liquidity adding
+        Check current balance, see if its above or below target amounts. True results in liquidity removal; False liquidity addition or maintenance
 
         If staking_rewards is enabled, determine current liquidity holdings by querying the StakingRewards contract.
         """
 
-        # TODO: check to ensure that target amounts aren't breached when creating a new pool
         if self.staking_rewards:
             staked_tokens = self.staking_rewards.balance_of()
 
@@ -485,17 +485,31 @@ class UniswapV2MarketMakerKeeper:
         else:
             return False
 
-    def check_price_feed_diverged(self, feed_price: Wad) -> bool:
-        diff_up = feed_price * self.accepted_price_slippage_up
-        diff_down = feed_price * self.accepted_price_slippage_down
+    def check_prices(self, feed_price: Wad) -> Tuple[bool, bool]:
+        # determine maximum accepted price difference up and down
+        accepted_diff_up = feed_price * self.accepted_price_slippage_up
+        accepted_diff_down = feed_price * self.accepted_price_slippage_down
+
+        add_liquidity = False
         remove_liquidity = False
 
+        # Check if external price feed has diverged above or below the Uniswap Price.
+        # If the price has diverged, only add liquidity if the divergence is less than the maxmimum accepted
+        # Remove liquidity if prices have diverged beyond maximum accepted
         if self.uniswap_current_exchange_price > feed_price:
-            remove_liquidity = diff_up < (self.uniswap_current_exchange_price - feed_price)
+            add_liquidity = accepted_diff_up > (self.uniswap_current_exchange_price - feed_price)
+            remove_liquidity = accepted_diff_up < (self.uniswap_current_exchange_price - feed_price)
         elif self.uniswap_current_exchange_price < feed_price:
-            remove_liquidity = diff_down < (feed_price - self.uniswap_current_exchange_price) if remove_liquidity == False else True
+            add_liquidity = accepted_diff_down > (feed_price - self.uniswap_current_exchange_price)
+            remove_liquidity = accepted_diff_down < (feed_price - self.uniswap_current_exchange_price) if remove_liquidity == False else True
+        else:
+            # prices match, add liquidity
+            add_liquidity = True
 
-        return remove_liquidity
+        if remove_liquidity:
+            self.logger.warning(f"Price feeds have diverged beyond accepted slippage, removing all available liquidity")
+
+        return add_liquidity, remove_liquidity
 
     def determine_liquidity_action(self) -> Tuple[bool, bool]:
         """
@@ -533,19 +547,11 @@ class UniswapV2MarketMakerKeeper:
 
         self.logger.info(f"Feed price: {feed_price} Uniswap price: {self.uniswap_current_exchange_price}")
 
-        control_feed_value = self.control_feed.get()[0]
-
         target_amounts_breached = self.check_target_balance()
-        prices_diverged = self.check_price_feed_diverged(feed_price)
+        control_feed_value = self.control_feed.get()[0]
 
         if target_amounts_breached:
             self.logger.info(f"Target amounts breached, removing all available liquidity")
-            add_liquidity = False
-            remove_liquidity = True
-            return add_liquidity, remove_liquidity
-
-        elif prices_diverged:
-            self.logger.info(f"Price feeds have diverged beyond accepted slippage, removing all available liquidity")
             add_liquidity = False
             remove_liquidity = True
             return add_liquidity, remove_liquidity
@@ -557,22 +563,7 @@ class UniswapV2MarketMakerKeeper:
             return add_liquidity, remove_liquidity
 
         elif control_feed_value['canBuy'] is True and control_feed_value['canSell'] is True:
-            # determine maximum accepted price difference up and down
-            diff_up = feed_price * self.accepted_price_slippage_up
-            diff_down = feed_price * self.accepted_price_slippage_down
-
-            add_liquidity = False
-            remove_liquidity = False
-
-            # Check if external price feed has diverged above or below the Uniswap Price.
-            # If the price has diverged, only add liquidity if the divergence is less than the maxmimum accepted
-            if self.uniswap_current_exchange_price > feed_price:
-                add_liquidity = diff_up > (self.uniswap_current_exchange_price - feed_price)
-            elif self.uniswap_current_exchange_price < feed_price:
-                add_liquidity = diff_down > (feed_price - self.uniswap_current_exchange_price)
-            else:
-                add_liquidity = True
-
+            add_liquidity, remove_liquidity = self.check_prices(feed_price)
             return add_liquidity, remove_liquidity
 
         else:
