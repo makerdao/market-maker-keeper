@@ -191,7 +191,7 @@ class UniswapV2MarketMakerKeeper:
 
     def shutdown(self):
         self.logger.info(f"Shutdown notification received, removing all available liquidity")
-        self.remove_liquidity()
+        self.remove_liquidity(True)
 
     def plunge(self):
         """
@@ -375,7 +375,7 @@ class UniswapV2MarketMakerKeeper:
         token_a_balance = self.get_balance(self.token_a)
         token_b_balance = self.get_balance(self.token_b)
 
-        if should_unstake:
+        if should_unstake and self.staking_rewards:
             unstake_receipt = self.unstake_liquidity()
             if unstake_receipt is None:
                 return None
