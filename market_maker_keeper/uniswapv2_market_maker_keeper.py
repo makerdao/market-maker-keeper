@@ -22,9 +22,9 @@ from web3 import Web3, HTTPProvider
 
 from pymaker.lifecycle import Lifecycle
 from pyexchange.uniswapv2 import UniswapV2
-from pymaker.keys import register_keys
+from pymaker.keys import register_keys, _registered_accounts
 from pymaker.model import Token, TokenConfig
-from pymaker import Address, Wad, Receipt, web3_via_http
+from pymaker import Address, get_pending_transactions, Wad, Receipt, web3_via_http
 from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.gas import add_gas_arguments, GasPriceFactory
 from market_maker_keeper.price_feed import PriceFeedFactory
@@ -121,9 +121,9 @@ class UniswapV2MarketMakerKeeper:
 
         setup_logging(self.arguments)
 
-        self.web3 = web3_via_http(self.arguments.endpoint_uri, self.arguments.rpc_timeout)
-
+        self.web3: Web3 = web3_via_http(self.arguments.endpoint_uri, self.arguments.rpc_timeout)
         self.web3.eth.defaultAccount = self.arguments.eth_from
+        self.our_address = Address(self.web3.eth.defaultAccount)
         if 'web3' not in kwargs:
             register_keys(self.web3, self.arguments.eth_key)
 
@@ -145,7 +145,7 @@ class UniswapV2MarketMakerKeeper:
 
         self.token_a, self.token_b = self.instantiate_tokens(self.pair())
 
-        self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.web3.eth.defaultAccount), Address(self.arguments.router_address), Address(self.arguments.factory_address))
+        self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, self.our_address, Address(self.arguments.router_address), Address(self.arguments.factory_address))
 
         # instantiate specific StakingRewards depending on arguments
         self.staking_rewards = StakingRewardsFactory().create_staking_rewards(self.arguments, self.web3)
@@ -185,12 +185,34 @@ class UniswapV2MarketMakerKeeper:
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
+        self.plunge()
         self.uniswap.approve(self.token_a)
         self.uniswap.approve(self.token_b)
 
     def shutdown(self):
         self.logger.info(f"Shutdown notification received, removing all available liquidity")
         self.remove_liquidity()
+
+    def plunge(self):
+        """
+        Method to automatically plunge any pending transactions on keeper startup
+        """
+
+        pending_txes = get_pending_transactions(self.web3, self.our_address)
+        self.logger.info(f"There are {len(pending_txes)} pending transactions in the queue")
+        if len(pending_txes) > 0:
+            if not self.is_unlocked():
+                self.logger.warning(f"{len(pending_txes)} transactions are pending")
+                return
+            for index, tx in enumerate(pending_txes):
+                self.logger.warning(f"Cancelling {index+1} of {len(pending_txes)} pending transactions")
+                # Note this can raise a "Transaction nonce is too low" error, stopping the service.
+                # This means one of the pending TXes was mined, and the service can be restarted to either resume
+                # plunging or normal operation.
+                tx.cancel(gas_price=self.gas_price)
+
+    def is_unlocked(self) -> bool:
+        return (self.web3, self.our_address) in _registered_accounts
 
     def get_token_config(self):
         current_config = self.reloadable_config.get_token_config()

@@ -28,7 +28,7 @@ from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
 
-from pymaker import Address
+from pymaker import Address, get_pending_transactions
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pyexchange.api import PyexAPI
