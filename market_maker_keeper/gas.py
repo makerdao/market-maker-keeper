@@ -20,17 +20,36 @@ from typing import Optional
 
 from pymaker.gas import GasPrice, GeometricGasPrice, IncreasingGasPrice, FixedGasPrice, DefaultGasPrice, NodeAwareGasPrice
 from pygasprice_client import EtherchainOrg, EthGasStation, POANetwork
+from pygasprice_client.aggregator import Aggregator
 from web3 import Web3
 
 def add_gas_arguments(parser: ArgumentParser):
     gas_group = parser.add_mutually_exclusive_group()
-    gas_group.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
-    gas_group.add_argument('--etherchain-gas-price', dest='etherchain_gas', action='store_true',
-                           help="Use etherchain.org gas price")
-    gas_group.add_argument('--poanetwork-gas-price', dest='poanetwork_gas', action='store_true',
-                           help="Use POANetwork gas price")
-    gas_group.add_argument('--fixed-gas-price', type=float, default=None,
+
+    gas_group.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
+                        help="DEPRACATED use dynamic-gas-price instead where possible. Use smart gas pricing strategy, based on the ethgasstation.info feed.")
+
+    gas_group.add_argument("--dynamic-gas-price", dest='dynamic_gas_price', action='store_true',
+                        help="Use dynamic gas pricing strategy, based on pygasprice-client.aggregator")
+
+    parser.add_argument("--oracle-gas-price", action='store_true',
+                            help="Use a fast gas price aggregated across multiple oracles")
+
+    parser.add_argument('--fixed-gas-price', type=float, default=50000000000,
                            help="Uses a fixed value (in Gwei) instead of an external API to determine initial gas")
+
+    parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
+
+    parser.add_argument("--etherscan-api-key", type=str, default=None, help="etherscan API key")
+
+    parser.add_argument('--etherchain-gas-price', dest='etherchain_gas', action='store_true',
+                           help="Use etherchain.org gas price")
+
+    parser.add_argument('--poanetwork-gas-price', dest='poanetwork_gas', action='store_true',
+                           help="Use POANetwork gas price")
+
+    parser.add_argument("--poanetwork-url", type=str, default=None, help="Alternative POANetwork URL")
+
     parser.add_argument("--gas-replace-after", type=int, default=42,
                         help="Replace pending transactions after this many seconds")
     parser.add_argument("--gas-initial-multiplier", type=float, default=1.0,
@@ -42,7 +61,10 @@ def add_gas_arguments(parser: ArgumentParser):
 
 
 class SmartGasPrice(GasPrice):
-    """Simple and smart gas price scenario.
+    """
+    DEPRACATED. This class is maintained for legacy support. All new development should utilize DynamicGasPrice below
+
+    Simple and smart gas price scenario.
     Uses an EthGasStation feed. Starts with fast+10GWei, adding another 10GWei each 60 seconds
     up to fast+50GWei maximum. Falls back to a default scenario (incremental as well) if
     the EthGasStation feed unavailable for more than 10 minutes.
@@ -66,60 +88,59 @@ class SmartGasPrice(GasPrice):
                                       max_price=100*self.GWEI).get_gas_price(time_elapsed)
 
 
-class GeometricGasPrice(GasPrice):
-    """Simple and smart gas price scenario.
-
-    Uses pygasprice_client to support multiple gas information sources.
-
-    pymaker.GeometricGasPrice is used to geometrically increase gas price
-    to ensure transactions can be pushed through in periods of high congestion.
-    """
+class DynamicGasPrice(NodeAwareGasPrice):
+    every_secs = 42
 
     def __init__(self, web3: Web3, arguments: Namespace):
+        assert isinstance(web3, Web3)
+
         self.gas_station = None
         self.fixed_gas = None
-        if arguments.ethgasstation_api_key:
-            self.gas_station = EthGasStation(refresh_interval=60, expiry=600, api_key=arguments.ethgasstation_api_key)
-        elif arguments.etherchain_gas:
-            self.gas_station = EtherchainOrg(refresh_interval=60, expiry=600)
-        elif arguments.poanetwork_gas:
-            self.gas_station = POANetwork(refresh_interval=60, expiry=600, alt_url=arguments.poanetwork_url)
+        self.web3 = web3
+        if arguments.oracle_gas_price:
+            self.gas_station = Aggregator(refresh_interval=60, expiry=600,
+                                          ethgasstation_api_key=arguments.ethgasstation_api_key,
+                                          poa_network_alt_url=arguments.poanetwork_url,
+                                          etherscan_api_key=arguments.etherscan_api_key,
+                                          gasnow_app_name="makerdao/market-maker-keeper")
         elif arguments.fixed_gas_price:
-            self.fixed_gas = int(round(arguments.fixed_gas_price * arguments.gas_initial_multiplier * self.GWEI))
-        self.every_secs = arguments.gas_replace_after
+            self.fixed_gas = int(round(arguments.fixed_gas_price * self.GWEI))
         self.initial_multiplier = arguments.gas_initial_multiplier
-        self.coefficient = arguments.gas_reactive_multiplier
-        self.max_price = arguments.gas_maximum
+        self.reactive_multiplier = arguments.gas_reactive_multiplier
+        self.gas_maximum = int(round(arguments.gas_maximum * self.GWEI))
+        if self.fixed_gas:
+            assert self.fixed_gas <= self.gas_maximum
 
-        super().__init__(web3)
+    def __del__(self):
+        if self.gas_station:
+            self.gas_station.running = False
+
 
     def get_gas_price(self, time_elapsed: int) -> Optional[int]:
-        fast_price = self.gas_station.fast_price()
+        # start with fast price from the configured gas API
+        fast_price = self.gas_station.fast_price() if self.gas_station else None
 
-        # If a gas oracle API was configured and produced a price, use it
-        if fast_price:
-            initial_price = int(round(fast_price * self.initial_multiplier))
-        # Use the fixed gas price if so configured
-        elif self.fixed_gas:
-            initial_price = self.fixed_gas
-        # As a last-ditch effort, use the node's gas price
+        # if API produces no price, or remote feed not configured, start with a fixed price
+        if fast_price is None:
+            if self.fixed_gas:
+                initial_price = self.fixed_gas
+            else:
+                initial_price = int(round(self.get_node_gas_price() * self.initial_multiplier))
+        # otherwise, use the API's fast price, adjusted by a coefficient, as our starting point
         else:
-            initial_price = int(round(self.get_node_gas_price() * self.initial_multiplier))
+            initial_price = int(round(fast_price * self.initial_multiplier))
 
         return GeometricGasPrice(initial_price=initial_price,
-                                 every_secs=self.every_secs,
-                                 coefficient=self.coefficient,
-                                 max_price=self.max_price*self.GWEI).get_gas_price(time_elapsed)
-
+                                 every_secs=DynamicGasPrice.every_secs,
+                                 coefficient=self.reactive_multiplier,
+                                 max_price=self.gas_maximum).get_gas_price(time_elapsed)
 
 class GasPriceFactory:
     @staticmethod
     def create_gas_price(web3: Web3, arguments: Namespace) -> GasPrice:
         if arguments.smart_gas_price:
             return SmartGasPrice(web3, arguments)
-        elif arguments.geometric_gas_price:
-            return GeometricGasPrice(web3, arguments)
-        elif arguments.gas_price:
-            return FixedGasPrice(arguments.gas_price)
+        elif arguments.dynamic_gas_price:
+            return DynamicGasPrice(web3, arguments)
         else:
             return DefaultGasPrice()

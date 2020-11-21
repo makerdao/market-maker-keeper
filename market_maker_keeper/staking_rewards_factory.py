@@ -34,7 +34,7 @@ class StakingRewardsName(Enum):
 
 class StakingRewardsFactory:
     @staticmethod
-    def create_staking_rewards(arguments: Namespace, web3: Web3) -> StakingRewards:
+    def create_staking_rewards(arguments: Namespace, web3: Web3) -> Optional[StakingRewards]:
         if arguments.staking_rewards_name == StakingRewardsName.UNISWAP_STAKING_REWARDS:
             return UniswapStakingRewards(
                 web3,

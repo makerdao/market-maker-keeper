@@ -74,15 +74,6 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--price-feed-expiry", type=int, default=86400,
                             help="Maximum age of the price feed (in seconds, default: 86400)")
 
-        parser.add_argument("--gas-price", type=int, default=50000000000,
-                            help="Gas price (in Wei)")
-
-        parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
-                            help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
-
-        parser.add_argument("--geometric-gas-price", dest='geometric_gas_price', action='store_true',
-                            help="Use geometric gas pricing strategy, based on pygasprice-client sources")
-
         parser.add_argument("--max-add-liquidity-slippage", type=int, default=2,
                             help="Maximum percentage off the desired amount of liquidity to add in add_liquidity()")
 
@@ -125,10 +116,9 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
-        parser.add_argument("--debug", dest='debug', action='store_true',
-                            help="Enable debug output")
-
+        add_gas_arguments(parser)
         self.arguments = parser.parse_args(args)
+
         setup_logging(self.arguments)
 
         self.web3 = web3_via_http(self.arguments.endpoint_uri, self.arguments.rpc_timeout)
@@ -137,7 +127,6 @@ class UniswapV2MarketMakerKeeper:
         if 'web3' not in kwargs:
             register_keys(self.web3, self.arguments.eth_key)
 
-        add_gas_arguments(parser)
         self.gas_price = GasPriceFactory().create_gas_price(self.web3, self.arguments)
 
         # TODO: Add a more sophisticated regex for different variants of eth on the exchange

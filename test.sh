@@ -13,7 +13,7 @@ docker-compose up -d ganache
 # Wait for initalization
 sleep 2
 
-PYTHONPATH=$PYTHONPATH:./lib/pymaker:./lib/pyexchange:./lib/ethgasstation-client:./lib/gdax-client py.test -x --cov=market_maker_keeper --cov-report=term --cov-append tests/
+PYTHONPATH=$PYTHONPATH:./lib/pymaker:./lib/pyexchange:./lib/ethgasstation-client:./lib/gdax-client:./lib/pygasprice-client py.test -x --cov=market_maker_keeper --cov-report=term --cov-append tests/
 
 # Cleanup local node
 docker-compose down
