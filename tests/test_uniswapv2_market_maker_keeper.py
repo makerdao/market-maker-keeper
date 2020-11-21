@@ -86,7 +86,6 @@ TARGET_AMOUNTS = {
 
 class TestUniswapV2MarketMakerKeeper:
 
-    Irouter_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/IUniswapV2Router02.abi')['abi']
     router_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/UniswapV2Router02.abi')
     router_bin = Contract._load_bin(__name__, '../lib/pyexchange/pyexchange/abi/UniswapV2Router02.bin')
     factory_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/UniswapV2Factory.abi')
@@ -148,13 +147,9 @@ class TestUniswapV2MarketMakerKeeper:
 
     def deploy_tokens(self):
         self.ds_dai = DSToken.deploy(self.web3, 'DAI')
-        time.sleep(1)
         self.ds_keep = DSToken.deploy(self.web3, 'KEEP')
-        time.sleep(1)
         self.ds_lev = DSToken.deploy(self.web3, 'LEV')
-        time.sleep(1)
         self.ds_usdc = DSToken.deploy(self.web3, 'USDC')
-        time.sleep(1)
         self.ds_wbtc = DSToken.deploy(self.web3, 'WBTC')
 
         self.token_dai = Token("DAI", self.ds_dai.address, 18)

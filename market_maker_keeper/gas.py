@@ -35,7 +35,7 @@ def add_gas_arguments(parser: ArgumentParser):
     parser.add_argument("--oracle-gas-price", action='store_true',
                             help="Use a fast gas price aggregated across multiple oracles")
 
-    parser.add_argument('--fixed-gas-price', type=float, default=50000000000,
+    parser.add_argument('--fixed-gas-price', type=float, default=20,
                            help="Uses a fixed value (in Gwei) instead of an external API to determine initial gas")
 
     parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
