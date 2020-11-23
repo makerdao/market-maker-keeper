@@ -133,7 +133,7 @@ class GasPriceFactory:
     @staticmethod
     def create_gas_price(web3: Web3, arguments: Namespace) -> GasPrice:
         if arguments.smart_gas_price:
-            return SmartGasPrice(web3, arguments)
+            return SmartGasPrice(arguments.ethgasstation_api_key)
         elif arguments.dynamic_gas_price:
             return DynamicGasPrice(web3, arguments)
         else:
