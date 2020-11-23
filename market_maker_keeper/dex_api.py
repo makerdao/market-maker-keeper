@@ -33,7 +33,7 @@ from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pyexchange.api import PyexAPI
 from pymaker.token import ERC20Token
-from pymaker.keys import register_keys, _registered_accounts
+from pymaker.keys import register_keys
 
 class DEXKeeperAPI:
     """
@@ -92,18 +92,12 @@ class DEXKeeperAPI:
         pending_txes = get_pending_transactions(self.web3, self.our_address)
         logging.info(f"There are {len(pending_txes)} pending transactions in the queue")
         if len(pending_txes) > 0:
-            if not self.is_unlocked():
-                logging.warning(f"{len(pending_txes)} transactions are pending")
-                return
             for index, tx in enumerate(pending_txes):
                 logging.warning(f"Cancelling {index+1} of {len(pending_txes)} pending transactions")
                 # Note this can raise a "Transaction nonce is too low" error, stopping the service.
                 # This means one of the pending TXes was mined, and the service can be restarted to either resume
                 # plunging or normal operation.
                 tx.cancel(gas_price=self.gas_price)
-
-    def is_unlocked(self) -> bool:
-        return (self.web3, self.our_address) in _registered_accounts
 
     def startup(self):
         self.approve()
