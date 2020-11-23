@@ -28,7 +28,7 @@ from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
 
-from pymaker import Address
+from pymaker import Address, get_pending_transactions
 from pymaker.lifecycle import Lifecycle
 from pymaker.numeric import Wad
 from pyexchange.api import PyexAPI
@@ -84,6 +84,20 @@ class DEXKeeperAPI:
 
             lifecycle.every(1, self.synchronize_orders)
             lifecycle.on_shutdown(self.shutdown)
+
+    def plunge(self):
+        """
+        Method to automatically plunge any pending transactions on keeper startup
+        """
+        pending_txes = get_pending_transactions(self.web3, self.our_address)
+        logging.info(f"There are {len(pending_txes)} pending transactions in the queue")
+        if len(pending_txes) > 0:
+            for index, tx in enumerate(pending_txes):
+                logging.warning(f"Cancelling {index+1} of {len(pending_txes)} pending transactions")
+                # Note this can raise a "Transaction nonce is too low" error, stopping the service.
+                # This means one of the pending TXes was mined, and the service can be restarted to either resume
+                # plunging or normal operation.
+                tx.cancel(gas_price=self.gas_price)
 
     def startup(self):
         self.approve()

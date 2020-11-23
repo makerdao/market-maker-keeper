@@ -24,9 +24,9 @@ from pymaker.lifecycle import Lifecycle
 from pyexchange.uniswapv2 import UniswapV2
 from pymaker.keys import register_keys
 from pymaker.model import Token, TokenConfig
-from pymaker import Address, Wad, Receipt, web3_via_http
+from pymaker import Address, get_pending_transactions, Wad, Receipt, web3_via_http
 from market_maker_keeper.control_feed import create_control_feed
-from market_maker_keeper.gas import GasPriceFactory
+from market_maker_keeper.gas import add_gas_arguments, GasPriceFactory
 from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
@@ -74,14 +74,6 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--price-feed-expiry", type=int, default=86400,
                             help="Maximum age of the price feed (in seconds, default: 86400)")
 
-        parser.add_argument("--ethgasstation-api-key", type=str, default=None, help="ethgasstation API key")
-
-        parser.add_argument("--gas-price", type=int, default=50000000000,
-                            help="Gas price (in Wei)")
-
-        parser.add_argument("--smart-gas-price", dest='smart_gas_price', action='store_true',
-                            help="Use smart gas pricing strategy, based on the ethgasstation.info feed")
-
         parser.add_argument("--max-add-liquidity-slippage", type=int, default=2,
                             help="Maximum percentage off the desired amount of liquidity to add in add_liquidity()")
 
@@ -124,14 +116,18 @@ class UniswapV2MarketMakerKeeper:
         parser.add_argument("--debug", dest='debug', action='store_true',
                             help="Enable debug output")
 
+        add_gas_arguments(parser)
         self.arguments = parser.parse_args(args)
+
         setup_logging(self.arguments)
 
-        self.web3 = web3_via_http(self.arguments.endpoint_uri, self.arguments.rpc_timeout)
-
+        self.web3: Web3 = web3_via_http(self.arguments.endpoint_uri, self.arguments.rpc_timeout)
         self.web3.eth.defaultAccount = self.arguments.eth_from
+        self.our_address = Address(self.web3.eth.defaultAccount)
         if 'web3' not in kwargs:
             register_keys(self.web3, self.arguments.eth_key)
+
+        self.gas_price = GasPriceFactory().create_gas_price(self.web3, self.arguments)
 
         # TODO: Add a more sophisticated regex for different variants of eth on the exchange
         # Record if eth is in pair, so can check which liquidity method needs to be used
@@ -149,14 +145,13 @@ class UniswapV2MarketMakerKeeper:
 
         self.token_a, self.token_b = self.instantiate_tokens(self.pair())
 
-        self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, Address(self.web3.eth.defaultAccount), Address(self.arguments.router_address), Address(self.arguments.factory_address))
+        self.uniswap = UniswapV2(self.web3, self.token_a, self.token_b, self.our_address, Address(self.arguments.router_address), Address(self.arguments.factory_address))
 
         # instantiate specific StakingRewards depending on arguments
         self.staking_rewards = StakingRewardsFactory().create_staking_rewards(self.arguments, self.web3)
         self.staking_rewards_target_reward_amount = self.arguments.staking_rewards_target_reward_amount
 
         # configure price feed
-        self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.price_feed_accepted_delay = self.arguments.price_feed_accepted_delay
         self.control_feed = create_control_feed(self.arguments)
@@ -190,12 +185,28 @@ class UniswapV2MarketMakerKeeper:
             lifecycle.on_shutdown(self.shutdown)
 
     def startup(self):
+        self.plunge()
         self.uniswap.approve(self.token_a)
         self.uniswap.approve(self.token_b)
 
     def shutdown(self):
         self.logger.info(f"Shutdown notification received, removing all available liquidity")
-        self.remove_liquidity()
+        self.remove_liquidity(True)
+
+    def plunge(self):
+        """
+        Method to automatically plunge any pending transactions on keeper startup
+        """
+
+        pending_txes = get_pending_transactions(self.web3, self.our_address)
+        self.logger.info(f"There are {len(pending_txes)} pending transactions in the queue")
+        if len(pending_txes) > 0:
+            for index, tx in enumerate(pending_txes):
+                self.logger.warning(f"Cancelling {index+1} of {len(pending_txes)} pending transactions")
+                # Note this can raise a "Transaction nonce is too low" error, stopping the service.
+                # This means one of the pending TXes was mined, and the service can be restarted to either resume
+                # plunging or normal operation.
+                tx.cancel(gas_price=self.gas_price)
 
     def get_token_config(self):
         current_config = self.reloadable_config.get_token_config()
@@ -358,7 +369,7 @@ class UniswapV2MarketMakerKeeper:
         token_a_balance = self.get_balance(self.token_a)
         token_b_balance = self.get_balance(self.token_b)
 
-        if should_unstake:
+        if should_unstake and self.staking_rewards:
             unstake_receipt = self.unstake_liquidity()
             if unstake_receipt is None:
                 return None
