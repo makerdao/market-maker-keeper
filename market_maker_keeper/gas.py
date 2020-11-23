@@ -42,12 +42,6 @@ def add_gas_arguments(parser: ArgumentParser):
 
     parser.add_argument("--etherscan-api-key", type=str, default=None, help="etherscan API key")
 
-    parser.add_argument('--etherchain-gas-price', dest='etherchain_gas', action='store_true',
-                           help="Use etherchain.org gas price")
-
-    parser.add_argument('--poanetwork-gas-price', dest='poanetwork_gas', action='store_true',
-                           help="Use POANetwork gas price")
-
     parser.add_argument("--poanetwork-url", type=str, default=None, help="Alternative POANetwork URL")
 
     parser.add_argument("--gas-replace-after", type=int, default=42,
