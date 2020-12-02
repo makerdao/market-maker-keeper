@@ -17,11 +17,12 @@ to automate certain operations around the Ethereum blockchain.
 5. Bands and Bands Configuration
    - Example
 6. Order Rate Limitation
-7. Data Templating Language
-8. Price Feed Configuration
-   - Example
-9. Running Keepers
-   - Example (OasisDEX)
+7. GasPrice configuration
+8. Data Templating Language
+9. Price Feed Configuration
+    - Example 
+10. Running Keepers
+    - Example (OasisDEX) 
 10. Known limitations
 11. Install and run using Docker and Docker Compose
 12. Token Configuration
@@ -340,7 +341,23 @@ In the example above, the `period`s are set to 1-hour and 1-day and the `amount`
 
 **Note:** The supported time units are `s`, `m`, `h`, `d`, and `w`.
 
-## 7. Data Templating Language
+## 7. Gas price ##
+
+#### Providers ####
+Four different providers can be configured in the startup script:
+- To use Etherscan, pass `--ethgasstation-api-key` followed by your API key.
+- Pass `--etherchain-gas-price` to use EtherChain.
+- Pass `--poanetwork-gas-price` to use POA Network.
+- To specify your own starting price, pass `--fixed-gas-price` followed by your desired price in Gwei.
+
+#### Tuning parameters ####
+By default, speedup transactions will be submitted after 42 seconds (roughly three blocks).  This can be adjusted with 
+`--gas-replace-after`.  Take care not to set this below the time it takes for the node to provide block updates.  30 
+seconds is probably an acceptable minimum value.  The provider's price can be scaled by a coefficient controlled by 
+`--gas-initial-multiplier`.  Aggressiveness of speedup replacements can be tuned with `--gas-reactive-multiplier`.  
+The maximum amount of gas for a single transaction, in Gwei, is limited by `--gas-maximum`.
+
+## 8. Data Templating Language
 
 _The [Jsonnet](https://github.com/google/jsonnet) data templating language can be used for the configuration file._
 
@@ -373,7 +390,7 @@ In the case of the data templating language, think of this like a pre-processing
 - If you are working with a token that's price does not fluctuate wildly, you do not need to incorporate relative qualities for your amounts. This is typically used for users that want their Market Maker Keepers open for months at a time and don't want to worry about having to change any of their configurations.
 - Another thing to note about these files is that the Market Maker Keeper reloads the configuration files automatically when it detects a change in them. This makes it easier as you don't have to constantly restart your Keeper bot when you change your band configurations. In short, this works by periodically taking a hash of the configuration file and comparing that hash with the current version. This means that when it sees a change in the hash of the file, it will reload the configuration file and cancel orders as necessary to maintain the newly updated bands.
 
-## 8. Price Feed Configuration
+## 9. Price Feed Configuration
 
 The price feed is one of the most important determining factors of success in a Market Maker Keeper. If you have the bands set up the way you want, the price feed will help make sure your bands are set at meaningful levels relative to the inside market. If you have wide bands and your strategy is to add liquidity to handle market imbalances, then the price feed is not as important. However, as you tighten up the spreads, the price feed is a crucial component to ensure that you are going to profit in the market.
 
@@ -396,7 +413,7 @@ As of today, these are the possible values of this argument ( existing public fe
 
 **Note:** The `--price-feed` command line argument can also contain a comma-separated list of several different price feeds. In this case, if one of them becomes unavailable, the next one in the list will be used instead. All listed price feeds will be constantly running in the background where the second one listed and following ones ready to take over when the first one (or prior one) becomes unavailable. **In the example below (in the _Running Keepers_ section), you can see an example of how to use a fixed price amount.**
 
-## 9. Running Market Maker Keepers
+## 10. Running Market Maker Keepers
 
 Each Market Maker Keeper is a command-line tool which takes in generic command-line arguments (such as `--config`, `--price-feed`, `--price-feed-expiry`, `--debug`, etc.) as well as some arguments which are specific to that particular Keeper. For example, Ethereum node parameters, addresses, exchange API keys, etc. All accepted command-line arguments are listed in the example section below. They can also be discovered by trying to start a Market Maker Keeper with the `--help` argument.
 
@@ -471,13 +488,12 @@ In the situation where you want to use a centralized exchange vs. a decentralize
 3. Deposit tokens in your account on the exchange (as the keepers do not handle deposits and withdrawals themselves).
 4. Run the Market Maker Keeper.
 
-## 10. Known limitations
+## 11. Known limitations
 
 The gate.io API sometimes does not acknowledge order creation, returning following error message:
 `Oops... reloading...<font color=white> 29.148 </font> <script> function r(){window.location.reload();}setTimeout('r()',3000);</script>`. This error seems to depend on the API address of the caller. Despite these errors, orders get properly created and registered in the backend, the keeper will find out about it the next time it queries the open orders list (which happens every few seconds).
 
-## 11. Install and run using Docker and Docker Compose
-
+## 12. Install and run using Docker and Docker Compose
 1. **Install Docker Community Edition for your OS:**
 
 ```

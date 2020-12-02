@@ -25,11 +25,14 @@ import time
 import threading
 import os
 
+from argparse import Namespace
 from enum import Enum
 from web3 import Web3, HTTPProvider
 from multiprocessing import Process
 
 from market_maker_keeper.uniswapv2_market_maker_keeper import UniswapV2MarketMakerKeeper
+from market_maker_keeper.staking_rewards_factory import StakingRewardsFactory, StakingRewardsName
+from pyexchange.uniswap_staking_rewards import UniswapStakingRewards
 from pymaker import Address, Contract
 from pymaker.numeric import Wad
 from pymaker.model import Token
@@ -83,13 +86,15 @@ TARGET_AMOUNTS = {
 
 class TestUniswapV2MarketMakerKeeper:
 
-    Irouter_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/IUniswapV2Router02.abi')['abi']
     router_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/UniswapV2Router02.abi')
     router_bin = Contract._load_bin(__name__, '../lib/pyexchange/pyexchange/abi/UniswapV2Router02.bin')
     factory_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/UniswapV2Factory.abi')
     factory_bin = Contract._load_bin(__name__, '../lib/pyexchange/pyexchange/abi/UniswapV2Factory.bin')
     weth_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/WETH.abi')
     weth_bin = Contract._load_bin(__name__, '../lib/pyexchange/pyexchange/abi/WETH.bin')
+
+    uni_staking_rewards_abi = Contract._load_abi(__name__, '../lib/pyexchange/pyexchange/abi/UniStakingRewards.abi')['abi']
+    uni_staking_rewards_bin = Contract._load_bin(__name__, '../lib/pyexchange/pyexchange/abi/UniStakingRewards.bin')
 
     logger = logging.getLogger()
 
@@ -154,6 +159,13 @@ class TestUniswapV2MarketMakerKeeper:
         self.token_wbtc = Token("WBTC", self.ds_wbtc.address, 8)
         self.token_weth = Token("WETH", self.weth_address, 18)
 
+    def deploy_staking_rewards(self, liquidity_token_address: Address):
+        self.ds_reward_dai = DSToken.deploy(self.web3, 'REWARD_DAI')
+        self.reward_token = Token("REWARD_DAI", self.ds_dai.address, 18)
+
+        self.uni_staking_rewards_address = Contract._deploy(self.web3, self.uni_staking_rewards_abi, self.uni_staking_rewards_bin, [self.our_address.address, self.reward_token.address.address, liquidity_token_address.address])
+        self.uni_staking_rewards = UniswapStakingRewards(self.web3, self.our_address, Address(self.uni_staking_rewards_address), "UniswapStakingRewards")
+
     def mint_tokens(self):
         self.ds_dai.mint(Wad.from_number(500)).transact(from_address=self.our_address)
         self.ds_keep.mint(Wad.from_number(5000)).transact(from_address=self.our_address)
@@ -188,8 +200,7 @@ class TestUniswapV2MarketMakerKeeper:
 
         target_balances = self.get_target_balances(pair)
 
-        return UniswapV2MarketMakerKeeper(args=args(f"--eth-from {self.our_address} --rpc-host http://localhost"
-                                                      f" --rpc-port 8545"
+        return UniswapV2MarketMakerKeeper(args=args(f"--eth-from {self.our_address} --endpoint-uri http://localhost:8555"
                                                       f" --eth-key {self.private_key}"
                                                       f" --pair {pair}"
                                                       f" --accepted-price-slippage-up 50"
@@ -204,6 +215,100 @@ class TestUniswapV2MarketMakerKeeper:
                                                       f" --initial-delay 3"
                                                       f" --price-feed {feed_price}"),
                                                       web3=self.web3)
+
+    def test_should_stake_liquidity(self):
+        # given
+        self.mint_tokens()
+
+        keeper = self.instantiate_keeper("ETH-DAI")
+        dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        eth_balance = keeper.uniswap.get_account_eth_balance()
+
+        # when
+        keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
+        time.sleep(10)
+
+        # then
+        final_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        final_eth_balance = keeper.uniswap.get_account_eth_balance()
+
+        assert dai_balance > final_dai_balance
+        assert eth_balance > final_eth_balance
+
+        # when
+        self.deploy_staking_rewards(keeper.uniswap.pair_address)
+        staking_rewards_contract_address = self.uni_staking_rewards_address
+        staking_rewards_args = Namespace(eth_from=self.our_address, staking_rewards_name=StakingRewardsName.UNISWAP_STAKING_REWARDS, staking_rewards_contract_address=self.uni_staking_rewards_address)
+        keeper.staking_rewards = StakingRewardsFactory().create_staking_rewards(staking_rewards_args, self.web3)
+
+        keeper.staking_rewards.approve(keeper.uniswap.pair_address)
+
+        # when REMOVE LIQUIDITY TO READD
+        keeper.testing_feed_price = True
+        keeper.test_price = Wad.from_number(PRICES.ETH_DAI_REMOVE_LIQUIDITY.value)
+
+        time.sleep(10)
+
+        keeper.testing_feed_price = True
+        keeper.test_price = Wad.from_number(PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+
+        time.sleep(10)
+
+        # then
+        staked_liquidity_balance = keeper.staking_rewards.balance_of()
+
+        assert staked_liquidity_balance > Wad(0)
+
+    def test_should_withdraw_liquidity(self):
+        # given
+        self.mint_tokens()
+
+        keeper = self.instantiate_keeper("ETH-DAI")
+        dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        eth_balance = keeper.uniswap.get_account_eth_balance()
+
+        # when
+        keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
+        time.sleep(10)
+
+        # then
+        final_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
+        final_eth_balance = keeper.uniswap.get_account_eth_balance()
+
+        assert dai_balance > final_dai_balance
+        assert eth_balance > final_eth_balance
+
+        # when
+        self.deploy_staking_rewards(keeper.uniswap.pair_address)
+        staking_rewards_contract_address = self.uni_staking_rewards_address
+        staking_rewards_args = Namespace(eth_from=self.our_address, staking_rewards_name=StakingRewardsName.UNISWAP_STAKING_REWARDS, staking_rewards_contract_address=self.uni_staking_rewards_address)
+        keeper.staking_rewards = StakingRewardsFactory().create_staking_rewards(staking_rewards_args, self.web3)
+
+        keeper.staking_rewards.approve(keeper.uniswap.pair_address)
+
+        # when REMOVE LIQUIDITY TO READD
+        keeper.testing_feed_price = True
+        keeper.test_price = Wad.from_number(PRICES.ETH_DAI_REMOVE_LIQUIDITY.value)
+
+        time.sleep(10)
+
+        keeper.testing_feed_price = True
+        keeper.test_price = Wad.from_number(PRICES.ETH_DAI_ADD_LIQUIDITY.value)
+
+        time.sleep(10)
+
+        # then
+        staked_liquidity_balance = keeper.staking_rewards.balance_of()
+        assert staked_liquidity_balance > Wad(0)
+
+        keeper.testing_feed_price = True
+        keeper.test_price = Wad.from_number(PRICES.ETH_DAI_REMOVE_LIQUIDITY.value)
+
+        time.sleep(10)
+
+        staked_liquidity_balance = keeper.staking_rewards.balance_of()
+
+        assert staked_liquidity_balance == Wad(0)
 
     def test_calculate_token_liquidity_to_add(self):
         # given
@@ -326,14 +431,14 @@ class TestUniswapV2MarketMakerKeeper:
 
         # when
         keeper_thread = threading.Thread(target=keeper.main, daemon=True).start()
-        time.sleep(10)
+        time.sleep(12)
 
         # then
         final_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         final_eth_balance = keeper.uniswap.get_account_eth_balance()
 
         assert dai_balance > final_dai_balance
-        assert eth_balance > final_eth_balance
+        assert eth_balance > final_eth_balance # gas usage breaks eth_balance assertion
         assert keeper.uniswap.get_our_exchange_balance(self.token_dai, keeper.uniswap.pair_address) > Wad.from_number(0)
         assert keeper.uniswap.get_our_exchange_balance(self.token_weth, keeper.uniswap.pair_address) > Wad.from_number(0)
 
@@ -400,7 +505,7 @@ class TestUniswapV2MarketMakerKeeper:
         keeper.testing_feed_price = True
         keeper.test_price = Wad.from_number(PRICES.ETH_DAI_REMOVE_LIQUIDITY.value)
 
-        time.sleep(10)
+        time.sleep(25)
 
         post_remove_dai_balance = keeper.uniswap.get_account_token_balance(self.token_dai)
         post_remove_eth_balance = keeper.uniswap.get_account_eth_balance()
