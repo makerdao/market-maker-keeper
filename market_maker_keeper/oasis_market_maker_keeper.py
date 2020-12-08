@@ -163,7 +163,7 @@ class OasisMarketMakerKeeper:
         self.sell_token = Token(name=self.arguments.sell_token_name, address=Address(self.arguments.sell_token_address), decimals=self.arguments.sell_token_decimals)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
-        self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
+        self.gas_price = GasPriceFactory().create_gas_price(self.web3, self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments, tub)
         self.spread_feed = create_spread_feed(self.arguments)
         self.control_feed = create_control_feed(self.arguments)
