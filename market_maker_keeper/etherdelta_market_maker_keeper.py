@@ -167,7 +167,7 @@ class EtherDeltaMarketMakerKeeper:
         self.gem = ERC20Token(web3=self.web3, address=self.tub.gem())
 
         self.bands_config = ReloadableConfig(self.arguments.config)
-        self.eth_reserve = Wad.from_number(self.arguments.eth_reserve)
+        self.eth_reserve = Wad.from_number(self.web3, self.arguments.eth_reserve)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)

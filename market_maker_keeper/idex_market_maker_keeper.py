@@ -148,7 +148,7 @@ class IdexMarketMakerKeeper:
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.min_eth_deposit = Wad.from_number(self.arguments.min_eth_deposit)
         self.min_sai_deposit = Wad.from_number(self.arguments.min_sai_deposit)
-        self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
+        self.gas_price = GasPriceFactory().create_gas_price(self.web3, self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments, self.tub)
         self.spread_feed = create_spread_feed(self.arguments)
         self.control_feed = create_control_feed(self.arguments)
