@@ -33,8 +33,8 @@ class OasisMarketMakerCancel:
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='oasis-market-maker-cancel')
-        parser.add_argument("--endpoint-uri", type=str, default="http://localhost:8545",
-                            help="JSON-RPC uri (default: `http://localhost:8545`)")
+        parser.add_argument("--endpoint-uri", type=str,
+                            help="JSON-RPC uri (example: `http://localhost:8545`)")
         parser.add_argument("--rpc-host", default="localhost", type=str, help="[DEPRECATED] JSON-RPC host (default: `localhost')")
         parser.add_argument("--rpc-port", default=8545, type=int, help="[DEPRECATED] JSON-RPC port (default: `8545')")
         parser.add_argument("--rpc-timeout", help="JSON-RPC timeout (in seconds, default: 10)", default=10, type=int)

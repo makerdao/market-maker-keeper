@@ -52,8 +52,8 @@ class OasisMarketMakerKeeper:
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='oasis-market-maker-keeper')
 
-        parser.add_argument("--endpoint-uri", type=str, default="http://localhost:8545",
-                            help="JSON-RPC uri (default: `http://localhost:8545`)")
+        parser.add_argument("--endpoint-uri", type=str,
+                            help="JSON-RPC uri (example: `http://localhost:8545`)")
 
         parser.add_argument("--rpc-host", default="localhost", type=str,
                             help="[DEPRECATED] JSON-RPC host (default: `localhost')")
