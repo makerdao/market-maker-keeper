@@ -25,6 +25,8 @@ def setup_logging(arguments):
                         level=(logging.DEBUG if arguments.debug else logging.INFO))
     logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
     logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.INFO)
+    logging.getLogger("web3").setLevel(logging.INFO)
+    logging.getLogger("requests").setLevel(logging.INFO)
 
 
 def sanitize_url(url):
