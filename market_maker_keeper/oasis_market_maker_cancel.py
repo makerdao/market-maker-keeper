@@ -21,7 +21,7 @@ import sys
 
 from web3 import Web3, HTTPProvider
 
-from pymaker import Address
+from pymaker import Address, web3_via_http
 from pymaker.gas import FixedGasPrice, DefaultGasPrice
 from pymaker.keys import register_keys
 from pymaker.oasis import MatchingMarket
@@ -33,8 +33,10 @@ class OasisMarketMakerCancel:
 
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='oasis-market-maker-cancel')
-        parser.add_argument("--rpc-host", help="JSON-RPC host (default: `localhost')", default="localhost", type=str)
-        parser.add_argument("--rpc-port", help="JSON-RPC port (default: `8545')", default=8545, type=int)
+        parser.add_argument("--endpoint-uri", type=str,
+                            help="JSON-RPC uri (example: `http://localhost:8545`)")
+        parser.add_argument("--rpc-host", default="localhost", type=str, help="[DEPRECATED] JSON-RPC host (default: `localhost')")
+        parser.add_argument("--rpc-port", default=8545, type=int, help="[DEPRECATED] JSON-RPC port (default: `8545')")
         parser.add_argument("--rpc-timeout", help="JSON-RPC timeout (in seconds, default: 10)", default=10, type=int)
         parser.add_argument("--eth-from", help="Ethereum account from which to send transactions", required=True, type=str)
         parser.add_argument("--eth-key", type=str, nargs='*', help="Ethereum private key(s) to use")
@@ -42,8 +44,14 @@ class OasisMarketMakerCancel:
         parser.add_argument("--gas-price", help="Gas price in Wei (default: node default)", default=0, type=int)
         self.arguments = parser.parse_args(args)
 
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
-                                                                              request_kwargs={"timeout": self.arguments.rpc_timeout}))
+        if 'web3' in kwargs:
+            self.web3 = kwargs['web3']
+        elif self.arguments.endpoint_uri:
+            self.web3: Web3 = web3_via_http(self.arguments.endpoint_uri, self.arguments.rpc_timeout)
+        else:
+            self.web3 = Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+                                          request_kwargs={"timeout": self.arguments.rpc_timeout}))
+
         self.web3.eth.defaultAccount = self.arguments.eth_from
         self.our_address = Address(self.arguments.eth_from)
         register_keys(self.web3, self.arguments.eth_key)

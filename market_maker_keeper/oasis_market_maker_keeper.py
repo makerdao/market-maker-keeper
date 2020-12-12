@@ -31,7 +31,7 @@ from market_maker_keeper.price_feed import PriceFeedFactory
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
-from pymaker import Address
+from pymaker import Address, web3_via_http
 from pymaker.approval import directly
 from pymaker.keys import register_keys
 from pymaker.lifecycle import Lifecycle
@@ -52,11 +52,14 @@ class OasisMarketMakerKeeper:
     def __init__(self, args: list, **kwargs):
         parser = argparse.ArgumentParser(prog='oasis-market-maker-keeper')
 
-        parser.add_argument("--rpc-host", type=str, default="localhost",
-                            help="JSON-RPC host (default: `localhost')")
+        parser.add_argument("--endpoint-uri", type=str,
+                            help="JSON-RPC uri (example: `http://localhost:8545`)")
 
-        parser.add_argument("--rpc-port", type=int, default=8545,
-                            help="JSON-RPC port (default: `8545')")
+        parser.add_argument("--rpc-host", default="localhost", type=str,
+                            help="[DEPRECATED] JSON-RPC host (default: `localhost')")
+
+        parser.add_argument("--rpc-port", default=8545, type=int,
+                            help="[DEPRECATED] JSON-RPC port (default: `8545')")
 
         parser.add_argument("--rpc-timeout", type=int, default=10,
                             help="JSON-RPC timeout (in seconds, default: 10)")
@@ -144,8 +147,15 @@ class OasisMarketMakerKeeper:
         self.arguments = parser.parse_args(args)
         setup_logging(self.arguments)
     
-        self.web3 = kwargs['web3'] if 'web3' in kwargs else Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
-                                                                              request_kwargs={"timeout": self.arguments.rpc_timeout}))
+        if 'web3' in kwargs:
+            self.web3 = kwargs['web3']
+        elif self.arguments.endpoint_uri:
+            self.web3: Web3 = web3_via_http(self.arguments.endpoint_uri, self.arguments.rpc_timeout)
+        else:
+            self.logger.warning("Configuring node endpoint by host and port is deprecated; please use --endpoint-uri")
+            self.web3 = Web3(HTTPProvider(endpoint_uri=f"http://{self.arguments.rpc_host}:{self.arguments.rpc_port}",
+                                          request_kwargs={"timeout": self.arguments.rpc_timeout}))
+
         self.web3.eth.defaultAccount = self.arguments.eth_from
         register_keys(self.web3, self.arguments.eth_key)
         self.our_address = Address(self.arguments.eth_from)
@@ -163,7 +173,7 @@ class OasisMarketMakerKeeper:
         self.sell_token = Token(name=self.arguments.sell_token_name, address=Address(self.arguments.sell_token_address), decimals=self.arguments.sell_token_decimals)
         self.min_eth_balance = Wad.from_number(self.arguments.min_eth_balance)
         self.bands_config = ReloadableConfig(self.arguments.config)
-        self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
+        self.gas_price = GasPriceFactory().create_gas_price(self.web3, self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments, tub)
         self.spread_feed = create_spread_feed(self.arguments)
         self.control_feed = create_control_feed(self.arguments)

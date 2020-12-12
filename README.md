@@ -95,6 +95,11 @@ python3 -V
 ./install.sh
 ```
 
+5. **Source the new locally created virtual environment**
+```
+source _virtualenv/bin/activate
+```
+
 ### Potential errors that could arise:
 
 - Needing to upgrade to **pip** version 19.2.2

@@ -623,7 +623,7 @@ class UniswapV2MarketMakerKeeper:
         self.logger.info(f"Add Liquidity: {add_liquidity}; Remove Liquidity: {remove_liquidity}")
 
         should_stake, should_unstake = self.determine_staking_action(remove_liquidity)
-        self.logger.info(f"Should Stake Liquidity: {add_liquidity}; Should Unstake Liquidity: {remove_liquidity}")
+        self.logger.info(f"Should Stake Liquidity: {should_stake}; Should Unstake Liquidity: {should_unstake}")
 
         if add_liquidity:
             liquidity_tokens = self.add_liquidity(should_stake)

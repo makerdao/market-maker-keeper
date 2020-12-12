@@ -141,7 +141,7 @@ class MpxMarketMakerKeeper:
 
         self.bands_config = ReloadableConfig(self.arguments.config)
         self.price_max_decimals = None
-        self.gas_price = GasPriceFactory().create_gas_price(self.arguments)
+        self.gas_price = GasPriceFactory().create_gas_price(self.web3, self.arguments)
         self.price_feed = PriceFeedFactory().create_price_feed(self.arguments)
         self.spread_feed = create_spread_feed(self.arguments)
         self.control_feed = create_control_feed(self.arguments)
