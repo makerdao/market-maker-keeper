@@ -31,7 +31,11 @@ to automate certain operations around the Ethereum blockchain.
 
 ## 1. Introduction
 
-A big part of the DAI Stablecoin System (DSS) is the incentivization of external agents, called **Keepers** (which can be human but are typically automated bots). Market Maker Keepers work by creating a series of orders in so-called **bands** (defined later), which are configured with a JSON file containing parameters like spreads, maximum engagement, etc. In short, the `market-maker-keeper` repository is a set of Keepers that facilitate market making on exchanges. For example, trading Dai motivated by the expected long-term convergence toward the indicated `Target Price`. This guide is dedicated to showing you how to create your very own Market Maker Keeper Bot as well as educate the community and help both users and developers understand the value of this incredible software. We are proud to say that all of the code needed to get a Market Maker Keeper bot up and running is open-sourced.
+A big part of the DAI Stablecoin System (DSS) is the incentivization of external agents, called **Keepers** (which can be human but are typically automated bots). In DSS, there are two primary forms: Market Maker Keepers and Auction Keepers. Market Maker Keepers facilitate market making on supported exchanges, and thereby ensure DAI markets are liquid with minimal slippage. Auction Keepers enable bidding on auctions that secure the DSS. This repository is focused on Market Maker Keepers. Auction Keepers are available [here](https://github.com/makerdao/auction-keeper).
+
+Market Maker Keepers work by creating a series of orders in so-called **bands** (defined later), which are configured with a JSON file containing parameters like spreads, maximum engagement, etc. These **bands** work in coordination with methods to check your available balance, as well as retrieving price from external price feeds, to ensure that liquiditiy is being placed at the correct amounts, and correct prices. Ultimately, the keepers trade an exchange pair motivated by the expected long-term convergence towards the indicated `Target Price`.
+
+This guide is dedicated to showing you how to create your very own Market Maker Keeper Bot as well as educate the community and help both users and developers understand the value of this incredible software. We are proud to say that all of the code needed to get a Market Maker Keeper bot up and running is open-sourced.
 
 ### List of current exchanges that Market Maker Keeper Bots can be built for
 
@@ -561,7 +565,7 @@ where:
 docker-compose up coinbase-ethdai-keeper
 ```
 
-## 12. Token Configuration
+## 13. Token Configuration
 An Example token configuration files can be seen below. This configuration should be placed into a seperate .json file, with the path to that file passed as an argument to any keeper requiring `pymaker.model.Token` objects which simplify decimal normalization within pairs, while also enhancing type checking.
 
 **MAKE SURE TO CHECK ALL TOKEN ADDRESSES AND DECIMALS IN CONFIGURATION PRIOR TO RUNNING KEEPERS WITH REAL FUNDS**
@@ -596,12 +600,12 @@ An Example token configuration files can be seen below. This configuration shoul
 }
 ```
 
-## 13. Support
+## 14. Support
 
 **We are here to help!**
 We welcome any questions about the market making in the [#keeper](https://chat.makerdao.com/channel/keeper) channel in the Maker Chat.
 
-## 14. License
+## 15. License
 
 See [COPYING](https://github.com/makerdao/market-maker-keeper/blob/master/COPYING) file.
 
