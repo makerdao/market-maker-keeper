@@ -224,12 +224,6 @@ class OasisMarketMakerKeeper:
                                          order.pay_token == self.token_buy.address, our_orders))
 
     def synchronize_orders(self):
-        # If market is closed, cancel all orders but do not terminate the keeper.
-        if self.otc.is_closed():
-            self.logger.warning("Market is closed. Cancelling all orders.")
-            self.order_book_manager.cancel_all_orders()
-            return
-
         # If keeper balance is below `--min-eth-balance`, cancel all orders but do not terminate
         # the keeper, keep processing blocks as the moment the keeper gets a top-up it should
         # resume activity straight away, without the need to restart it.
