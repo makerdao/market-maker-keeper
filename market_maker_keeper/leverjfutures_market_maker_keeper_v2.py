@@ -25,7 +25,7 @@ from market_maker_keeper.control_feed import create_control_feed
 from market_maker_keeper.limit import History
 from market_maker_keeper.order_book import OrderBookManager
 from market_maker_keeper.order_history_reporter import create_order_history_reporter
-from market_maker_keeper.price_feed import PriceFeedFactory
+from market_maker_keeper.price_feed import PriceFeedFactory, Price
 from market_maker_keeper.reloadable_config import ReloadableConfig
 from market_maker_keeper.spread_feed import create_spread_feed
 from market_maker_keeper.util import setup_logging
@@ -110,7 +110,7 @@ class LeverjMarketMakerKeeper:
         parser.add_argument("--pair", type=str, required=True,
                             help="Token pair (sell/buy) on which the keeper will operate")
 
-        parser.add_argument("--leverage", type=str, required=True,
+        parser.add_argument("--leverage", type=float, default=1.0,
                             help="Leverage chosen for futures orders")
 
         parser.add_argument("--debug", dest='debug', action='store_true',
@@ -132,6 +132,7 @@ class LeverjMarketMakerKeeper:
         self.control_feed = create_control_feed(self.arguments)
         self.order_history_reporter = create_order_history_reporter(self.arguments)
         self.target_price_lean = Wad(0)
+        self.leverage = self.arguments.leverage
 
         self.history = History()
 
@@ -169,12 +170,6 @@ class LeverjMarketMakerKeeper:
         name_to_id_map = {'BTCDAI': '1', 'ETHDAI': '2'}
         return name_to_id_map[self.arguments.pair.upper()]
 
-    def leverage(self):
-        leverage_in_float = self.arguments.leverage
-        if leverage_in_float is None:
-            leverage_in_float = 1.0
-        return leverage_in_float
-
     def token_sell(self) -> str:
         return self.arguments.pair.upper()[:3]
 
@@ -186,7 +181,7 @@ class LeverjMarketMakerKeeper:
         # for perpetual contracts, the quote balance is allocated across instruments and sides to enter into trades
         total_available = self.leverj_api.get_plasma_balance(quote_asset_address)
         # adjust for leverage
-        total_available = Decimal(total_available)*Decimal(self.leverage())
+        total_available = Decimal(total_available)*Decimal(self.leverage)
         self.logger.debug(f'total_available: {total_available}')
         return self._allocate_to_pair(total_available).get(token)
 
@@ -269,7 +264,8 @@ class LeverjMarketMakerKeeper:
     def our_buy_orders(self, our_orders: list) -> list:
         return list(filter(lambda order: not order.is_sell, our_orders))
 
-    def adjust_target_price(self, target_price):
+    def adjust_target_price(self, target_price: Price) -> Price:
+        assert(isinstance(target_price, Price))
         target_price_lean = self.target_price_lean
         if ((target_price is None) or (target_price.buy_price is None) or (target_price.sell_price is None)):
             return target_price
@@ -315,7 +311,7 @@ class LeverjMarketMakerKeeper:
             price = round(new_order_to_be_placed.price, self.precision + 2)
             amount = new_order_to_be_placed.pay_amount if new_order_to_be_placed.is_sell else new_order_to_be_placed.buy_amount
             self.logger.debug(f'amount: {amount}')
-            leverage_in_wad = Wad.from_number(self.leverage())
+            leverage_in_wad = Wad.from_number(self.leverage)
             order_id = str(self.leverj_api.place_order(self.pair(), price, 'LMT', new_order_to_be_placed.is_sell, price, amount, leverage_in_wad, False))
             return Order(order_id=order_id,
                          pair=self.pair(),
