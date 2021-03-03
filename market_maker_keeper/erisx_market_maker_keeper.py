@@ -1,6 +1,6 @@
 # This file is part of Maker Keeper Framework.
 #
-# Copyright (C) 2020 MikeHathaway
+# Copyright (C) 2020-2021 MikeHathaway
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -299,7 +299,9 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
         self.market_info = self.erisx_api.get_markets()
 
         self.orders = self.erisx_api.get_orders(self.pair())
-        
+
+        self._lock = threading.Lock()
+
         super().__init__(self.arguments, self.erisx_api)
 
     def init_order_book_manager(self, arguments, erisx_api):
@@ -351,8 +353,14 @@ class ErisXMarketMakerKeeper(CEXKeeperAPI):
            update the Keeper orderbook accordingly.
         """
         existing_orders = self.orders
-        self.orders = self.erisx_api.sync_orders(existing_orders)
-        return self.orders
+
+        with self._lock:
+            try:
+                self.orders = self.erisx_api.sync_orders(existing_orders)
+            except Exception as e:
+                self.logger.error(f"Unable to sync orders due to {e}")
+            finally:
+                return self.orders
 
     def place_orders(self, new_orders):
         def place_order_function(new_order_to_be_placed):
