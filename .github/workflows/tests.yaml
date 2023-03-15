@@ -11,7 +11,7 @@ jobs:
           submodules: recursive
 
       - name: setup python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v2
         with:
           python-version: '3.6'
 
